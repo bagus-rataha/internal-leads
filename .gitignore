@@ -1,0 +1,7 @@
+.env
+*.env
+node_modules/
+frontend/dist/
+backend/internal/static/dist/
+.DS_Store
+Thumbs.db

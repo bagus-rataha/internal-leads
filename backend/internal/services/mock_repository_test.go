@@ -1,0 +1,73 @@
+package services
+
+import (
+	"fiber-api-boilerplate/internal/models"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/mock"
+)
+
+// MockUserRepository is a manual testify mock satisfying both the
+// userRepository and userRepositoryForUser interfaces.
+type MockUserRepository struct {
+	mock.Mock
+}
+
+func (m *MockUserRepository) Create(user *models.User) error {
+	args := m.Called(user)
+	return args.Error(0)
+}
+
+func (m *MockUserRepository) FindByID(id uuid.UUID) (*models.User, error) {
+	args := m.Called(id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.User), args.Error(1)
+}
+
+func (m *MockUserRepository) FindByEmail(email string) (*models.User, error) {
+	args := m.Called(email)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.User), args.Error(1)
+}
+
+func (m *MockUserRepository) Update(user *models.User) error {
+	args := m.Called(user)
+	return args.Error(0)
+}
+
+func (m *MockUserRepository) List() ([]models.User, error) {
+	args := m.Called()
+	return args.Get(0).([]models.User), args.Error(1)
+}
+
+// MockRefreshTokenRepository is a manual testify mock for refreshTokenRepository.
+type MockRefreshTokenRepository struct {
+	mock.Mock
+}
+
+func (m *MockRefreshTokenRepository) Create(rt *models.RefreshToken) error {
+	args := m.Called(rt)
+	return args.Error(0)
+}
+
+func (m *MockRefreshTokenRepository) FindByToken(token string) (*models.RefreshToken, error) {
+	args := m.Called(token)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.RefreshToken), args.Error(1)
+}
+
+func (m *MockRefreshTokenRepository) DeleteByToken(token string) error {
+	args := m.Called(token)
+	return args.Error(0)
+}
+
+func (m *MockRefreshTokenRepository) DeleteAllByUserID(userID uuid.UUID) error {
+	args := m.Called(userID)
+	return args.Error(0)
+}
