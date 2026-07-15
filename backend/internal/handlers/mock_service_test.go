@@ -131,3 +131,56 @@ func (m *MockTeamService) Update(id uuid.UUID, input dto.UpdateTeamInput) (*dto.
 	}
 	return args.Get(0).(*dto.TeamResponse), args.Error(1)
 }
+
+// MockReferenceService is a manual testify mock for the referenceService interface.
+type MockReferenceService struct {
+	mock.Mock
+}
+
+func (m *MockReferenceService) ListLeadSources() ([]dto.LeadSourceResponse, error) {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]dto.LeadSourceResponse), args.Error(1)
+}
+
+func (m *MockReferenceService) ListServiceTypes() ([]dto.ServiceTypeResponse, error) {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]dto.ServiceTypeResponse), args.Error(1)
+}
+
+func (m *MockReferenceService) ListProvinces() ([]dto.ProvinceResponse, error) {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]dto.ProvinceResponse), args.Error(1)
+}
+
+func (m *MockReferenceService) ListCities(provinceID int) ([]dto.CityResponse, error) {
+	args := m.Called(provinceID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]dto.CityResponse), args.Error(1)
+}
+
+func (m *MockReferenceService) ListDistricts(cityID int) ([]dto.DistrictResponse, error) {
+	args := m.Called(cityID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]dto.DistrictResponse), args.Error(1)
+}
+
+func (m *MockReferenceService) ListVillages(districtID int, q string) ([]dto.VillageResponse, error) {
+	args := m.Called(districtID, q)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]dto.VillageResponse), args.Error(1)
+}

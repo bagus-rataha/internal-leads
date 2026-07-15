@@ -23,6 +23,7 @@ func SetupAPIRoutes(app *fiber.App, cnt interface{}, cfg *config.Config) {
 	setupAuthRoutes(api, c, cfg)
 	setupUserRoutes(api, c, cfg)
 	setupTeamRoutes(api, c, cfg)
+	setupReferenceRoutes(api, c, cfg)
 }
 
 // setupAuthRoutes configures authentication routes
@@ -62,4 +63,19 @@ func setupTeamRoutes(api fiber.Router, c *container.Container, cfg *config.Confi
 	teams.Post("/", c.TeamHandler.CreateTeam)
 	teams.Get("/:id", c.TeamHandler.GetTeam)
 	teams.Patch("/:id", c.TeamHandler.UpdateTeam)
+}
+
+// setupReferenceRoutes configures read-only reference routes (lead sources,
+// service types, wilayah). Open to every authenticated role — this is
+// dropdown data, not lead data, so it carries no ownership scoping.
+func setupReferenceRoutes(api fiber.Router, c *container.Container, cfg *config.Config) {
+	refs := api.Group("/refs")
+	refs.Use(middleware.JWTProtected(cfg.JWTAccessSecret))
+
+	refs.Get("/lead-sources", c.ReferenceHandler.ListLeadSources)
+	refs.Get("/service-types", c.ReferenceHandler.ListServiceTypes)
+	refs.Get("/provinces", c.ReferenceHandler.ListProvinces)
+	refs.Get("/cities", c.ReferenceHandler.ListCities)
+	refs.Get("/districts", c.ReferenceHandler.ListDistricts)
+	refs.Get("/villages", c.ReferenceHandler.ListVillages)
 }
