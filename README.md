@@ -82,7 +82,7 @@ Examples of proper commit messages:
 
 ### Authorship — absolute rule
 
-Commits in this repository are authored by the human contributor only. Never add a "Co-Authored-By" trailer or any other author/co-author mention for an AI tool/assistant to a commit message, regardless of how the change was produced. Files whose sole purpose is instructing an AI assistant (e.g. `CLAUDE.md`) are never committed to this repository.
+Commits in this repository are authored by the human contributor only. Never add a "Co-Authored-By" trailer or any other author/co-author mention for an AI tool/assistant to a commit message, regardless of how the change was produced. Files whose sole purpose is instructing an AI assistant are never committed to this repository.
 
 ## Setup Instructions
 
