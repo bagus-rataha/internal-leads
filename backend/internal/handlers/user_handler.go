@@ -20,7 +20,7 @@ type userService interface {
 	GetUser(userID uuid.UUID) (*dto.UserResponse, error)
 	UpdateUser(userID uuid.UUID, input dto.UpdateUserInput) (*dto.UserResponse, error)
 	ResetPassword(userID uuid.UUID, input dto.ResetPasswordInput) error
-	DeactivateUser(userID uuid.UUID, input dto.DeactivateUserInput) (int64, error)
+	DeactivateUser(callerID, userID uuid.UUID, input dto.DeactivateUserInput) (int64, error)
 }
 
 type UserHandler struct {
@@ -202,6 +202,11 @@ func (h *UserHandler) ResetPassword(c *fiber.Ctx) error {
 // @Failure 422 {object} utils.Response "user still has active leads, reassign_to_user_id required"
 // @Router /users/{id}/deactivate [post]
 func (h *UserHandler) DeactivateUser(c *fiber.Ctx) error {
+	callerID, ok := utils.GetUserID(c)
+	if !ok {
+		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Invalid session")
+	}
+
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid user id")
@@ -212,7 +217,7 @@ func (h *UserHandler) DeactivateUser(c *fiber.Ctx) error {
 		return err
 	}
 
-	activeCount, err := h.userService.DeactivateUser(id, input)
+	activeCount, err := h.userService.DeactivateUser(callerID, id, input)
 	if err != nil {
 		if errors.Is(err, services.ErrActiveLeadsExist) {
 			return utils.ErrorResponseWithData(c, fiber.StatusUnprocessableEntity, err.Error(),

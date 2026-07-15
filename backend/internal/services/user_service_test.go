@@ -308,7 +308,7 @@ func TestDeactivateUser_ActiveLeadsNoReassign_Error(t *testing.T) {
 	userRepo.On("CountActiveByOwner", userID).Return(int64(3), nil)
 
 	svc := newUserService(userRepo, refreshRepo, new(MockSalesTeamRepository))
-	count, err := svc.deactivateUser(userRepo, refreshRepo, userID, dto.DeactivateUserInput{})
+	count, err := svc.deactivateUser(userRepo, refreshRepo, uuid.Must(uuid.NewV7()), userID, dto.DeactivateUserInput{})
 
 	assert.ErrorIs(t, err, ErrActiveLeadsExist)
 	assert.Equal(t, int64(3), count)
@@ -333,7 +333,7 @@ func TestDeactivateUser_ActiveLeadsWithReassign_Success(t *testing.T) {
 	refreshRepo.On("DeleteAllByUserID", userID).Return(nil)
 
 	svc := newUserService(userRepo, refreshRepo, new(MockSalesTeamRepository))
-	count, err := svc.deactivateUser(userRepo, refreshRepo, userID, dto.DeactivateUserInput{ReassignToUserID: &newOwnerID})
+	count, err := svc.deactivateUser(userRepo, refreshRepo, uuid.Must(uuid.NewV7()), userID, dto.DeactivateUserInput{ReassignToUserID: &newOwnerID})
 
 	assert.NoError(t, err)
 	assert.Equal(t, int64(2), count)
@@ -352,7 +352,7 @@ func TestDeactivateUser_ReassignToSelf_Rejected(t *testing.T) {
 	userRepo.On("CountActiveByOwner", userID).Return(int64(2), nil)
 
 	svc := newUserService(userRepo, refreshRepo, new(MockSalesTeamRepository))
-	_, err := svc.deactivateUser(userRepo, refreshRepo, userID, dto.DeactivateUserInput{ReassignToUserID: &userID})
+	_, err := svc.deactivateUser(userRepo, refreshRepo, uuid.Must(uuid.NewV7()), userID, dto.DeactivateUserInput{ReassignToUserID: &userID})
 
 	assert.Error(t, err)
 	// Reassigning to self would strand the leads on the deactivated owner.
@@ -374,7 +374,7 @@ func TestDeactivateUser_ReassignToInactive_Rejected(t *testing.T) {
 	userRepo.On("CountActiveByOwner", userID).Return(int64(2), nil)
 
 	svc := newUserService(userRepo, refreshRepo, new(MockSalesTeamRepository))
-	_, err := svc.deactivateUser(userRepo, refreshRepo, userID, dto.DeactivateUserInput{ReassignToUserID: &newOwnerID})
+	_, err := svc.deactivateUser(userRepo, refreshRepo, uuid.Must(uuid.NewV7()), userID, dto.DeactivateUserInput{ReassignToUserID: &newOwnerID})
 
 	assert.Error(t, err)
 	userRepo.AssertNotCalled(t, "ReassignOwner", mock.Anything, mock.Anything)
@@ -394,10 +394,62 @@ func TestDeactivateUser_NoActiveLeads_SkipsReassign(t *testing.T) {
 	refreshRepo.On("DeleteAllByUserID", userID).Return(nil)
 
 	svc := newUserService(userRepo, refreshRepo, new(MockSalesTeamRepository))
-	count, err := svc.deactivateUser(userRepo, refreshRepo, userID, dto.DeactivateUserInput{})
+	count, err := svc.deactivateUser(userRepo, refreshRepo, uuid.Must(uuid.NewV7()), userID, dto.DeactivateUserInput{})
 
 	assert.NoError(t, err)
 	assert.Equal(t, int64(0), count)
 	assert.False(t, user.IsActive)
 	userRepo.AssertNotCalled(t, "ReassignOwner", mock.Anything, mock.Anything)
+}
+
+func TestDeactivateUser_Self_Rejected(t *testing.T) {
+	userRepo := new(MockUserRepository)
+	refreshRepo := new(MockRefreshTokenRepository)
+	userID := uuid.Must(uuid.NewV7())
+
+	svc := newUserService(userRepo, refreshRepo, new(MockSalesTeamRepository))
+	// caller == target: an admin must not deactivate their own account.
+	_, err := svc.deactivateUser(userRepo, refreshRepo, userID, userID, dto.DeactivateUserInput{})
+
+	assert.Error(t, err)
+	userRepo.AssertNotCalled(t, "FindByID", mock.Anything)
+	userRepo.AssertNotCalled(t, "Update", mock.Anything)
+	refreshRepo.AssertNotCalled(t, "DeleteAllByUserID", mock.Anything)
+}
+
+func TestDeactivateUser_LastActiveAdmin_Rejected(t *testing.T) {
+	userRepo := new(MockUserRepository)
+	refreshRepo := new(MockRefreshTokenRepository)
+	userID := uuid.Must(uuid.NewV7())
+
+	admin := &models.User{BaseModel: models.BaseModel{ID: userID}, Role: "SU", IsActive: true}
+	userRepo.On("FindByID", userID).Return(admin, nil)
+	userRepo.On("CountActiveAdmins").Return(int64(1), nil)
+
+	svc := newUserService(userRepo, refreshRepo, new(MockSalesTeamRepository))
+	_, err := svc.deactivateUser(userRepo, refreshRepo, uuid.Must(uuid.NewV7()), userID, dto.DeactivateUserInput{})
+
+	assert.Error(t, err)
+	userRepo.AssertNotCalled(t, "CountActiveByOwner", mock.Anything)
+	userRepo.AssertNotCalled(t, "Update", mock.Anything)
+	refreshRepo.AssertNotCalled(t, "DeleteAllByUserID", mock.Anything)
+}
+
+func TestDeactivateUser_AdminWithOtherAdmins_Allowed(t *testing.T) {
+	userRepo := new(MockUserRepository)
+	refreshRepo := new(MockRefreshTokenRepository)
+	userID := uuid.Must(uuid.NewV7())
+
+	admin := &models.User{BaseModel: models.BaseModel{ID: userID}, Role: "ADMIN_SALES", IsActive: true}
+	userRepo.On("FindByID", userID).Return(admin, nil)
+	userRepo.On("CountActiveAdmins").Return(int64(2), nil)
+	userRepo.On("CountActiveByOwner", userID).Return(int64(0), nil)
+	userRepo.On("Update", admin).Return(nil)
+	refreshRepo.On("DeleteAllByUserID", userID).Return(nil)
+
+	svc := newUserService(userRepo, refreshRepo, new(MockSalesTeamRepository))
+	_, err := svc.deactivateUser(userRepo, refreshRepo, uuid.Must(uuid.NewV7()), userID, dto.DeactivateUserInput{})
+
+	assert.NoError(t, err)
+	assert.False(t, admin.IsActive)
 }

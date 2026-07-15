@@ -25,6 +25,7 @@ type userRepositoryForUser interface {
 	ListWithFilter(role, teamID string) ([]models.User, error)
 	CountActiveByOwner(ownerID uuid.UUID) (int64, error)
 	ReassignOwner(oldOwnerID, newOwnerID uuid.UUID) error
+	CountActiveAdmins() (int64, error)
 }
 
 // teamRepositoryForUser is the subset of sales-team repository methods
@@ -115,6 +116,12 @@ func roleRequiresTeam(role string) bool {
 // roleForbidsTeam reports whether role must carry a nil team_id per the
 // DB's chk_users_team_by_role constraint.
 func roleForbidsTeam(role string) bool {
+	return role == "ADMIN_SALES" || role == "SU"
+}
+
+// roleIsAdmin reports whether role can manage other users (reach the admin
+// endpoints). Used to protect the last active administrator from deactivation.
+func roleIsAdmin(role string) bool {
 	return role == "ADMIN_SALES" || role == "SU"
 }
 
@@ -306,13 +313,13 @@ func (s *UserService) resetPassword(
 // count query - the caller decides whether to reassign or abort. With a
 // reassignment target, reassign + deactivate + revoke happen in one
 // transaction.
-func (s *UserService) DeactivateUser(userID uuid.UUID, input dto.DeactivateUserInput) (int64, error) {
+func (s *UserService) DeactivateUser(callerID, userID uuid.UUID, input dto.DeactivateUserInput) (int64, error) {
 	var activeCount int64
 	err := s.run(func(tx *gorm.DB) error {
 		txUserRepo := repository.NewUserRepository(tx)
 		txRefreshRepo := repository.NewRefreshTokenRepository(tx)
 
-		count, err := s.deactivateUser(txUserRepo, txRefreshRepo, userID, input)
+		count, err := s.deactivateUser(txUserRepo, txRefreshRepo, callerID, userID, input)
 		activeCount = count
 		return err
 	})
@@ -322,12 +329,32 @@ func (s *UserService) DeactivateUser(userID uuid.UUID, input dto.DeactivateUserI
 func (s *UserService) deactivateUser(
 	userRepo userRepositoryForUser,
 	refreshRepo refreshTokenRepository,
+	callerID uuid.UUID,
 	userID uuid.UUID,
 	input dto.DeactivateUserInput,
 ) (int64, error) {
+	// An admin deactivating themselves would revoke their own session and,
+	// if they were the last admin, lock everyone out of user management.
+	if userID == callerID {
+		return 0, errors.New("cannot deactivate your own account")
+	}
+
 	user, err := userRepo.FindByID(userID)
 	if err != nil {
 		return 0, errors.New("user not found")
+	}
+
+	// Never remove the last active administrator. Only admins can reach this
+	// endpoint, so blocking self-deactivation already keeps at least the
+	// caller active; this is the explicit backstop for that invariant.
+	if roleIsAdmin(user.Role) && user.IsActive {
+		admins, err := userRepo.CountActiveAdmins()
+		if err != nil {
+			return 0, err
+		}
+		if admins <= 1 {
+			return 0, errors.New("cannot deactivate the last active administrator")
+		}
 	}
 
 	count, err := userRepo.CountActiveByOwner(userID)

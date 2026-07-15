@@ -59,6 +59,11 @@ func (m *MockUserRepository) ReassignOwner(oldOwnerID, newOwnerID uuid.UUID) err
 	return args.Error(0)
 }
 
+func (m *MockUserRepository) CountActiveAdmins() (int64, error) {
+	args := m.Called()
+	return args.Get(0).(int64), args.Error(1)
+}
+
 // MockRefreshTokenRepository is a manual testify mock for refreshTokenRepository.
 type MockRefreshTokenRepository struct {
 	mock.Mock

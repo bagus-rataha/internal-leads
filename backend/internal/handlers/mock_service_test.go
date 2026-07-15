@@ -93,8 +93,8 @@ func (m *MockUserService) ResetPassword(userID uuid.UUID, input dto.ResetPasswor
 	return args.Error(0)
 }
 
-func (m *MockUserService) DeactivateUser(userID uuid.UUID, input dto.DeactivateUserInput) (int64, error) {
-	args := m.Called(userID, input)
+func (m *MockUserService) DeactivateUser(callerID, userID uuid.UUID, input dto.DeactivateUserInput) (int64, error) {
+	args := m.Called(callerID, userID, input)
 	return args.Get(0).(int64), args.Error(1)
 }
 

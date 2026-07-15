@@ -37,11 +37,16 @@ func newTestUserApp(handler *UserHandler, userID uuid.UUID) *fiber.App {
 // middleware (standing in for JWTProtected, which normally sets Locals
 // "role") followed by the real RequireRole gate, so 403 behavior is covered
 // the same way production requests hit it.
+// testAdminCaller is the authenticated admin making the request in admin-route
+// tests; the deactivate handler reads it from the token to block self-deactivation.
+var testAdminCaller = uuid.Must(uuid.NewV7())
+
 func newTestUserAdminApp(handler *UserHandler, role string) *fiber.App {
 	app := newTestApp()
 
 	roleMiddleware := func(c *fiber.Ctx) error {
 		c.Locals("role", role)
+		utils.SetUserID(c, testAdminCaller)
 		return c.Next()
 	}
 
@@ -243,7 +248,7 @@ func TestUserHandler_DeactivateUser_Success(t *testing.T) {
 	app := newTestUserAdminApp(handler, "SU")
 
 	userID := uuid.Must(uuid.NewV7())
-	mockSvc.On("DeactivateUser", userID, dto.DeactivateUserInput{}).Return(int64(0), nil)
+	mockSvc.On("DeactivateUser", testAdminCaller, userID, dto.DeactivateUserInput{}).Return(int64(0), nil)
 
 	req := httptest.NewRequest("POST", "/users/"+userID.String()+"/deactivate", strings.NewReader(`{}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -259,7 +264,7 @@ func TestUserHandler_DeactivateUser_ActiveLeadsNoReassign_422(t *testing.T) {
 	app := newTestUserAdminApp(handler, "SU")
 
 	userID := uuid.Must(uuid.NewV7())
-	mockSvc.On("DeactivateUser", userID, dto.DeactivateUserInput{}).Return(int64(5), services.ErrActiveLeadsExist)
+	mockSvc.On("DeactivateUser", testAdminCaller, userID, dto.DeactivateUserInput{}).Return(int64(5), services.ErrActiveLeadsExist)
 
 	req := httptest.NewRequest("POST", "/users/"+userID.String()+"/deactivate", strings.NewReader(`{}`))
 	req.Header.Set("Content-Type", "application/json")

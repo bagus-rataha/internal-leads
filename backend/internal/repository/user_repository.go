@@ -91,3 +91,14 @@ func (r *UserRepository) ReassignOwner(oldOwnerID, newOwnerID uuid.UUID) error {
 		Where("owner_id = ?", oldOwnerID).
 		Update("owner_id", newOwnerID).Error
 }
+
+// CountActiveAdmins counts active users who can manage other users
+// (ADMIN_SALES or SU). Used to refuse deactivating the last one, which would
+// lock the organization out of user administration.
+func (r *UserRepository) CountActiveAdmins() (int64, error) {
+	var count int64
+	err := r.db.Model(&models.User{}).
+		Where("role IN ? AND is_active = ?", []string{"ADMIN_SALES", "SU"}, true).
+		Count(&count).Error
+	return count, err
+}
