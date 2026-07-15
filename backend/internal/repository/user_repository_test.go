@@ -18,7 +18,7 @@ func TestUserRepository_Create(t *testing.T) {
 		Email:    "test@test.com",
 		Password: "hashed",
 		Name:     "Test",
-		Role:     "user",
+		Role:     "SU",
 	}
 
 	err := repo.Create(user)
@@ -35,7 +35,7 @@ func TestUserRepository_FindByEmail_Found(t *testing.T) {
 		Email:    "test@test.com",
 		Password: "hashed",
 		Name:     "Test",
-		Role:     "user",
+		Role:     "SU",
 	}
 	db.Create(user)
 
@@ -62,7 +62,7 @@ func TestUserRepository_FindByID(t *testing.T) {
 		Email:    "test@test.com",
 		Password: "hashed",
 		Name:     "Test",
-		Role:     "user",
+		Role:     "SU",
 	}
 	db.Create(user)
 
@@ -80,7 +80,7 @@ func TestUserRepository_Update(t *testing.T) {
 		Email:    "test@test.com",
 		Password: "hashed",
 		Name:     "Old Name",
-		Role:     "user",
+		Role:     "SU",
 	}
 	db.Create(user)
 
@@ -97,8 +97,8 @@ func TestUserRepository_List(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewUserRepository(db)
 
-	db.Create(&models.User{Email: "a@test.com", Password: "h", Name: "A", Role: "user"})
-	db.Create(&models.User{Email: "b@test.com", Password: "h", Name: "B", Role: "user"})
+	db.Create(&models.User{Email: "a@test.com", Password: "h", Name: "A", Role: "SU"})
+	db.Create(&models.User{Email: "b@test.com", Password: "h", Name: "B", Role: "SU"})
 
 	users, err := repo.List()
 
