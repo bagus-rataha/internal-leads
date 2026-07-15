@@ -6,5 +6,6 @@ type Village struct {
 	ExternalID string `gorm:"uniqueIndex;not null"`
 	DistrictID int    `gorm:"not null;index"`
 	ZipID      *int
+	Zip        *Zip   `gorm:"foreignKey:ZipID"`
 	Name       string `gorm:"not null;index"`
 }
