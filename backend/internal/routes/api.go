@@ -27,7 +27,6 @@ func SetupAPIRoutes(app *fiber.App, cnt interface{}, cfg *config.Config) {
 // setupAuthRoutes configures authentication routes
 func setupAuthRoutes(api fiber.Router, c *container.Container, cfg *config.Config) {
 	auth := api.Group("/auth")
-	auth.Post("/register", c.AuthHandler.Register)
 	auth.Post("/login", c.AuthHandler.Login)
 	auth.Post("/refresh", c.AuthHandler.RefreshToken)
 	auth.Post("/logout", c.AuthHandler.Logout)

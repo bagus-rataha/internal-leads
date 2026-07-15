@@ -16,7 +16,6 @@ import (
 // Defined consumer-side so it can be satisfied by the real repository
 // (structural typing) or by a mock in tests.
 type userRepository interface {
-	Create(user *models.User) error
 	FindByID(id uuid.UUID) (*models.User, error)
 	FindByEmail(email string) (*models.User, error)
 	Update(user *models.User) error
@@ -82,30 +81,6 @@ func (s *AuthService) generateAndStoreTokens(user *models.User) (*dto.TokenRespo
 		RefreshToken: refreshToken,
 		User:         dto.ToUserResponse(user),
 	}, nil
-}
-
-func (s *AuthService) Register(input dto.RegisterInput) (*dto.TokenResponse, error) {
-	if _, err := s.userRepo.FindByEmail(input.Email); err == nil {
-		return nil, errors.New("email already registered")
-	}
-
-	hashedPassword, err := utils.HashPassword(input.Password)
-	if err != nil {
-		return nil, err
-	}
-
-	user := &models.User{
-		Email:    input.Email,
-		Password: hashedPassword,
-		Name:     input.Name,
-		Role:     "user",
-	}
-
-	if err := s.userRepo.Create(user); err != nil {
-		return nil, err
-	}
-
-	return s.generateAndStoreTokens(user)
 }
 
 func (s *AuthService) Login(input dto.LoginInput) (*dto.TokenResponse, error) {

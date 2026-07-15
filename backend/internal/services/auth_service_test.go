@@ -27,45 +27,6 @@ func newAuthService(userRepo *MockUserRepository, rtRepo *MockRefreshTokenReposi
 	return NewAuthService(userRepo, rtRepo, newTestConfig())
 }
 
-func TestRegister_Success(t *testing.T) {
-	userRepo := new(MockUserRepository)
-	rtRepo := new(MockRefreshTokenRepository)
-
-	userRepo.On("FindByEmail", "test@test.com").Return(nil, gorm.ErrRecordNotFound)
-	userRepo.On("Create", mock.AnythingOfType("*models.User")).Return(nil)
-	rtRepo.On("Create", mock.AnythingOfType("*models.RefreshToken")).Return(nil)
-
-	svc := newAuthService(userRepo, rtRepo)
-	result, err := svc.Register(dto.RegisterInput{
-		Email:    "test@test.com",
-		Password: "123456",
-		Name:     "Test",
-	})
-
-	assert.NoError(t, err)
-	assert.NotEmpty(t, result.AccessToken)
-	assert.NotEmpty(t, result.RefreshToken)
-	assert.Equal(t, "test@test.com", result.User.Email)
-}
-
-func TestRegister_EmailExists(t *testing.T) {
-	userRepo := new(MockUserRepository)
-	rtRepo := new(MockRefreshTokenRepository)
-
-	existingUser := &models.User{Email: "test@test.com"}
-	userRepo.On("FindByEmail", "test@test.com").Return(existingUser, nil)
-
-	svc := newAuthService(userRepo, rtRepo)
-	_, err := svc.Register(dto.RegisterInput{
-		Email:    "test@test.com",
-		Password: "123456",
-		Name:     "Test",
-	})
-
-	assert.Error(t, err)
-	assert.Equal(t, "email already registered", err.Error())
-}
-
 func TestLogin_Success(t *testing.T) {
 	userRepo := new(MockUserRepository)
 	rtRepo := new(MockRefreshTokenRepository)

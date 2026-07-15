@@ -12,14 +12,6 @@ type MockAuthService struct {
 	mock.Mock
 }
 
-func (m *MockAuthService) Register(input dto.RegisterInput) (*dto.TokenResponse, error) {
-	args := m.Called(input)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*dto.TokenResponse), args.Error(1)
-}
-
 func (m *MockAuthService) Login(input dto.LoginInput) (*dto.TokenResponse, error) {
 	args := m.Called(input)
 	if args.Get(0) == nil {
