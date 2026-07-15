@@ -27,17 +27,17 @@ Commit messages should follow this structure:
 - **Tag**: The type of change (e.g., `[FIX]`, `[IMP]`, `[ADD]`, etc.).
 - **Scope**: The technical name of the module/package/service being modified.
 - **Short Description**: A concise summary of the change (ideally < 50 characters).
-- **Full Description**: Explain the reasoning behind the change, focusing on the *why* rather than the *what*. Include any relevant task numbers, PR numbers, or references.
+- **Blank Line**: Always leave one empty line between the header and the body.
+- **Full Description**: Explain the reasoning behind the change as **bullet points**, focusing on the *why* rather than the *what*. Include any relevant task numbers, PR numbers, or references as separate points.
 
 Example:
 
 ```
 [FIX] scope_name: short description
 
-Detailed explanation of the change, why it was needed, and any technical decisions made.
-References:
-- task-123
-- Fixes #456
+* Detailed explanation of the change, why it was needed, and any technical decisions made.
+* References: task-123
+* Fixes #456
 ```
 
 ### Tags
@@ -60,18 +60,22 @@ The header should be a meaningful and concise summary of the change. It should m
 
 ### Full Description
 
-In the full description, focus on explaining the *why* behind the change. If there were any technical choices involved, explain those as well. Avoid making commits that affect multiple modules at once; try to split changes into separate commits for each scope.
+Always leave a blank line after the header, then write the full description as bullet points. Focus on explaining the *why* behind the change. If there were any technical choices involved, explain those as well. Avoid making commits that affect multiple modules at once; try to split changes into separate commits for each scope.
 
 Examples of proper commit messages:
 
 ```
 [REF] models: use `parent_path` to implement parent_store
 
-This replaces the former modified preorder tree traversal (MPTT) with the fields `parent_left`/`parent_right`...
+* Replaces the former modified preorder tree traversal (MPTT) with the fields `parent_left`/`parent_right`.
+* Improves read performance on hierarchical queries.
+```
 
+```
 [FIX] auth: remove hardcoded token expiry
 
-Fixes #12345
+* Token expiry is now read from config instead of a magic number.
+* Fixes #12345
 ```
 
 **Take the time to write clear and understandable commit messages, as they are crucial for maintaining a clean and traceable project history.**
