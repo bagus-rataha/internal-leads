@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS leads;
+DROP SEQUENCE IF EXISTS lead_code_seq;
