@@ -37,7 +37,8 @@ func TestLogin_Success(t *testing.T) {
 		Email:     "test@test.com",
 		Password:  hashedPassword,
 		Name:      "Test",
-		Role:      "user",
+		Role:      "SU",
+		IsActive:  true,
 	}
 
 	userRepo.On("FindByEmail", "test@test.com").Return(user, nil)
@@ -52,6 +53,35 @@ func TestLogin_Success(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotEmpty(t, result.AccessToken)
 	assert.NotEmpty(t, result.RefreshToken)
+}
+
+func TestLogin_InactiveUser(t *testing.T) {
+	userRepo := new(MockUserRepository)
+	rtRepo := new(MockRefreshTokenRepository)
+
+	hashedPassword, _ := utils.HashPassword("123456")
+	user := &models.User{
+		BaseModel: models.BaseModel{ID: uuid.Must(uuid.NewV7())},
+		Email:     "test@test.com",
+		Password:  hashedPassword,
+		Name:      "Test",
+		Role:      "SALES",
+		IsActive:  false,
+	}
+
+	userRepo.On("FindByEmail", "test@test.com").Return(user, nil)
+
+	svc := newAuthService(userRepo, rtRepo)
+	_, err := svc.Login(dto.LoginInput{
+		Email:    "test@test.com",
+		Password: "123456",
+	})
+
+	// Correct password, but the account is deactivated: no tokens are issued,
+	// and the message is indistinguishable from a bad password.
+	assert.Error(t, err)
+	assert.Equal(t, "invalid credentials", err.Error())
+	rtRepo.AssertNotCalled(t, "Create", mock.Anything)
 }
 
 func TestLogin_UserNotFound(t *testing.T) {

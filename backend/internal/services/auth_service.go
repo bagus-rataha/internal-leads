@@ -96,6 +96,14 @@ func (s *AuthService) Login(input dto.LoginInput) (*dto.TokenResponse, error) {
 		return nil, errors.New("invalid credentials")
 	}
 
+	// A deactivated user must not be able to obtain fresh tokens. Revoking
+	// their existing refresh tokens on deactivation only closes the old-token
+	// window; without this gate they could simply log in again. Same generic
+	// message as a bad password so a deactivated account isn't enumerable.
+	if !user.IsActive {
+		return nil, errors.New("invalid credentials")
+	}
+
 	return s.generateAndStoreTokens(user)
 }
 
@@ -115,6 +123,13 @@ func (s *AuthService) RefreshToken(refreshToken string) (*dto.TokenResponse, err
 	user, err := s.userRepo.FindByID(claims.UserID)
 	if err != nil {
 		return nil, errors.New("user not found")
+	}
+
+	// Defense in depth: deactivation revokes stored refresh tokens, so a
+	// revoked token is normally already rejected above. This also stops any
+	// still-valid token from being rotated into a fresh pair.
+	if !user.IsActive {
+		return nil, errors.New("account is deactivated")
 	}
 
 	if err := s.refreshTokenRepo.DeleteByToken(refreshToken); err != nil {
