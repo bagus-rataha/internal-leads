@@ -14,7 +14,7 @@ func TestRefreshTokenRepository_Create(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewRefreshTokenRepository(db)
 
-	user := &models.User{Email: "test@test.com", Password: "h", Name: "Test", Role: "user"}
+	user := &models.User{Email: "test@test.com", Password: "h", Name: "Test", Role: "SU"}
 	db.Create(user)
 
 	rt := &models.RefreshToken{
@@ -33,7 +33,7 @@ func TestRefreshTokenRepository_FindByToken_Found(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewRefreshTokenRepository(db)
 
-	user := &models.User{Email: "test@test.com", Password: "h", Name: "Test", Role: "user"}
+	user := &models.User{Email: "test@test.com", Password: "h", Name: "Test", Role: "SU"}
 	db.Create(user)
 	db.Create(&models.RefreshToken{Token: "my-token", UserID: user.ID, ExpiredAt: time.Now().Add(time.Hour)})
 
@@ -47,7 +47,7 @@ func TestRefreshTokenRepository_DeleteByToken(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewRefreshTokenRepository(db)
 
-	user := &models.User{Email: "test@test.com", Password: "h", Name: "Test", Role: "user"}
+	user := &models.User{Email: "test@test.com", Password: "h", Name: "Test", Role: "SU"}
 	db.Create(user)
 	db.Create(&models.RefreshToken{Token: "to-delete", UserID: user.ID, ExpiredAt: time.Now().Add(time.Hour)})
 
@@ -62,7 +62,7 @@ func TestRefreshTokenRepository_DeleteAllByUserID(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewRefreshTokenRepository(db)
 
-	user := &models.User{Email: "test@test.com", Password: "h", Name: "Test", Role: "user"}
+	user := &models.User{Email: "test@test.com", Password: "h", Name: "Test", Role: "SU"}
 	db.Create(user)
 
 	db.Create(&models.RefreshToken{Token: "token-1", UserID: user.ID, ExpiredAt: time.Now().Add(time.Hour)})

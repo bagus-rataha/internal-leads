@@ -67,6 +67,15 @@ Optional (have defaults):
 
 - `PORT`, `JWT_ACCESS_EXPIRE`, `JWT_REFRESH_EXPIRE`, `RATE_LIMIT_MAX`, `RATE_LIMIT_WINDOW`
 
+## Bootstrap superuser account
+
+After running migrations, a bootstrap superuser account is automatically seeded:
+
+- **Email:** `admin@leadsales.local`
+- **Password:** `ChangeMe123!`
+
+**⚠️ CRITICAL:** This password must be changed immediately after first login in any environment. Use the admin dashboard to update it before granting access to team members or deploying to production.
+
 ## Database and migrations
 
 The schema is managed with golang-migrate; there is no AutoMigrate. Migration

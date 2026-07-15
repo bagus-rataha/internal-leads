@@ -9,16 +9,47 @@ import (
 
 // UserResponse for user API responses
 type UserResponse struct {
-	ID        uuid.UUID `json:"id"`
-	Email     string    `json:"email"`
-	Name      string    `json:"name"`
-	Role      string    `json:"role"`
-	CreatedAt time.Time `json:"created_at"`
+	ID        uuid.UUID  `json:"id"`
+	Email     string     `json:"email"`
+	Name      string     `json:"name"`
+	Role      string     `json:"role"`
+	TeamID    *uuid.UUID `json:"team_id"`
+	IsActive  bool       `json:"is_active"`
+	CreatedAt time.Time  `json:"created_at"`
 }
 
 // UpdateProfileInput for profile updates
 type UpdateProfileInput struct {
 	Name string `json:"name" validate:"required,min=2,max=100"`
+}
+
+// CreateUserInput for admin-created accounts. There is no self-registration
+// endpoint — this is the only way a new user is created.
+type CreateUserInput struct {
+	Name     string     `json:"name" validate:"required,min=2,max=100"`
+	Email    string     `json:"email" validate:"required,email"`
+	Password string     `json:"password" validate:"required,min=6,max=100"`
+	Role     string     `json:"role" validate:"required,oneof=SALES LEADER ADMIN_SALES SU"`
+	TeamID   *uuid.UUID `json:"team_id"`
+}
+
+// UpdateUserInput for admin edits to a user. Fields are pointers so only the
+// ones actually provided by the caller are applied.
+type UpdateUserInput struct {
+	Name   *string    `json:"name" validate:"omitempty,min=2,max=100"`
+	Role   *string    `json:"role" validate:"omitempty,oneof=SALES LEADER ADMIN_SALES SU"`
+	TeamID *uuid.UUID `json:"team_id"`
+}
+
+// ResetPasswordInput for admin-triggered password resets.
+type ResetPasswordInput struct {
+	NewPassword string `json:"new_password" validate:"required,min=6,max=100"`
+}
+
+// DeactivateUserInput for admin deactivation. If the user still owns active
+// leads, ReassignToUserID must be set or the request is rejected.
+type DeactivateUserInput struct {
+	ReassignToUserID *uuid.UUID `json:"reassign_to_user_id"`
 }
 
 // ToUserResponse converts model to DTO
@@ -28,6 +59,8 @@ func ToUserResponse(user *models.User) UserResponse {
 		Email:     user.Email,
 		Name:      user.Name,
 		Role:      user.Role,
+		TeamID:    user.TeamID,
+		IsActive:  user.IsActive,
 		CreatedAt: user.CreatedAt,
 	}
 }

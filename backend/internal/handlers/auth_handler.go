@@ -12,7 +12,6 @@ import (
 // authService is the business-logic contract AuthHandler depends on.
 // Defined consumer-side so it can be satisfied by the real service or a mock.
 type authService interface {
-	Register(input dto.RegisterInput) (*dto.TokenResponse, error)
 	Login(input dto.LoginInput) (*dto.TokenResponse, error)
 	RefreshToken(refreshToken string) (*dto.TokenResponse, error)
 	Logout(refreshToken string) error
@@ -37,30 +36,6 @@ func (h *AuthHandler) extractRefreshToken(c *fiber.Ctx) string {
 	var input dto.RefreshTokenInput
 	_ = c.BodyParser(&input)
 	return input.RefreshToken
-}
-
-// Register godoc
-// @Summary Register new user
-// @Tags auth
-// @Accept json
-// @Produce json
-// @Param request body dto.RegisterInput true "Register request"
-// @Success 201 {object} utils.Response{data=dto.TokenResponse}
-// @Router /auth/register [post]
-func (h *AuthHandler) Register(c *fiber.Ctx) error {
-	var input dto.RegisterInput
-
-	if err := utils.ParseAndValidate(c, &input); err != nil {
-		return err
-	}
-
-	result, err := h.authService.Register(input)
-	if err != nil {
-		return utils.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
-	}
-
-	utils.SetRefreshTokenCookie(c, result.RefreshToken, h.config.JWTRefreshExpire, h.config.IsProduction())
-	return utils.SuccessResponse(c, fiber.StatusCreated, "User registered successfully", result)
 }
 
 // Login godoc

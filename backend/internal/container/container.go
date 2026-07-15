@@ -13,6 +13,7 @@ import (
 type Container struct {
 	AuthHandler *handlers.AuthHandler
 	UserHandler *handlers.UserHandler
+	TeamHandler *handlers.TeamHandler
 	// Add more handlers here as you build features
 }
 
@@ -21,17 +22,21 @@ func NewContainer(db *gorm.DB, cfg *config.Config) *Container {
 	// Initialize repositories
 	userRepo := repository.NewUserRepository(db)
 	refreshTokenRepo := repository.NewRefreshTokenRepository(db)
+	salesTeamRepo := repository.NewSalesTeamRepository(db)
 
 	// Initialize services
 	authService := services.NewAuthService(userRepo, refreshTokenRepo, cfg)
-	userService := services.NewUserService(userRepo)
+	userService := services.NewUserService(db, userRepo, refreshTokenRepo, salesTeamRepo)
+	teamService := services.NewTeamService(salesTeamRepo)
 
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(authService, cfg)
 	userHandler := handlers.NewUserHandler(userService)
+	teamHandler := handlers.NewTeamHandler(teamService)
 
 	return &Container{
 		AuthHandler: authHandler,
 		UserHandler: userHandler,
+		TeamHandler: teamHandler,
 	}
 }

@@ -44,6 +44,26 @@ func (m *MockUserRepository) List() ([]models.User, error) {
 	return args.Get(0).([]models.User), args.Error(1)
 }
 
+func (m *MockUserRepository) ListWithFilter(role, teamID string) ([]models.User, error) {
+	args := m.Called(role, teamID)
+	return args.Get(0).([]models.User), args.Error(1)
+}
+
+func (m *MockUserRepository) CountActiveByOwner(ownerID uuid.UUID) (int64, error) {
+	args := m.Called(ownerID)
+	return args.Get(0).(int64), args.Error(1)
+}
+
+func (m *MockUserRepository) ReassignOwner(oldOwnerID, newOwnerID uuid.UUID) error {
+	args := m.Called(oldOwnerID, newOwnerID)
+	return args.Error(0)
+}
+
+func (m *MockUserRepository) CountActiveAdmins() (int64, error) {
+	args := m.Called()
+	return args.Get(0).(int64), args.Error(1)
+}
+
 // MockRefreshTokenRepository is a manual testify mock for refreshTokenRepository.
 type MockRefreshTokenRepository struct {
 	mock.Mock
@@ -70,4 +90,38 @@ func (m *MockRefreshTokenRepository) DeleteByToken(token string) error {
 func (m *MockRefreshTokenRepository) DeleteAllByUserID(userID uuid.UUID) error {
 	args := m.Called(userID)
 	return args.Error(0)
+}
+
+// MockSalesTeamRepository is a manual testify mock satisfying the
+// salesTeamRepository interface.
+type MockSalesTeamRepository struct {
+	mock.Mock
+}
+
+func (m *MockSalesTeamRepository) Create(team *models.SalesTeam) error {
+	args := m.Called(team)
+	return args.Error(0)
+}
+
+func (m *MockSalesTeamRepository) FindByID(id uuid.UUID) (*models.SalesTeam, error) {
+	args := m.Called(id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.SalesTeam), args.Error(1)
+}
+
+func (m *MockSalesTeamRepository) List() ([]models.SalesTeam, error) {
+	args := m.Called()
+	return args.Get(0).([]models.SalesTeam), args.Error(1)
+}
+
+func (m *MockSalesTeamRepository) Update(team *models.SalesTeam) error {
+	args := m.Called(team)
+	return args.Error(0)
+}
+
+func (m *MockSalesTeamRepository) CountActiveMembers(teamID uuid.UUID) (int64, error) {
+	args := m.Called(teamID)
+	return args.Get(0).(int64), args.Error(1)
 }

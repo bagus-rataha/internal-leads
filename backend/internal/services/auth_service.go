@@ -16,7 +16,6 @@ import (
 // Defined consumer-side so it can be satisfied by the real repository
 // (structural typing) or by a mock in tests.
 type userRepository interface {
-	Create(user *models.User) error
 	FindByID(id uuid.UUID) (*models.User, error)
 	FindByEmail(email string) (*models.User, error)
 	Update(user *models.User) error
@@ -84,30 +83,6 @@ func (s *AuthService) generateAndStoreTokens(user *models.User) (*dto.TokenRespo
 	}, nil
 }
 
-func (s *AuthService) Register(input dto.RegisterInput) (*dto.TokenResponse, error) {
-	if _, err := s.userRepo.FindByEmail(input.Email); err == nil {
-		return nil, errors.New("email already registered")
-	}
-
-	hashedPassword, err := utils.HashPassword(input.Password)
-	if err != nil {
-		return nil, err
-	}
-
-	user := &models.User{
-		Email:    input.Email,
-		Password: hashedPassword,
-		Name:     input.Name,
-		Role:     "user",
-	}
-
-	if err := s.userRepo.Create(user); err != nil {
-		return nil, err
-	}
-
-	return s.generateAndStoreTokens(user)
-}
-
 func (s *AuthService) Login(input dto.LoginInput) (*dto.TokenResponse, error) {
 	user, err := s.userRepo.FindByEmail(input.Email)
 	if err != nil {
@@ -118,6 +93,14 @@ func (s *AuthService) Login(input dto.LoginInput) (*dto.TokenResponse, error) {
 	}
 
 	if !utils.VerifyPassword(input.Password, user.Password) {
+		return nil, errors.New("invalid credentials")
+	}
+
+	// A deactivated user must not be able to obtain fresh tokens. Revoking
+	// their existing refresh tokens on deactivation only closes the old-token
+	// window; without this gate they could simply log in again. Same generic
+	// message as a bad password so a deactivated account isn't enumerable.
+	if !user.IsActive {
 		return nil, errors.New("invalid credentials")
 	}
 
@@ -140,6 +123,13 @@ func (s *AuthService) RefreshToken(refreshToken string) (*dto.TokenResponse, err
 	user, err := s.userRepo.FindByID(claims.UserID)
 	if err != nil {
 		return nil, errors.New("user not found")
+	}
+
+	// Defense in depth: deactivation revokes stored refresh tokens, so a
+	// revoked token is normally already rejected above. This also stops any
+	// still-valid token from being rotated into a fresh pair.
+	if !user.IsActive {
+		return nil, errors.New("account is deactivated")
 	}
 
 	if err := s.refreshTokenRepo.DeleteByToken(refreshToken); err != nil {

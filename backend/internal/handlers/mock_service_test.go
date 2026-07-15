@@ -12,14 +12,6 @@ type MockAuthService struct {
 	mock.Mock
 }
 
-func (m *MockAuthService) Register(input dto.RegisterInput) (*dto.TokenResponse, error) {
-	args := m.Called(input)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*dto.TokenResponse), args.Error(1)
-}
-
 func (m *MockAuthService) Login(input dto.LoginInput) (*dto.TokenResponse, error) {
 	args := m.Called(input)
 	if args.Get(0) == nil {
@@ -67,7 +59,75 @@ func (m *MockUserService) UpdateProfile(userID uuid.UUID, input dto.UpdateProfil
 	return args.Get(0).(*dto.UserResponse), args.Error(1)
 }
 
-func (m *MockUserService) ListUsers() ([]dto.UserResponse, error) {
-	args := m.Called()
+func (m *MockUserService) ListUsers(role, teamID string) ([]dto.UserResponse, error) {
+	args := m.Called(role, teamID)
 	return args.Get(0).([]dto.UserResponse), args.Error(1)
+}
+
+func (m *MockUserService) CreateUser(input dto.CreateUserInput) (*dto.UserResponse, error) {
+	args := m.Called(input)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*dto.UserResponse), args.Error(1)
+}
+
+func (m *MockUserService) GetUser(userID uuid.UUID) (*dto.UserResponse, error) {
+	args := m.Called(userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*dto.UserResponse), args.Error(1)
+}
+
+func (m *MockUserService) UpdateUser(userID uuid.UUID, input dto.UpdateUserInput) (*dto.UserResponse, error) {
+	args := m.Called(userID, input)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*dto.UserResponse), args.Error(1)
+}
+
+func (m *MockUserService) ResetPassword(userID uuid.UUID, input dto.ResetPasswordInput) error {
+	args := m.Called(userID, input)
+	return args.Error(0)
+}
+
+func (m *MockUserService) DeactivateUser(callerID, userID uuid.UUID, input dto.DeactivateUserInput) (int64, error) {
+	args := m.Called(callerID, userID, input)
+	return args.Get(0).(int64), args.Error(1)
+}
+
+// MockTeamService is a manual testify mock for the teamService interface.
+type MockTeamService struct {
+	mock.Mock
+}
+
+func (m *MockTeamService) Create(input dto.CreateTeamInput) (*dto.TeamResponse, error) {
+	args := m.Called(input)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*dto.TeamResponse), args.Error(1)
+}
+
+func (m *MockTeamService) List() ([]dto.TeamResponse, error) {
+	args := m.Called()
+	return args.Get(0).([]dto.TeamResponse), args.Error(1)
+}
+
+func (m *MockTeamService) FindByID(id uuid.UUID) (*dto.TeamResponse, error) {
+	args := m.Called(id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*dto.TeamResponse), args.Error(1)
+}
+
+func (m *MockTeamService) Update(id uuid.UUID, input dto.UpdateTeamInput) (*dto.TeamResponse, error) {
+	args := m.Called(id, input)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*dto.TeamResponse), args.Error(1)
 }
