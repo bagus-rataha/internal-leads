@@ -8,7 +8,7 @@ type User struct {
 	Email    string     `gorm:"uniqueIndex;not null"`
 	Password string     `gorm:"not null"`
 	Name     string     `gorm:"not null"`
-	Role     string     `gorm:"default:user"`
+	Role     string     `gorm:"default:SALES"`
 	TeamID   *uuid.UUID `gorm:"type:uuid;index"`
 	IsActive bool       `gorm:"not null;default:true"`
 }
