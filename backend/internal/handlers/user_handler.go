@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"errors"
 	"fiber-api-boilerplate/internal/dto"
+	"fiber-api-boilerplate/internal/services"
 	"fiber-api-boilerplate/internal/utils"
 
 	"github.com/gofiber/fiber/v2"
@@ -13,7 +15,12 @@ import (
 type userService interface {
 	GetProfile(userID uuid.UUID) (*dto.UserResponse, error)
 	UpdateProfile(userID uuid.UUID, input dto.UpdateProfileInput) (*dto.UserResponse, error)
-	ListUsers() ([]dto.UserResponse, error)
+	ListUsers(role, teamID string) ([]dto.UserResponse, error)
+	CreateUser(input dto.CreateUserInput) (*dto.UserResponse, error)
+	GetUser(userID uuid.UUID) (*dto.UserResponse, error)
+	UpdateUser(userID uuid.UUID, input dto.UpdateUserInput) (*dto.UserResponse, error)
+	ResetPassword(userID uuid.UUID, input dto.ResetPasswordInput) error
+	DeactivateUser(userID uuid.UUID, input dto.DeactivateUserInput) (int64, error)
 }
 
 type UserHandler struct {
@@ -74,13 +81,145 @@ func (h *UserHandler) UpdateProfile(c *fiber.Ctx) error {
 // @Summary List users
 // @Tags users
 // @Security BearerAuth
+// @Param role query string false "Filter by role"
+// @Param team_id query string false "Filter by team id"
 // @Success 200 {object} utils.Response{data=[]dto.UserResponse}
 // @Router /users [get]
 func (h *UserHandler) ListUsers(c *fiber.Ctx) error {
-	users, err := h.userService.ListUsers()
+	role := c.Query("role")
+	teamID := c.Query("team_id")
+
+	users, err := h.userService.ListUsers(role, teamID)
 	if err != nil {
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError, err.Error())
 	}
 
 	return utils.SuccessResponse(c, fiber.StatusOK, "Users retrieved successfully", users)
+}
+
+// CreateUser godoc
+// @Summary Create user (admin only)
+// @Tags users
+// @Security BearerAuth
+// @Param request body dto.CreateUserInput true "Create user"
+// @Success 201 {object} utils.Response{data=dto.UserResponse}
+// @Router /users [post]
+func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
+	var input dto.CreateUserInput
+	if err := utils.ParseAndValidate(c, &input); err != nil {
+		return err
+	}
+
+	user, err := h.userService.CreateUser(input)
+	if err != nil {
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
+	}
+
+	return utils.SuccessResponse(c, fiber.StatusCreated, "User created successfully", user)
+}
+
+// GetUser godoc
+// @Summary Get user by id (admin only)
+// @Tags users
+// @Security BearerAuth
+// @Param id path string true "User ID"
+// @Success 200 {object} utils.Response{data=dto.UserResponse}
+// @Router /users/{id} [get]
+func (h *UserHandler) GetUser(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid user id")
+	}
+
+	user, err := h.userService.GetUser(id)
+	if err != nil {
+		return utils.ErrorResponse(c, fiber.StatusNotFound, err.Error())
+	}
+
+	return utils.SuccessResponse(c, fiber.StatusOK, "User retrieved successfully", user)
+}
+
+// UpdateUser godoc
+// @Summary Update user (admin only)
+// @Tags users
+// @Security BearerAuth
+// @Param id path string true "User ID"
+// @Param request body dto.UpdateUserInput true "Update user"
+// @Success 200 {object} utils.Response{data=dto.UserResponse}
+// @Router /users/{id} [patch]
+func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid user id")
+	}
+
+	var input dto.UpdateUserInput
+	if err := utils.ParseAndValidate(c, &input); err != nil {
+		return err
+	}
+
+	user, err := h.userService.UpdateUser(id, input)
+	if err != nil {
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
+	}
+
+	return utils.SuccessResponse(c, fiber.StatusOK, "User updated successfully", user)
+}
+
+// ResetPassword godoc
+// @Summary Reset a user's password (admin only)
+// @Tags users
+// @Security BearerAuth
+// @Param id path string true "User ID"
+// @Param request body dto.ResetPasswordInput true "Reset password"
+// @Success 200 {object} utils.Response
+// @Router /users/{id}/reset-password [post]
+func (h *UserHandler) ResetPassword(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid user id")
+	}
+
+	var input dto.ResetPasswordInput
+	if err := utils.ParseAndValidate(c, &input); err != nil {
+		return err
+	}
+
+	if err := h.userService.ResetPassword(id, input); err != nil {
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
+	}
+
+	return utils.SuccessResponse(c, fiber.StatusOK, "Password reset successfully", nil)
+}
+
+// DeactivateUser godoc
+// @Summary Deactivate a user (admin only)
+// @Tags users
+// @Security BearerAuth
+// @Param id path string true "User ID"
+// @Param request body dto.DeactivateUserInput true "Deactivate user"
+// @Success 200 {object} utils.Response
+// @Failure 422 {object} utils.Response "user still has active leads, reassign_to_user_id required"
+// @Router /users/{id}/deactivate [post]
+func (h *UserHandler) DeactivateUser(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid user id")
+	}
+
+	var input dto.DeactivateUserInput
+	if err := utils.ParseAndValidate(c, &input); err != nil {
+		return err
+	}
+
+	activeCount, err := h.userService.DeactivateUser(id, input)
+	if err != nil {
+		if errors.Is(err, services.ErrActiveLeadsExist) {
+			return utils.ErrorResponseWithData(c, fiber.StatusUnprocessableEntity, err.Error(),
+				fiber.Map{"active_lead_count": activeCount})
+		}
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
+	}
+
+	return utils.SuccessResponse(c, fiber.StatusOK, "User deactivated successfully", nil)
 }

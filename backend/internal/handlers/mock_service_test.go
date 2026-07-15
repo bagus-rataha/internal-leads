@@ -59,9 +59,43 @@ func (m *MockUserService) UpdateProfile(userID uuid.UUID, input dto.UpdateProfil
 	return args.Get(0).(*dto.UserResponse), args.Error(1)
 }
 
-func (m *MockUserService) ListUsers() ([]dto.UserResponse, error) {
-	args := m.Called()
+func (m *MockUserService) ListUsers(role, teamID string) ([]dto.UserResponse, error) {
+	args := m.Called(role, teamID)
 	return args.Get(0).([]dto.UserResponse), args.Error(1)
+}
+
+func (m *MockUserService) CreateUser(input dto.CreateUserInput) (*dto.UserResponse, error) {
+	args := m.Called(input)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*dto.UserResponse), args.Error(1)
+}
+
+func (m *MockUserService) GetUser(userID uuid.UUID) (*dto.UserResponse, error) {
+	args := m.Called(userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*dto.UserResponse), args.Error(1)
+}
+
+func (m *MockUserService) UpdateUser(userID uuid.UUID, input dto.UpdateUserInput) (*dto.UserResponse, error) {
+	args := m.Called(userID, input)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*dto.UserResponse), args.Error(1)
+}
+
+func (m *MockUserService) ResetPassword(userID uuid.UUID, input dto.ResetPasswordInput) error {
+	args := m.Called(userID, input)
+	return args.Error(0)
+}
+
+func (m *MockUserService) DeactivateUser(userID uuid.UUID, input dto.DeactivateUserInput) (int64, error) {
+	args := m.Called(userID, input)
+	return args.Get(0).(int64), args.Error(1)
 }
 
 // MockTeamService is a manual testify mock for the teamService interface.

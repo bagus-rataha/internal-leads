@@ -34,14 +34,22 @@ func setupAuthRoutes(api fiber.Router, c *container.Container, cfg *config.Confi
 	auth.Post("/logout-all", middleware.JWTProtected(cfg.JWTAccessSecret), c.AuthHandler.LogoutAll)
 }
 
-// setupUserRoutes configures user routes (protected)
+// setupUserRoutes configures user routes. /me is open to every authenticated
+// role; the admin endpoints below it require ADMIN_SALES or SU.
 func setupUserRoutes(api fiber.Router, c *container.Container, cfg *config.Config) {
 	users := api.Group("/users")
 	users.Use(middleware.JWTProtected(cfg.JWTAccessSecret))
 
 	users.Get("/me", c.UserHandler.GetProfile)
 	users.Put("/me", c.UserHandler.UpdateProfile)
-	users.Get("/", c.UserHandler.ListUsers)
+
+	admin := users.Group("", middleware.RequireRole("ADMIN_SALES", "SU"))
+	admin.Get("/", c.UserHandler.ListUsers)
+	admin.Post("/", c.UserHandler.CreateUser)
+	admin.Get("/:id", c.UserHandler.GetUser)
+	admin.Patch("/:id", c.UserHandler.UpdateUser)
+	admin.Post("/:id/reset-password", c.UserHandler.ResetPassword)
+	admin.Post("/:id/deactivate", c.UserHandler.DeactivateUser)
 }
 
 // setupTeamRoutes configures sales team routes (admin-only)

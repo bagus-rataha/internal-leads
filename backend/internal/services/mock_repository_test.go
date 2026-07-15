@@ -44,6 +44,21 @@ func (m *MockUserRepository) List() ([]models.User, error) {
 	return args.Get(0).([]models.User), args.Error(1)
 }
 
+func (m *MockUserRepository) ListWithFilter(role, teamID string) ([]models.User, error) {
+	args := m.Called(role, teamID)
+	return args.Get(0).([]models.User), args.Error(1)
+}
+
+func (m *MockUserRepository) CountActiveByOwner(ownerID uuid.UUID) (int64, error) {
+	args := m.Called(ownerID)
+	return args.Get(0).(int64), args.Error(1)
+}
+
+func (m *MockUserRepository) ReassignOwner(oldOwnerID, newOwnerID uuid.UUID) error {
+	args := m.Called(oldOwnerID, newOwnerID)
+	return args.Error(0)
+}
+
 // MockRefreshTokenRepository is a manual testify mock for refreshTokenRepository.
 type MockRefreshTokenRepository struct {
 	mock.Mock

@@ -105,3 +105,89 @@ func TestUserRepository_List(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, users, 2)
 }
+
+func TestUserRepository_ListWithFilter(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewUserRepository(db)
+
+	team := &models.SalesTeam{Name: "Team A"}
+	db.Create(team)
+
+	db.Create(&models.User{Email: "sales@test.com", Password: "h", Name: "Sales", Role: "SALES", TeamID: &team.ID})
+	db.Create(&models.User{Email: "su@test.com", Password: "h", Name: "SU", Role: "SU"})
+
+	byRole, err := repo.ListWithFilter("SALES", "")
+	assert.NoError(t, err)
+	assert.Len(t, byRole, 1)
+	assert.Equal(t, "sales@test.com", byRole[0].Email)
+
+	byTeam, err := repo.ListWithFilter("", team.ID.String())
+	assert.NoError(t, err)
+	assert.Len(t, byTeam, 1)
+	assert.Equal(t, "sales@test.com", byTeam[0].Email)
+
+	all, err := repo.ListWithFilter("", "")
+	assert.NoError(t, err)
+	assert.Len(t, all, 2)
+}
+
+func TestUserRepository_CountActiveByOwner(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewUserRepository(db)
+
+	owner := &models.User{Email: "owner@test.com", Password: "h", Name: "Owner", Role: "SU"}
+	db.Create(owner)
+	otherOwner := &models.User{Email: "other@test.com", Password: "h", Name: "Other", Role: "SU"}
+	db.Create(otherOwner)
+
+	lostReason := "budget"
+
+	// two active leads (BARU, FOLLOW_UP) for owner
+	assert.NoError(t, db.Create(&models.Lead{Code: "LD-2607-0001", Status: "BARU", OwnerID: owner.ID, CreatedByID: owner.ID, CompanyName: "Co A"}).Error)
+	assert.NoError(t, db.Create(&models.Lead{Code: "LD-2607-0002", Status: "FOLLOW_UP", OwnerID: owner.ID, CreatedByID: owner.ID, CompanyName: "Co B"}).Error)
+	// terminal leads for owner - must not be counted
+	assert.NoError(t, db.Create(&models.Lead{Code: "LD-2607-0003", Status: "LOST", LostReason: &lostReason, OwnerID: owner.ID, CreatedByID: owner.ID, CompanyName: "Co C"}).Error)
+	assert.NoError(t, db.Create(&models.Lead{Code: "LD-2607-0004", Status: "HANDOFF_ODOO", OwnerID: owner.ID, CreatedByID: owner.ID, CompanyName: "Co D"}).Error)
+	// active lead for a different owner - must not be counted
+	assert.NoError(t, db.Create(&models.Lead{Code: "LD-2607-0005", Status: "BARU", OwnerID: otherOwner.ID, CreatedByID: otherOwner.ID, CompanyName: "Co E"}).Error)
+
+	count, err := repo.CountActiveByOwner(owner.ID)
+
+	assert.NoError(t, err)
+	assert.Equal(t, int64(2), count)
+}
+
+func TestUserRepository_ReassignOwner(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewUserRepository(db)
+
+	oldOwner := &models.User{Email: "old@test.com", Password: "h", Name: "Old", Role: "SU"}
+	db.Create(oldOwner)
+	newOwner := &models.User{Email: "new@test.com", Password: "h", Name: "New", Role: "SU"}
+	db.Create(newOwner)
+	untouchedOwner := &models.User{Email: "untouched@test.com", Password: "h", Name: "Untouched", Role: "SU"}
+	db.Create(untouchedOwner)
+
+	lead1 := &models.Lead{Code: "LD-2607-0006", Status: "BARU", OwnerID: oldOwner.ID, CreatedByID: oldOwner.ID, CompanyName: "Co F"}
+	lead2 := &models.Lead{Code: "LD-2607-0007", Status: "FOLLOW_UP", OwnerID: oldOwner.ID, CreatedByID: oldOwner.ID, CompanyName: "Co G"}
+	untouchedLead := &models.Lead{Code: "LD-2607-0008", Status: "BARU", OwnerID: untouchedOwner.ID, CreatedByID: untouchedOwner.ID, CompanyName: "Co H"}
+	assert.NoError(t, db.Create(lead1).Error)
+	assert.NoError(t, db.Create(lead2).Error)
+	assert.NoError(t, db.Create(untouchedLead).Error)
+
+	err := repo.ReassignOwner(oldOwner.ID, newOwner.ID)
+
+	assert.NoError(t, err)
+
+	var reassignedCount int64
+	db.Model(&models.Lead{}).Where("owner_id = ?", newOwner.ID).Count(&reassignedCount)
+	assert.Equal(t, int64(2), reassignedCount)
+
+	var oldOwnerCount int64
+	db.Model(&models.Lead{}).Where("owner_id = ?", oldOwner.ID).Count(&oldOwnerCount)
+	assert.Equal(t, int64(0), oldOwnerCount)
+
+	var untouched models.Lead
+	db.First(&untouched, "id = ?", untouchedLead.ID)
+	assert.Equal(t, untouchedOwner.ID, untouched.OwnerID)
+}

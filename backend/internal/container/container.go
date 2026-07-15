@@ -26,7 +26,7 @@ func NewContainer(db *gorm.DB, cfg *config.Config) *Container {
 
 	// Initialize services
 	authService := services.NewAuthService(userRepo, refreshTokenRepo, cfg)
-	userService := services.NewUserService(userRepo)
+	userService := services.NewUserService(db, userRepo, refreshTokenRepo, salesTeamRepo)
 	teamService := services.NewTeamService(salesTeamRepo)
 
 	// Initialize handlers
