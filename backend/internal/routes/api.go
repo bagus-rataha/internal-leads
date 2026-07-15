@@ -22,6 +22,7 @@ func SetupAPIRoutes(app *fiber.App, cnt interface{}, cfg *config.Config) {
 	// Setup module routes
 	setupAuthRoutes(api, c, cfg)
 	setupUserRoutes(api, c, cfg)
+	setupTeamRoutes(api, c, cfg)
 }
 
 // setupAuthRoutes configures authentication routes
@@ -41,4 +42,16 @@ func setupUserRoutes(api fiber.Router, c *container.Container, cfg *config.Confi
 	users.Get("/me", c.UserHandler.GetProfile)
 	users.Put("/me", c.UserHandler.UpdateProfile)
 	users.Get("/", c.UserHandler.ListUsers)
+}
+
+// setupTeamRoutes configures sales team routes (admin-only)
+func setupTeamRoutes(api fiber.Router, c *container.Container, cfg *config.Config) {
+	teams := api.Group("/teams")
+	teams.Use(middleware.JWTProtected(cfg.JWTAccessSecret))
+	teams.Use(middleware.RequireRole("ADMIN_SALES", "SU"))
+
+	teams.Get("/", c.TeamHandler.ListTeams)
+	teams.Post("/", c.TeamHandler.CreateTeam)
+	teams.Get("/:id", c.TeamHandler.GetTeam)
+	teams.Patch("/:id", c.TeamHandler.UpdateTeam)
 }

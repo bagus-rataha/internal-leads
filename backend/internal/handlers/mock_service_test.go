@@ -63,3 +63,37 @@ func (m *MockUserService) ListUsers() ([]dto.UserResponse, error) {
 	args := m.Called()
 	return args.Get(0).([]dto.UserResponse), args.Error(1)
 }
+
+// MockTeamService is a manual testify mock for the teamService interface.
+type MockTeamService struct {
+	mock.Mock
+}
+
+func (m *MockTeamService) Create(input dto.CreateTeamInput) (*dto.TeamResponse, error) {
+	args := m.Called(input)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*dto.TeamResponse), args.Error(1)
+}
+
+func (m *MockTeamService) List() ([]dto.TeamResponse, error) {
+	args := m.Called()
+	return args.Get(0).([]dto.TeamResponse), args.Error(1)
+}
+
+func (m *MockTeamService) FindByID(id uuid.UUID) (*dto.TeamResponse, error) {
+	args := m.Called(id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*dto.TeamResponse), args.Error(1)
+}
+
+func (m *MockTeamService) Update(id uuid.UUID, input dto.UpdateTeamInput) (*dto.TeamResponse, error) {
+	args := m.Called(id, input)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*dto.TeamResponse), args.Error(1)
+}
