@@ -339,6 +339,21 @@ func (s *UserService) deactivateUser(
 		if input.ReassignToUserID == nil {
 			return count, ErrActiveLeadsExist
 		}
+		// The reassignment target must be able to hold the leads. Reassigning
+		// to the same user is a no-op that would strand active leads on the
+		// now-inactive owner, and reassigning to another inactive user just
+		// moves the problem — both defeat the 422 guard above. A non-existent
+		// id would otherwise surface only as an opaque FK error.
+		if *input.ReassignToUserID == userID {
+			return count, errors.New("reassignment target must be a different user")
+		}
+		target, err := userRepo.FindByID(*input.ReassignToUserID)
+		if err != nil {
+			return count, errors.New("reassignment target not found")
+		}
+		if !target.IsActive {
+			return count, errors.New("reassignment target is not active")
+		}
 		if err := userRepo.ReassignOwner(userID, *input.ReassignToUserID); err != nil {
 			return count, err
 		}
