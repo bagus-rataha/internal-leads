@@ -33,3 +33,13 @@ func ErrorResponse(c *fiber.Ctx, status int, message string) error {
 		Message: message,
 	})
 }
+
+// ErrorResponseWithData returns an error response that also carries a data
+// payload (e.g. the active-lead count on a 422 deactivate conflict).
+func ErrorResponseWithData(c *fiber.Ctx, status int, message string, data interface{}) error {
+	return c.Status(status).JSON(Response{
+		Success: false,
+		Message: message,
+		Data:    data,
+	})
+}
