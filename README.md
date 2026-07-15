@@ -109,7 +109,7 @@ Commits in this repository are authored by the human contributor only. Never add
 4. **Backend — Migrate & Run**
    ```bash
    migrate -path migrations -database "$DATABASE_URL" up
-   go run ./cmd/api      # → :8000
+   go run ./cmd/api      # → :3000
    ```
 
 5. **Backend — Seed data wilayah** (sekali, setelah migrate; baca CSV dari `backend/seeds/`)
