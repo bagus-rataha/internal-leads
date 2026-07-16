@@ -58,8 +58,13 @@ func buildLeadScope(userRepo userRepositoryForLead, callerID uuid.UUID, role str
 			return repository.LeadScope{}, errors.New("caller not found")
 		}
 		return repository.LeadScope{TeamID: caller.TeamID}, nil
-	default: // ADMIN_SALES, SU
+	case "ADMIN_SALES", "SU":
 		return repository.LeadScope{}, nil
+	default:
+		// Fail closed: an unrecognized role must never fall through to the
+		// unrestricted ADMIN_SALES/SU scope. Should never happen in
+		// production since role comes from a validated JWT claim.
+		return repository.LeadScope{}, errors.New("unrecognized role")
 	}
 }
 
@@ -374,7 +379,9 @@ func (s *LeadService) UpdateStatus(callerID uuid.UUID, role, code string, input 
 	}
 
 	lead.Status = input.Status
-	lead.LostReason = input.LostReason
+	if input.Status == "LOST" {
+		lead.LostReason = input.LostReason
+	}
 
 	if err := s.leadRepo.Update(lead); err != nil {
 		return nil, err

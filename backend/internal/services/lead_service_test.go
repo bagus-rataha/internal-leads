@@ -116,6 +116,24 @@ func TestLeadUpdateStatus_FollowUpToHandoff_Allowed(t *testing.T) {
 	assert.Equal(t, "HANDOFF_ODOO", result.Status)
 }
 
+func TestLeadUpdateStatus_FollowUpToHandoff_IgnoresStrayLostReason(t *testing.T) {
+	leadRepo := new(MockLeadRepository)
+	userRepo := new(MockUserRepository)
+	adminID := uuid.Must(uuid.NewV7())
+	lead := &models.Lead{Code: "LD-2607-0009", Status: "FOLLOW_UP"}
+	leadRepo.On("FindByCode", repository.LeadScope{}, "LD-2607-0009").Return(lead, nil)
+	leadRepo.On("Update", mock.AnythingOfType("*models.Lead")).Run(func(args mock.Arguments) {
+		updated := args.Get(0).(*models.Lead)
+		assert.Nil(t, updated.LostReason, "lost_reason must not be persisted on a non-LOST transition")
+	}).Return(nil)
+
+	svc := NewLeadService(nil, leadRepo, userRepo)
+	_, err := svc.UpdateStatus(adminID, "ADMIN_SALES", "LD-2607-0009", dto.UpdateLeadStatusInput{Status: "HANDOFF_ODOO", LostReason: strPtrSvc("stray")})
+
+	assert.NoError(t, err)
+	assert.Nil(t, lead.LostReason)
+}
+
 func TestLeadUpdateStatus_Terminal_Rejected(t *testing.T) {
 	leadRepo := new(MockLeadRepository)
 	userRepo := new(MockUserRepository)
@@ -170,6 +188,18 @@ func TestLeadList_Leader_ScopesByOwnTeam(t *testing.T) {
 
 	assert.NoError(t, err)
 	leadRepo.AssertExpectations(t)
+}
+
+func TestLeadFindByCode_UnrecognizedRole_FailsClosed(t *testing.T) {
+	leadRepo := new(MockLeadRepository)
+	userRepo := new(MockUserRepository)
+	callerID := uuid.Must(uuid.NewV7())
+
+	svc := NewLeadService(nil, leadRepo, userRepo)
+	_, err := svc.FindByCode(callerID, "BOGUS", "LD-2607-0010")
+
+	assert.Error(t, err)
+	leadRepo.AssertNotCalled(t, "FindByCode", mock.Anything, mock.Anything)
 }
 
 func strPtrSvc(s string) *string { return &s }
