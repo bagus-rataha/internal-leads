@@ -56,9 +56,7 @@ lead-sales/
 ├── data/                          # CSV export Odoo untuk seeder
 ├── Dockerfile
 ├── docker-compose.yml
-├── Makefile
-├── ARCHITECTURE.md
-└── CLAUDE.md
+└── ARCHITECTURE.md
 ```
 
 Domain yang perlu ditambahkan (masing-masing tersebar di lapisan `handlers` / `services` / `repositories` / `dto` / `routes` sesuai pola boilerplate): `team`, `lead`, `followup`, `reference` (lead_source, service_type, wilayah), `dashboard`, `export`.
