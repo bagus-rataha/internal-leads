@@ -1,23 +1,96 @@
 basePath: /api/v1
 definitions:
-  dto.LoginInput:
+  dto.CityResponse:
     properties:
+      id:
+        type: integer
+      name:
+        type: string
+    type: object
+  dto.CreateFollowUpInput:
+    properties:
+      note:
+        maxLength: 2000
+        minLength: 1
+        type: string
+    required:
+    - note
+    type: object
+  dto.CreateLeadInput:
+    properties:
+      business_field:
+        maxLength: 200
+        type: string
+      capacity_mbps:
+        type: integer
+      city_id:
+        type: integer
+      company_name:
+        maxLength: 200
+        minLength: 2
+        type: string
+      district_id:
+        type: integer
       email:
         type: string
-      password:
+      existing_isp:
+        maxLength: 100
         type: string
+      lead_source_id:
+        type: string
+      mobile_phone:
+        maxLength: 30
+        type: string
+      office_phone:
+        maxLength: 30
+        type: string
+      other_services:
+        maxLength: 500
+        type: string
+      owner_id:
+        type: string
+      pic_name:
+        maxLength: 200
+        type: string
+      pic_position:
+        maxLength: 100
+        type: string
+      price:
+        minimum: 0
+        type: number
+      province_id:
+        type: integer
+      rt:
+        maxLength: 10
+        type: string
+      rw:
+        maxLength: 10
+        type: string
+      service_type_id:
+        type: string
+      street:
+        maxLength: 300
+        type: string
+      village_id:
+        type: integer
+      website:
+        maxLength: 200
+        type: string
+      zip_id:
+        type: integer
     required:
-    - email
-    - password
+    - company_name
     type: object
-  dto.RefreshTokenInput:
+  dto.CreateTeamInput:
     properties:
-      refresh_token:
+      name:
+        maxLength: 100
+        minLength: 2
         type: string
     required:
-    - refresh_token
+    - name
     type: object
-  dto.RegisterInput:
+  dto.CreateUserInput:
     properties:
       email:
         type: string
@@ -29,10 +102,181 @@ definitions:
         maxLength: 100
         minLength: 6
         type: string
+      role:
+        enum:
+        - SALES
+        - LEADER
+        - ADMIN_SALES
+        - SU
+        type: string
+      team_id:
+        type: string
     required:
     - email
     - name
     - password
+    - role
+    type: object
+  dto.DeactivateUserInput:
+    properties:
+      reassign_to_user_id:
+        type: string
+    type: object
+  dto.DistrictResponse:
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
+    type: object
+  dto.FollowUpResponse:
+    properties:
+      created_at:
+        type: string
+      created_by_id:
+        type: string
+      id:
+        type: string
+      lead_id:
+        type: string
+      note:
+        type: string
+    type: object
+  dto.LeadResponse:
+    properties:
+      business_field:
+        type: string
+      capacity_mbps:
+        type: integer
+      city_id:
+        type: integer
+      code:
+        type: string
+      company_name:
+        type: string
+      created_at:
+        type: string
+      created_by_id:
+        type: string
+      district_id:
+        type: integer
+      email:
+        type: string
+      existing_isp:
+        type: string
+      follow_up_count:
+        type: integer
+      id:
+        type: string
+      last_follow_up_at:
+        type: string
+      lead_source_id:
+        type: string
+      lost_reason:
+        type: string
+      mobile_phone:
+        type: string
+      office_phone:
+        type: string
+      other_services:
+        type: string
+      owner_id:
+        type: string
+      pic_name:
+        type: string
+      pic_position:
+        type: string
+      price:
+        type: number
+      province_id:
+        type: integer
+      rt:
+        type: string
+      rw:
+        type: string
+      service_type_id:
+        type: string
+      status:
+        type: string
+      street:
+        type: string
+      village_id:
+        type: integer
+      website:
+        type: string
+      zip_id:
+        type: integer
+    type: object
+  dto.LeadSourceResponse:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+    type: object
+  dto.LoginInput:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  dto.PaginatedLeadResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/dto.LeadResponse'
+        type: array
+      limit:
+        type: integer
+      page:
+        type: integer
+      total:
+        type: integer
+    type: object
+  dto.ProvinceResponse:
+    properties:
+      code:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+    type: object
+  dto.RefreshTokenInput:
+    properties:
+      refresh_token:
+        type: string
+    type: object
+  dto.ResetPasswordInput:
+    properties:
+      new_password:
+        maxLength: 100
+        minLength: 6
+        type: string
+    required:
+    - new_password
+    type: object
+  dto.ServiceTypeResponse:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+    type: object
+  dto.TeamResponse:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      is_active:
+        type: boolean
+      name:
+        type: string
     type: object
   dto.TokenResponse:
     properties:
@@ -43,6 +287,83 @@ definitions:
       user:
         $ref: '#/definitions/dto.UserResponse'
     type: object
+  dto.UpdateLeadInput:
+    properties:
+      business_field:
+        maxLength: 200
+        type: string
+      capacity_mbps:
+        type: integer
+      city_id:
+        type: integer
+      company_name:
+        maxLength: 200
+        minLength: 2
+        type: string
+      district_id:
+        type: integer
+      email:
+        type: string
+      existing_isp:
+        maxLength: 100
+        type: string
+      lead_source_id:
+        type: string
+      mobile_phone:
+        maxLength: 30
+        type: string
+      office_phone:
+        maxLength: 30
+        type: string
+      other_services:
+        maxLength: 500
+        type: string
+      owner_id:
+        type: string
+      pic_name:
+        maxLength: 200
+        type: string
+      pic_position:
+        maxLength: 100
+        type: string
+      price:
+        minimum: 0
+        type: number
+      province_id:
+        type: integer
+      rt:
+        maxLength: 10
+        type: string
+      rw:
+        maxLength: 10
+        type: string
+      service_type_id:
+        type: string
+      street:
+        maxLength: 300
+        type: string
+      village_id:
+        type: integer
+      website:
+        maxLength: 200
+        type: string
+      zip_id:
+        type: integer
+    type: object
+  dto.UpdateLeadStatusInput:
+    properties:
+      lost_reason:
+        maxLength: 500
+        type: string
+      status:
+        enum:
+        - FOLLOW_UP
+        - HANDOFF_ODOO
+        - LOST
+        type: string
+    required:
+    - status
+    type: object
   dto.UpdateProfileInput:
     properties:
       name:
@@ -52,6 +373,31 @@ definitions:
     required:
     - name
     type: object
+  dto.UpdateTeamInput:
+    properties:
+      is_active:
+        type: boolean
+      name:
+        maxLength: 100
+        minLength: 2
+        type: string
+    type: object
+  dto.UpdateUserInput:
+    properties:
+      name:
+        maxLength: 100
+        minLength: 2
+        type: string
+      role:
+        enum:
+        - SALES
+        - LEADER
+        - ADMIN_SALES
+        - SU
+        type: string
+      team_id:
+        type: string
+    type: object
   dto.UserResponse:
     properties:
       created_at:
@@ -59,15 +405,36 @@ definitions:
       email:
         type: string
       id:
-        type: integer
+        type: string
+      is_active:
+        type: boolean
       name:
         type: string
       role:
         type: string
+      team_id:
+        type: string
+    type: object
+  dto.VillageResponse:
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
+      zip:
+        $ref: '#/definitions/dto.ZipResponse'
+    type: object
+  dto.ZipResponse:
+    properties:
+      code:
+        type: string
+      id:
+        type: integer
     type: object
   utils.Response:
     properties:
       data: {}
+      errors: {}
       message:
         type: string
       success:
@@ -102,13 +469,34 @@ paths:
       summary: Login user
       tags:
       - auth
+  /auth/logout:
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.Response'
+      summary: Logout current session
+      tags:
+      - auth
+  /auth/logout-all:
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.Response'
+      security:
+      - BearerAuth: []
+      summary: Logout from all devices
+      tags:
+      - auth
   /auth/refresh:
     post:
       parameters:
-      - description: Refresh token
+      - description: Refresh token (optional if cookie present)
         in: body
         name: request
-        required: true
         schema:
           $ref: '#/definitions/dto.RefreshTokenInput'
       responses:
@@ -124,19 +512,31 @@ paths:
       summary: Refresh token
       tags:
       - auth
-  /auth/register:
+  /leads:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.PaginatedLeadResponse'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: List leads
+      tags:
+      - leads
     post:
-      consumes:
-      - application/json
       parameters:
-      - description: Register request
+      - description: Create lead
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/dto.RegisterInput'
-      produces:
-      - application/json
+          $ref: '#/definitions/dto.CreateLeadInput'
       responses:
         "201":
           description: Created
@@ -145,13 +545,386 @@ paths:
             - $ref: '#/definitions/utils.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/dto.TokenResponse'
+                  $ref: '#/definitions/dto.LeadResponse'
               type: object
-      summary: Register new user
+      security:
+      - BearerAuth: []
+      summary: Create lead
       tags:
-      - auth
+      - leads
+  /leads/{code}:
+    get:
+      parameters:
+      - description: Lead code
+        in: path
+        name: code
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.LeadResponse'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Get lead
+      tags:
+      - leads
+    patch:
+      parameters:
+      - description: Lead code
+        in: path
+        name: code
+        required: true
+        type: string
+      - description: Update lead
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateLeadInput'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.LeadResponse'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Update lead
+      tags:
+      - leads
+  /leads/{code}/followups:
+    get:
+      parameters:
+      - description: Lead code
+        in: path
+        name: code
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/dto.FollowUpResponse'
+                  type: array
+              type: object
+      security:
+      - BearerAuth: []
+      summary: List follow-ups
+      tags:
+      - followups
+    post:
+      parameters:
+      - description: Lead code
+        in: path
+        name: code
+        required: true
+        type: string
+      - description: Create follow-up
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateFollowUpInput'
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.FollowUpResponse'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Create follow-up
+      tags:
+      - followups
+  /leads/{code}/status:
+    patch:
+      parameters:
+      - description: Lead code
+        in: path
+        name: code
+        required: true
+        type: string
+      - description: Update lead status
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateLeadStatusInput'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.LeadResponse'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Update lead status
+      tags:
+      - leads
+  /refs/cities:
+    get:
+      parameters:
+      - description: Province ID
+        in: query
+        name: province_id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/dto.CityResponse'
+                  type: array
+              type: object
+      security:
+      - BearerAuth: []
+      summary: List cities by province
+      tags:
+      - refs
+  /refs/districts:
+    get:
+      parameters:
+      - description: City ID
+        in: query
+        name: city_id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/dto.DistrictResponse'
+                  type: array
+              type: object
+      security:
+      - BearerAuth: []
+      summary: List districts by city
+      tags:
+      - refs
+  /refs/lead-sources:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/dto.LeadSourceResponse'
+                  type: array
+              type: object
+      security:
+      - BearerAuth: []
+      summary: List active lead sources
+      tags:
+      - refs
+  /refs/provinces:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/dto.ProvinceResponse'
+                  type: array
+              type: object
+      security:
+      - BearerAuth: []
+      summary: List provinces
+      tags:
+      - refs
+  /refs/service-types:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/dto.ServiceTypeResponse'
+                  type: array
+              type: object
+      security:
+      - BearerAuth: []
+      summary: List active service types
+      tags:
+      - refs
+  /refs/villages:
+    get:
+      parameters:
+      - description: District ID
+        in: query
+        name: district_id
+        required: true
+        type: integer
+      - description: Name search
+        in: query
+        name: q
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/dto.VillageResponse'
+                  type: array
+              type: object
+      security:
+      - BearerAuth: []
+      summary: List villages by district
+      tags:
+      - refs
+  /teams:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/dto.TeamResponse'
+                  type: array
+              type: object
+      security:
+      - BearerAuth: []
+      summary: List sales teams
+      tags:
+      - teams
+    post:
+      parameters:
+      - description: Create team
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateTeamInput'
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.TeamResponse'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Create sales team
+      tags:
+      - teams
+  /teams/{id}:
+    get:
+      parameters:
+      - description: Team ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.TeamResponse'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Get sales team
+      tags:
+      - teams
+    patch:
+      parameters:
+      - description: Team ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Update team
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateTeamInput'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.TeamResponse'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Update sales team
+      tags:
+      - teams
   /users:
     get:
+      parameters:
+      - description: Filter by role
+        in: query
+        name: role
+        type: string
+      - description: Filter by team id
+        in: query
+        name: team_id
+        type: string
       responses:
         "200":
           description: OK
@@ -167,6 +940,132 @@ paths:
       security:
       - BearerAuth: []
       summary: List users
+      tags:
+      - users
+    post:
+      parameters:
+      - description: Create user
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateUserInput'
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.UserResponse'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Create user (admin only)
+      tags:
+      - users
+  /users/{id}:
+    get:
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.UserResponse'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Get user by id (admin only)
+      tags:
+      - users
+    patch:
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Update user
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateUserInput'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.UserResponse'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Update user (admin only)
+      tags:
+      - users
+  /users/{id}/deactivate:
+    post:
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Deactivate user
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.DeactivateUserInput'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.Response'
+        "422":
+          description: user still has active leads, reassign_to_user_id required
+          schema:
+            $ref: '#/definitions/utils.Response'
+      security:
+      - BearerAuth: []
+      summary: Deactivate a user (admin only)
+      tags:
+      - users
+  /users/{id}/reset-password:
+    post:
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Reset password
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ResetPasswordInput'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.Response'
+      security:
+      - BearerAuth: []
+      summary: Reset a user's password (admin only)
       tags:
       - users
   /users/me:

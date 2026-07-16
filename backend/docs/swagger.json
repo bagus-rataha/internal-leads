@@ -48,6 +48,43 @@
                 }
             }
         },
+        "/auth/logout": {
+            "post": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Logout current session",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/logout-all": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Logout from all devices",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/refresh": {
             "post": {
                 "tags": [
@@ -56,10 +93,9 @@
                 "summary": "Refresh token",
                 "parameters": [
                     {
-                        "description": "Refresh token",
+                        "description": "Refresh token (optional if cookie present)",
                         "name": "request",
                         "in": "body",
-                        "required": true,
                         "schema": {
                             "$ref": "#/definitions/dto.RefreshTokenInput"
                         }
@@ -87,26 +123,56 @@
                 }
             }
         },
-        "/auth/register": {
-            "post": {
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
+        "/leads": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
                 ],
                 "tags": [
-                    "auth"
+                    "leads"
                 ],
-                "summary": "Register new user",
+                "summary": "List leads",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/dto.PaginatedLeadResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "leads"
+                ],
+                "summary": "Create lead",
                 "parameters": [
                     {
-                        "description": "Register request",
+                        "description": "Create lead",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.RegisterInput"
+                            "$ref": "#/definitions/dto.CreateLeadInput"
                         }
                     }
                 ],
@@ -122,7 +188,661 @@
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/dto.TokenResponse"
+                                            "$ref": "#/definitions/dto.LeadResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/leads/{code}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "leads"
+                ],
+                "summary": "Get lead",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Lead code",
+                        "name": "code",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/dto.LeadResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "leads"
+                ],
+                "summary": "Update lead",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Lead code",
+                        "name": "code",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Update lead",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.UpdateLeadInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/dto.LeadResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/leads/{code}/followups": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "followups"
+                ],
+                "summary": "List follow-ups",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Lead code",
+                        "name": "code",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/dto.FollowUpResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "followups"
+                ],
+                "summary": "Create follow-up",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Lead code",
+                        "name": "code",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Create follow-up",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.CreateFollowUpInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/dto.FollowUpResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/leads/{code}/status": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "leads"
+                ],
+                "summary": "Update lead status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Lead code",
+                        "name": "code",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Update lead status",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.UpdateLeadStatusInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/dto.LeadResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/refs/cities": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "refs"
+                ],
+                "summary": "List cities by province",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Province ID",
+                        "name": "province_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/dto.CityResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/refs/districts": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "refs"
+                ],
+                "summary": "List districts by city",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "City ID",
+                        "name": "city_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/dto.DistrictResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/refs/lead-sources": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "refs"
+                ],
+                "summary": "List active lead sources",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/dto.LeadSourceResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/refs/provinces": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "refs"
+                ],
+                "summary": "List provinces",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/dto.ProvinceResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/refs/service-types": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "refs"
+                ],
+                "summary": "List active service types",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/dto.ServiceTypeResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/refs/villages": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "refs"
+                ],
+                "summary": "List villages by district",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "District ID",
+                        "name": "district_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Name search",
+                        "name": "q",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/dto.VillageResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/teams": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "teams"
+                ],
+                "summary": "List sales teams",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/dto.TeamResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "teams"
+                ],
+                "summary": "Create sales team",
+                "parameters": [
+                    {
+                        "description": "Create team",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.CreateTeamInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/dto.TeamResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/teams/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "teams"
+                ],
+                "summary": "Get sales team",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Team ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/dto.TeamResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "teams"
+                ],
+                "summary": "Update sales team",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Team ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Update team",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.UpdateTeamInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/dto.TeamResponse"
                                         }
                                     }
                                 }
@@ -143,6 +863,20 @@
                     "users"
                 ],
                 "summary": "List users",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by role",
+                        "name": "role",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by team id",
+                        "name": "team_id",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -159,6 +893,48 @@
                                             "items": {
                                                 "$ref": "#/definitions/dto.UserResponse"
                                             }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Create user (admin only)",
+                "parameters": [
+                    {
+                        "description": "Create user",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.CreateUserInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/dto.UserResponse"
                                         }
                                     }
                                 }
@@ -242,9 +1018,496 @@
                     }
                 }
             }
+        },
+        "/users/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Get user by id (admin only)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/dto.UserResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Update user (admin only)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Update user",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.UpdateUserInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/dto.UserResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/users/{id}/deactivate": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Deactivate a user (admin only)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Deactivate user",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.DeactivateUserInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.Response"
+                        }
+                    },
+                    "422": {
+                        "description": "user still has active leads, reassign_to_user_id required",
+                        "schema": {
+                            "$ref": "#/definitions/utils.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/users/{id}/reset-password": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Reset a user's password (admin only)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Reset password",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.ResetPasswordInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.Response"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
+        "dto.CityResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.CreateFollowUpInput": {
+            "type": "object",
+            "required": [
+                "note"
+            ],
+            "properties": {
+                "note": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "minLength": 1
+                }
+            }
+        },
+        "dto.CreateLeadInput": {
+            "type": "object",
+            "required": [
+                "company_name"
+            ],
+            "properties": {
+                "business_field": {
+                    "type": "string",
+                    "maxLength": 200
+                },
+                "capacity_mbps": {
+                    "type": "integer"
+                },
+                "city_id": {
+                    "type": "integer"
+                },
+                "company_name": {
+                    "type": "string",
+                    "maxLength": 200,
+                    "minLength": 2
+                },
+                "district_id": {
+                    "type": "integer"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "existing_isp": {
+                    "type": "string",
+                    "maxLength": 100
+                },
+                "lead_source_id": {
+                    "type": "string"
+                },
+                "mobile_phone": {
+                    "type": "string",
+                    "maxLength": 30
+                },
+                "office_phone": {
+                    "type": "string",
+                    "maxLength": 30
+                },
+                "other_services": {
+                    "type": "string",
+                    "maxLength": 500
+                },
+                "owner_id": {
+                    "type": "string"
+                },
+                "pic_name": {
+                    "type": "string",
+                    "maxLength": 200
+                },
+                "pic_position": {
+                    "type": "string",
+                    "maxLength": 100
+                },
+                "price": {
+                    "type": "number",
+                    "minimum": 0
+                },
+                "province_id": {
+                    "type": "integer"
+                },
+                "rt": {
+                    "type": "string",
+                    "maxLength": 10
+                },
+                "rw": {
+                    "type": "string",
+                    "maxLength": 10
+                },
+                "service_type_id": {
+                    "type": "string"
+                },
+                "street": {
+                    "type": "string",
+                    "maxLength": 300
+                },
+                "village_id": {
+                    "type": "integer"
+                },
+                "website": {
+                    "type": "string",
+                    "maxLength": 200
+                },
+                "zip_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "dto.CreateTeamInput": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "minLength": 2
+                }
+            }
+        },
+        "dto.CreateUserInput": {
+            "type": "object",
+            "required": [
+                "email",
+                "name",
+                "password",
+                "role"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "minLength": 2
+                },
+                "password": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "minLength": 6
+                },
+                "role": {
+                    "type": "string",
+                    "enum": [
+                        "SALES",
+                        "LEADER",
+                        "ADMIN_SALES",
+                        "SU"
+                    ]
+                },
+                "team_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.DeactivateUserInput": {
+            "type": "object",
+            "properties": {
+                "reassign_to_user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.DistrictResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.FollowUpResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "created_by_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "lead_id": {
+                    "type": "string"
+                },
+                "note": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.LeadResponse": {
+            "type": "object",
+            "properties": {
+                "business_field": {
+                    "type": "string"
+                },
+                "capacity_mbps": {
+                    "type": "integer"
+                },
+                "city_id": {
+                    "type": "integer"
+                },
+                "code": {
+                    "type": "string"
+                },
+                "company_name": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "created_by_id": {
+                    "type": "string"
+                },
+                "district_id": {
+                    "type": "integer"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "existing_isp": {
+                    "type": "string"
+                },
+                "follow_up_count": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "last_follow_up_at": {
+                    "type": "string"
+                },
+                "lead_source_id": {
+                    "type": "string"
+                },
+                "lost_reason": {
+                    "type": "string"
+                },
+                "mobile_phone": {
+                    "type": "string"
+                },
+                "office_phone": {
+                    "type": "string"
+                },
+                "other_services": {
+                    "type": "string"
+                },
+                "owner_id": {
+                    "type": "string"
+                },
+                "pic_name": {
+                    "type": "string"
+                },
+                "pic_position": {
+                    "type": "string"
+                },
+                "price": {
+                    "type": "number"
+                },
+                "province_id": {
+                    "type": "integer"
+                },
+                "rt": {
+                    "type": "string"
+                },
+                "rw": {
+                    "type": "string"
+                },
+                "service_type_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "street": {
+                    "type": "string"
+                },
+                "village_id": {
+                    "type": "integer"
+                },
+                "website": {
+                    "type": "string"
+                },
+                "zip_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "dto.LeadSourceResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
         "dto.LoginInput": {
             "type": "object",
             "required": [
@@ -260,37 +1523,86 @@
                 }
             }
         },
+        "dto.PaginatedLeadResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.LeadResponse"
+                    }
+                },
+                "limit": {
+                    "type": "integer"
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "dto.ProvinceResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
         "dto.RefreshTokenInput": {
             "type": "object",
-            "required": [
-                "refresh_token"
-            ],
             "properties": {
                 "refresh_token": {
                     "type": "string"
                 }
             }
         },
-        "dto.RegisterInput": {
+        "dto.ResetPasswordInput": {
             "type": "object",
             "required": [
-                "email",
-                "name",
-                "password"
+                "new_password"
             ],
             "properties": {
-                "email": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string",
-                    "maxLength": 100,
-                    "minLength": 2
-                },
-                "password": {
+                "new_password": {
                     "type": "string",
                     "maxLength": 100,
                     "minLength": 6
+                }
+            }
+        },
+        "dto.ServiceTypeResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.TeamResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_active": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
                 }
             }
         },
@@ -308,6 +1620,114 @@
                 }
             }
         },
+        "dto.UpdateLeadInput": {
+            "type": "object",
+            "properties": {
+                "business_field": {
+                    "type": "string",
+                    "maxLength": 200
+                },
+                "capacity_mbps": {
+                    "type": "integer"
+                },
+                "city_id": {
+                    "type": "integer"
+                },
+                "company_name": {
+                    "type": "string",
+                    "maxLength": 200,
+                    "minLength": 2
+                },
+                "district_id": {
+                    "type": "integer"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "existing_isp": {
+                    "type": "string",
+                    "maxLength": 100
+                },
+                "lead_source_id": {
+                    "type": "string"
+                },
+                "mobile_phone": {
+                    "type": "string",
+                    "maxLength": 30
+                },
+                "office_phone": {
+                    "type": "string",
+                    "maxLength": 30
+                },
+                "other_services": {
+                    "type": "string",
+                    "maxLength": 500
+                },
+                "owner_id": {
+                    "type": "string"
+                },
+                "pic_name": {
+                    "type": "string",
+                    "maxLength": 200
+                },
+                "pic_position": {
+                    "type": "string",
+                    "maxLength": 100
+                },
+                "price": {
+                    "type": "number",
+                    "minimum": 0
+                },
+                "province_id": {
+                    "type": "integer"
+                },
+                "rt": {
+                    "type": "string",
+                    "maxLength": 10
+                },
+                "rw": {
+                    "type": "string",
+                    "maxLength": 10
+                },
+                "service_type_id": {
+                    "type": "string"
+                },
+                "street": {
+                    "type": "string",
+                    "maxLength": 300
+                },
+                "village_id": {
+                    "type": "integer"
+                },
+                "website": {
+                    "type": "string",
+                    "maxLength": 200
+                },
+                "zip_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "dto.UpdateLeadStatusInput": {
+            "type": "object",
+            "required": [
+                "status"
+            ],
+            "properties": {
+                "lost_reason": {
+                    "type": "string",
+                    "maxLength": 500
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "FOLLOW_UP",
+                        "HANDOFF_ODOO",
+                        "LOST"
+                    ]
+                }
+            }
+        },
         "dto.UpdateProfileInput": {
             "type": "object",
             "required": [
@@ -321,6 +1741,41 @@
                 }
             }
         },
+        "dto.UpdateTeamInput": {
+            "type": "object",
+            "properties": {
+                "is_active": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "minLength": 2
+                }
+            }
+        },
+        "dto.UpdateUserInput": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "minLength": 2
+                },
+                "role": {
+                    "type": "string",
+                    "enum": [
+                        "SALES",
+                        "LEADER",
+                        "ADMIN_SALES",
+                        "SU"
+                    ]
+                },
+                "team_id": {
+                    "type": "string"
+                }
+            }
+        },
         "dto.UserResponse": {
             "type": "object",
             "properties": {
@@ -331,13 +1786,44 @@
                     "type": "string"
                 },
                 "id": {
-                    "type": "integer"
+                    "type": "string"
+                },
+                "is_active": {
+                    "type": "boolean"
                 },
                 "name": {
                     "type": "string"
                 },
                 "role": {
                     "type": "string"
+                },
+                "team_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.VillageResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "zip": {
+                    "$ref": "#/definitions/dto.ZipResponse"
+                }
+            }
+        },
+        "dto.ZipResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
                 }
             }
         },
@@ -345,6 +1831,7 @@
             "type": "object",
             "properties": {
                 "data": {},
+                "errors": {},
                 "message": {
                     "type": "string"
                 },
