@@ -37,4 +37,5 @@ type Lead struct {
 	OtherServices  *string
 	LeadSourceID   *uuid.UUID `gorm:"type:uuid"`
 	LastFollowUpAt *time.Time `gorm:"index"`
+	FollowUpCount  int        `gorm:"not null;default:0"`
 }

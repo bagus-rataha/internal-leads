@@ -24,6 +24,7 @@ func SetupAPIRoutes(app *fiber.App, cnt interface{}, cfg *config.Config) {
 	setupUserRoutes(api, c, cfg)
 	setupTeamRoutes(api, c, cfg)
 	setupReferenceRoutes(api, c, cfg)
+	setupLeadRoutes(api, c, cfg)
 }
 
 // setupAuthRoutes configures authentication routes
@@ -78,4 +79,20 @@ func setupReferenceRoutes(api fiber.Router, c *container.Container, cfg *config.
 	refs.Get("/cities", c.ReferenceHandler.ListCities)
 	refs.Get("/districts", c.ReferenceHandler.ListDistricts)
 	refs.Get("/villages", c.ReferenceHandler.ListVillages)
+}
+
+// setupLeadRoutes configures lead and follow-up routes. No RequireRole -
+// access is scope-based (every authenticated role may call these; the
+// service decides what each caller can see), per ARCHITECTURE.md §9.
+func setupLeadRoutes(api fiber.Router, c *container.Container, cfg *config.Config) {
+	leads := api.Group("/leads")
+	leads.Use(middleware.JWTProtected(cfg.JWTAccessSecret))
+
+	leads.Post("/", c.LeadHandler.CreateLead)
+	leads.Get("/", c.LeadHandler.ListLeads)
+	leads.Get("/:code", c.LeadHandler.GetLead)
+	leads.Patch("/:code", c.LeadHandler.UpdateLead)
+	leads.Patch("/:code/status", c.LeadHandler.UpdateLeadStatus)
+	leads.Post("/:code/followups", c.FollowUpHandler.CreateFollowUp)
+	leads.Get("/:code/followups", c.FollowUpHandler.ListFollowUps)
 }
