@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 )
 
@@ -25,6 +26,14 @@ var ErrOwnerNotTeamMember = errors.New("owner is not a member of your team")
 // (which only happens through the follow-up endpoint). The handler maps
 // this to 422.
 var ErrInvalidStatusTransition = errors.New("invalid status transition")
+
+// ErrInvalidReference is returned when a create/update write fails a
+// foreign-key constraint (invalid province_id/city_id/.../lead_source_id).
+// Per ARCHITECTURE.md, these fields aren't existence-checked in the service
+// - the DB's FK constraint is the only guard - so its rejection is
+// translated here into a generic error rather than leaking constraint/table
+// names to the client. The handler's default case already maps this to 400.
+var ErrInvalidReference = errors.New("invalid reference id")
 
 // leadRepositoryForLead is the subset of repository methods LeadService
 // needs. Defined consumer-side for testability.
@@ -56,6 +65,13 @@ func buildLeadScope(userRepo userRepositoryForLead, callerID uuid.UUID, role str
 		caller, err := userRepo.FindByID(callerID)
 		if err != nil {
 			return repository.LeadScope{}, errors.New("caller not found")
+		}
+		if caller.TeamID == nil {
+			// Fail closed: a nil team_id must never produce an unrestricted
+			// scope (both OwnerID and TeamID nil reads as ADMIN_SALES/SU to
+			// applyLeadScope). A DB CHECK constraint keeps this unreachable
+			// today, but the scope-building logic shouldn't rely on that.
+			return repository.LeadScope{}, errors.New("leader has no team")
 		}
 		return repository.LeadScope{TeamID: caller.TeamID}, nil
 	case "ADMIN_SALES", "SU":
@@ -151,11 +167,27 @@ func (s *LeadService) createLead(
 	}
 
 	if err := leadRepo.Create(lead); err != nil {
-		return nil, err
+		return nil, translateWriteError(err)
 	}
 
 	response := dto.ToLeadResponse(lead)
 	return &response, nil
+}
+
+// translateWriteError maps a Postgres foreign-key-violation error (SQLSTATE
+// 23503) - the only guard against an invalid province_id/city_id/.../
+// lead_source_id, per ARCHITECTURE.md's no-existence-check rule - to the
+// generic ErrInvalidReference, so the raw constraint/table name never
+// reaches a client. Any other error passes through unchanged.
+func translateWriteError(err error) error {
+	if err == nil {
+		return nil
+	}
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23503" {
+		return ErrInvalidReference
+	}
+	return err
 }
 
 // resolveOwnerID applies the role-dependent owner_id rule from
@@ -260,7 +292,7 @@ func (s *LeadService) Update(callerID uuid.UUID, role, code string, input dto.Up
 	applyLeadUpdate(lead, input, role)
 
 	if err := s.leadRepo.Update(lead); err != nil {
-		return nil, err
+		return nil, translateWriteError(err)
 	}
 
 	response := dto.ToLeadResponse(lead)

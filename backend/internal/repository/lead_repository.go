@@ -148,13 +148,16 @@ func applyLeadFilter(tx *gorm.DB, filter LeadFilter) *gorm.DB {
 		tx = tx.Where("leads.created_at >= ?", *filter.DateFrom)
 	}
 	if filter.DateTo != nil {
-		tx = tx.Where("leads.created_at <= ?", *filter.DateTo)
+		// DateTo is parsed as midnight on the given day; using it directly
+		// with <= would exclude the entire day it names. Advance to the
+		// next day's midnight and use < so the whole day is included.
+		tx = tx.Where("leads.created_at < ?", filter.DateTo.AddDate(0, 0, 1))
 	}
 	if filter.FollowUpFrom != nil {
 		tx = tx.Where("leads.last_follow_up_at >= ?", *filter.FollowUpFrom)
 	}
 	if filter.FollowUpTo != nil {
-		tx = tx.Where("leads.last_follow_up_at <= ?", *filter.FollowUpTo)
+		tx = tx.Where("leads.last_follow_up_at < ?", filter.FollowUpTo.AddDate(0, 0, 1))
 	}
 	if filter.Stale {
 		tx = tx.Where("leads.status IN ('BARU','FOLLOW_UP') AND COALESCE(leads.last_follow_up_at, leads.created_at) < ?",

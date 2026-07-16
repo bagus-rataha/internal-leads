@@ -1,12 +1,14 @@
 package services
 
 import (
+	"errors"
 	"fiber-api-boilerplate/internal/dto"
 	"fiber-api-boilerplate/internal/models"
 	"fiber-api-boilerplate/internal/repository"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"gorm.io/gorm"
@@ -188,6 +190,63 @@ func TestLeadList_Leader_ScopesByOwnTeam(t *testing.T) {
 
 	assert.NoError(t, err)
 	leadRepo.AssertExpectations(t)
+}
+
+func TestLeadFindByCode_Leader_NilTeamID_FailsClosed(t *testing.T) {
+	leadRepo := new(MockLeadRepository)
+	userRepo := new(MockUserRepository)
+	leaderID := uuid.Must(uuid.NewV7())
+	userRepo.On("FindByID", leaderID).Return(&models.User{TeamID: nil}, nil)
+
+	svc := NewLeadService(nil, leadRepo, userRepo)
+	_, err := svc.FindByCode(leaderID, "LEADER", "LD-2607-0011")
+
+	assert.Error(t, err, "a LEADER with nil team_id must never get an unrestricted scope")
+	leadRepo.AssertNotCalled(t, "FindByCode", mock.Anything, mock.Anything)
+}
+
+func TestTranslateWriteError_FKViolation_MapsToErrInvalidReference(t *testing.T) {
+	pgErr := &pgconn.PgError{Code: "23503", ConstraintName: "fk_leads_province"}
+
+	got := translateWriteError(pgErr)
+
+	assert.ErrorIs(t, got, ErrInvalidReference)
+}
+
+func TestTranslateWriteError_OtherError_PassesThroughUnchanged(t *testing.T) {
+	other := errors.New("some other db error")
+
+	got := translateWriteError(other)
+
+	assert.Same(t, other, got)
+}
+
+func TestTranslateWriteError_Nil_ReturnsNil(t *testing.T) {
+	assert.NoError(t, translateWriteError(nil))
+}
+
+func TestLeadUpdateStatus_FollowUpToLost_Allowed(t *testing.T) {
+	leadRepo := new(MockLeadRepository)
+	userRepo := new(MockUserRepository)
+	adminID := uuid.Must(uuid.NewV7())
+	lead := &models.Lead{Code: "LD-2607-0012", Status: "FOLLOW_UP"}
+	leadRepo.On("FindByCode", repository.LeadScope{}, "LD-2607-0012").Return(lead, nil)
+	leadRepo.On("Update", mock.AnythingOfType("*models.Lead")).Run(func(args mock.Arguments) {
+		updated := args.Get(0).(*models.Lead)
+		assert.Equal(t, "LOST", updated.Status)
+		if assert.NotNil(t, updated.LostReason) {
+			assert.Equal(t, "some valid reason", *updated.LostReason)
+		}
+	}).Return(nil)
+
+	svc := NewLeadService(nil, leadRepo, userRepo)
+	result, err := svc.UpdateStatus(adminID, "ADMIN_SALES", "LD-2607-0012", dto.UpdateLeadStatusInput{Status: "LOST", LostReason: strPtrSvc("some valid reason")})
+
+	assert.NoError(t, err)
+	assert.Equal(t, "LOST", result.Status)
+	if assert.NotNil(t, result.LostReason) {
+		assert.Equal(t, "some valid reason", *result.LostReason)
+	}
 }
 
 func TestLeadFindByCode_UnrecognizedRole_FailsClosed(t *testing.T) {

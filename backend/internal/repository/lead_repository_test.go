@@ -234,6 +234,25 @@ func TestLeadRepository_List_StaleFilter(t *testing.T) {
 	assert.Equal(t, "Stale", results[0].CompanyName)
 }
 
+func TestLeadRepository_List_DateTo_IncludesWholeDay(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewLeadRepository(db)
+	userID := seedTestUser(t, db)
+
+	day := time.Date(2026, 7, 16, 0, 0, 0, 0, time.UTC)
+	midDay := time.Date(2026, 7, 16, 14, 0, 0, 0, time.UTC)
+	lead := &models.Lead{Code: "LD-2607-1101", OwnerID: userID, CreatedByID: userID, CompanyName: "Mid-day"}
+	require.NoError(t, db.Create(lead).Error)
+	// created_at has a DB default (now()); overwrite it directly to a known
+	// mid-day timestamp on the filtered day.
+	require.NoError(t, db.Model(lead).Update("created_at", midDay).Error)
+
+	results, _, err := repo.List(LeadScope{}, LeadFilter{DateTo: &day, Page: 1, Limit: 20})
+	require.NoError(t, err)
+	require.Len(t, results, 1, "a lead created during the date_to day itself must be included")
+	assert.Equal(t, "Mid-day", results[0].CompanyName)
+}
+
 func TestLeadRepository_List_TeamIDFilter_ComposesWithScope(t *testing.T) {
 	db := setupTestDB(t)
 	teamA, _, _, _, _, _ := seedScopeFixture(t, db)
