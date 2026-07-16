@@ -1,0 +1,1 @@
+ALTER TABLE leads ADD COLUMN follow_up_count INTEGER NOT NULL DEFAULT 0;

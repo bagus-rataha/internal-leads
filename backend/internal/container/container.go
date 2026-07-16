@@ -15,6 +15,8 @@ type Container struct {
 	UserHandler      *handlers.UserHandler
 	TeamHandler      *handlers.TeamHandler
 	ReferenceHandler *handlers.ReferenceHandler
+	LeadHandler      *handlers.LeadHandler
+	FollowUpHandler  *handlers.FollowUpHandler
 	// Add more handlers here as you build features
 }
 
@@ -25,23 +27,31 @@ func NewContainer(db *gorm.DB, cfg *config.Config) *Container {
 	refreshTokenRepo := repository.NewRefreshTokenRepository(db)
 	salesTeamRepo := repository.NewSalesTeamRepository(db)
 	referenceRepo := repository.NewReferenceRepository(db)
+	leadRepo := repository.NewLeadRepository(db)
+	followUpRepo := repository.NewFollowUpRepository(db)
 
 	// Initialize services
 	authService := services.NewAuthService(userRepo, refreshTokenRepo, cfg)
 	userService := services.NewUserService(db, userRepo, refreshTokenRepo, salesTeamRepo)
 	teamService := services.NewTeamService(salesTeamRepo)
 	referenceService := services.NewReferenceService(referenceRepo)
+	leadService := services.NewLeadService(db, leadRepo, userRepo)
+	followUpService := services.NewFollowUpService(db, followUpRepo, leadRepo, userRepo)
 
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(authService, cfg)
 	userHandler := handlers.NewUserHandler(userService)
 	teamHandler := handlers.NewTeamHandler(teamService)
 	referenceHandler := handlers.NewReferenceHandler(referenceService)
+	leadHandler := handlers.NewLeadHandler(leadService)
+	followUpHandler := handlers.NewFollowUpHandler(followUpService)
 
 	return &Container{
 		AuthHandler:      authHandler,
 		UserHandler:      userHandler,
 		TeamHandler:      teamHandler,
 		ReferenceHandler: referenceHandler,
+		LeadHandler:      leadHandler,
+		FollowUpHandler:  followUpHandler,
 	}
 }

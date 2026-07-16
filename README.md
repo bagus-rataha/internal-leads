@@ -80,10 +80,6 @@ Examples of proper commit messages:
 
 **Take the time to write clear and understandable commit messages, as they are crucial for maintaining a clean and traceable project history.**
 
-### Authorship — absolute rule
-
-Commits in this repository are authored by the human contributor only. Never add a "Co-Authored-By" trailer or any other author/co-author mention for an AI tool/assistant to a commit message, regardless of how the change was produced. Files whose sole purpose is instructing an AI assistant are never committed to this repository.
-
 ## Setup Instructions
 
 1. **Clone the Repository**

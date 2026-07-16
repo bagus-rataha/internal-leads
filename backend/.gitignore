@@ -1,6 +1,5 @@
 Boilerplate*.md
 tmp/
 /tmp/*
-.claude/
 *.env
 /bin/

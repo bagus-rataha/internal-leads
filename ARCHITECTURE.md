@@ -56,9 +56,7 @@ lead-sales/
 ├── data/                          # CSV export Odoo untuk seeder
 ├── Dockerfile
 ├── docker-compose.yml
-├── Makefile
-├── ARCHITECTURE.md
-└── CLAUDE.md
+└── ARCHITECTURE.md
 ```
 
 Domain yang perlu ditambahkan (masing-masing tersebar di lapisan `handlers` / `services` / `repositories` / `dto` / `routes` sesuai pola boilerplate): `team`, `lead`, `followup`, `reference` (lead_source, service_type, wilayah), `dashboard`, `export`.
@@ -186,7 +184,10 @@ Keduanya berbeda saat Leader input lead untuk sales-nya. Tanpa pemisahan ini, me
 
 **Sumber**: `lead_source_id`
 
-**Denormalisasi**: `last_follow_up_at` (nullable)
+**Denormalisasi**: `last_follow_up_at` (nullable), `follow_up_count` (integer, default 0) —
+counter jumlah follow-up, di-increment dalam transaksi yang sama dengan insert follow-up (lihat
+§10). Sama alasannya dengan `last_follow_up_at`: hindari `COUNT(follow_up.*)` di runtime pada
+query list/detail yang sering diakses.
 
 **Index**: `owner_id`, `status`, `last_follow_up_at`, `created_at`, `city_id`
 
@@ -259,9 +260,17 @@ Base path mengikuti konvensi boilerplate. Response format mengikuti boilerplate 
 | PATCH | `/leads/:code/status` | idem |
 | GET | `/leads/export` | di-scope, mengembalikan xlsx |
 
-`GET /leads` query: `q`, `status`, `source_id`, `team_id`, `owner_id`, `province_id`, `city_id`, `date_from`, `date_to`, `stale`, `sort`, `page`, `limit`.
+`GET /leads` query: `q`, `status`, `source_id`, `team_id`, `owner_id`, `province_id`, `city_id`, `date_from`, `date_to`, `follow_up_from`, `follow_up_to`, `stale`, `sort`, `page`, `limit`.
 
-Default sort: `last_follow_up_at` terlama di atas.
+- `q` — `ILIKE` (OR) terhadap `code`, `company_name`, `pic_name`. Satu kotak pencarian mencakup baik kode yang setengah diingat maupun nama perusahaan/PIC. `GET /leads/:code` tetap terpisah untuk direct-lookup exact-match (mis. navigasi setelah klik dari list), bukan pengganti pencarian.
+- `date_from`/`date_to` — filter `created_at`.
+- `follow_up_from`/`follow_up_to` — filter `last_follow_up_at`.
+- `sort` — whitelist `code`, `company_name` (`?sort=field` asc, `?sort=-field` desc). `created_at` sengaja tidak disertakan terpisah: `code` digenerate dari sequence global di transaksi yang sama dengan insert, jadi urutan text `code` identik dengan urutan `created_at` — menyertakan keduanya redundan. Sort by nama kota (butuh JOIN ke `cities`) belum diimplementasikan — catatan untuk nanti kalau dibutuhkan.
+- `page`/`limit` — default `page=1`, `limit=20`, `limit` di-cap 100 (nilai berlebih di-clamp, bukan error).
+
+Response list: `{ items: [...], total, page, limit }` — bukan array polos, supaya frontend bisa render jumlah halaman tanpa request count terpisah.
+
+Default sort: `last_follow_up_at ASC NULLS FIRST` — lead yang belum pernah di-follow-up (`last_follow_up_at` masih kosong) dianggap paling mendesak, konsisten dengan definisi lead terlantar di §10 yang fallback ke `created_at` untuk kasus yang sama.
 
 **`POST /leads`:**
 - `owner_id` di body **diabaikan** kalau pemanggil SALES — di-set ke dirinya sendiri
@@ -280,10 +289,12 @@ LOST         → (terminal)
 `BARU → FOLLOW_UP` **tidak** lewat endpoint ini; terjadi otomatis saat follow-up pertama dibuat.
 
 ### Follow-up
-| Method | Path |
-|---|---|
-| GET | `/leads/:code/followups` |
-| POST | `/leads/:code/followups` |
+| Method | Path | Akses |
+|---|---|---|
+| GET | `/leads/:code/followups` | mewarisi scope lead induk |
+| POST | `/leads/:code/followups` | mewarisi scope lead induk |
+
+Akses follow-up **tidak punya kolom sendiri** — mengikuti scope lead induknya. Kalau lead di luar cakupan caller, 404 (bukan 403), supaya keberadaan lead tidak bocor.
 
 **Tidak ada PATCH dan DELETE.** Body POST hanya `{ note }` — `created_by_id` dari token, `created_at` dari server.
 
@@ -341,13 +352,14 @@ Sequence **tidak reset per bulan** — reset butuh locking dan menghasilkan race
 **Dilarang** memakai `COUNT(*)+1`. Dua sales menyimpan bersamaan akan menghasilkan kode kembar. `code` punya UNIQUE constraint sebagai jaring pengaman terakhir.
 
 ### Transaksi follow-up
-Menulis satu follow-up menyentuh tiga hal. **Satu transaksi, tanpa kecuali:**
+Menulis satu follow-up menyentuh empat hal. **Satu transaksi, tanpa kecuali:**
 
 1. Insert baris `follow_up`
 2. Update `lead.last_follow_up_at = now()`
-3. Update `lead.status = FOLLOW_UP` **hanya jika status saat ini `BARU`**
+3. Update `lead.follow_up_count = follow_up_count + 1` (increment atomic di level SQL, bukan read-modify-write di Go)
+4. Update `lead.status = FOLLOW_UP` **hanya jika status saat ini `BARU`**
 
-Kondisi di langkah 3 mencegah lead yang sudah `HANDOFF_ODOO` atau `LOST` tertarik mundur.
+Kondisi di langkah 4 mencegah lead yang sudah `HANDOFF_ODOO` atau `LOST` tertarik mundur.
 
 `last_follow_up_at` adalah denormalisasi yang disengaja — dipakai untuk sorting default dan deteksi lead terlantar di query terpanas aplikasi. **Jangan** diganti dengan `MAX(follow_up.created_at)` di runtime.
 
