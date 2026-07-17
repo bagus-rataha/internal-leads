@@ -134,12 +134,17 @@ function FollowUpInfo({ lead }: { lead: LeadResponse }) {
   return (
     <div className="flex flex-col items-start gap-1 lg:items-end">
       {lead.is_stale && (
-        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+        <span className="inline-flex items-center gap-[5px] rounded-full border border-[#FCE39A] bg-[#FEF3C7] px-[9px] py-[3px] text-[11px] font-bold text-[#92580A]">
           <Clock className="size-3" />
           Terlantar
         </span>
       )}
-      <span className="text-xs text-muted-foreground">
+      <span
+        className={cn(
+          'font-mono text-[12.5px] font-medium',
+          lead.is_stale ? 'text-[#92580A]' : 'text-[#64748B]'
+        )}
+      >
         {lead.last_follow_up_at ? formatRelativeTime(lead.last_follow_up_at) : 'Belum ada follow-up'}
       </span>
     </div>
