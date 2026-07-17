@@ -2,18 +2,57 @@
 // — no filters/pagination controls here, those come later). Table at
 // lg: and up, stacked cards below it — same data, no horizontal scroll.
 import { useEffect, useState } from 'react'
-import { Clock, Search } from 'lucide-react'
+import { Clock, Search, CalendarIcon, X } from 'lucide-react'
+import type { DateRange } from 'react-day-picker'
 import { useAuth } from '@/auth/AuthContext'
+import { apiFetch } from '@/api/client'
 import { useLeads } from './useLeads'
 import { getLeadSources } from './refCache'
 import type { LeadListParams, LeadSourceResponse, LeadStatus } from './api'
 import type { components } from '@/api/types'
 import { Button } from '@/components/ui/button'
+import { Calendar } from '@/components/ui/calendar'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 
 type LeadResponse = components['schemas']['dto.LeadResponse']
+type TeamResponse = components['schemas']['dto.TeamResponse']
+type UserResponse = components['schemas']['dto.UserResponse']
+
+// Team/sales dropdown data: a one-off reference fetch each, not reused
+// elsewhere yet. Same envelope-unwrap pattern as fetchLeadSources in
+// ./api.ts (check res.ok, guard res.json(), return body?.data ?? []) —
+// ponytail: no session-cache wrapper like refCache.ts here, this is a
+// single fetch-on-mount; add a cache if these end up reused elsewhere.
+async function fetchTeams(): Promise<TeamResponse[]> {
+  const res = await apiFetch('/api/v1/teams')
+  if (!res.ok) {
+    throw new Error('Failed to load teams')
+  }
+  let body: { data?: TeamResponse[] }
+  try {
+    body = await res.json()
+  } catch {
+    throw new Error('Failed to load teams')
+  }
+  return body?.data ?? []
+}
+
+async function fetchSalesUsers(): Promise<UserResponse[]> {
+  const res = await apiFetch('/api/v1/users?role=SALES')
+  if (!res.ok) {
+    throw new Error('Failed to load sales users')
+  }
+  let body: { data?: UserResponse[] }
+  try {
+    body = await res.json()
+  } catch {
+    throw new Error('Failed to load sales users')
+  }
+  return body?.data ?? []
+}
 
 const RELATIVE_TIME = new Intl.RelativeTimeFormat('id', { numeric: 'auto' })
 
@@ -29,10 +68,36 @@ function formatRelativeTime(iso: string): string {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
-  BARU: { label: 'Baru', className: 'bg-primary/10 text-primary' },
-  FOLLOW_UP: { label: 'Follow-up', className: 'bg-amber-100 text-amber-800' },
-  HANDOFF_ODOO: { label: 'Handoff Odoo', className: 'bg-green-100 text-green-800' },
-  LOST: { label: 'Hilang', className: 'bg-muted text-muted-foreground' },
+  BARU: { label: 'Baru', className: 'bg-[#E0F2FE] text-[#0369A1]' },
+  FOLLOW_UP: { label: 'Follow-up', className: 'bg-[#EEF3FC] text-[#1E3A8A]' },
+  HANDOFF_ODOO: { label: 'Handoff Odoo', className: 'bg-[#DCFCE7] text-[#166534]' },
+  LOST: { label: 'Hilang', className: 'bg-[#FEE2E2] text-[#B91C1C]' },
+}
+
+const FILTER_LABEL_CLASSNAME = 'text-[10.5px] font-bold tracking-wide text-[#94A3B8] uppercase'
+
+// date.toISOString() converts to UTC first — a user east of UTC clicking
+// "today" on the calendar would have it saved as yesterday. Build the
+// YYYY-MM-DD string from the Date's local components instead.
+function toLocalDateString(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const DATE_RANGE_LABEL_FORMAT = new Intl.DateTimeFormat('id', {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+})
+
+function formatDateRangeLabel(range?: DateRange): string {
+  if (!range?.from && !range?.to) return 'Rentang tanggal dibuat'
+  if (range.from && range.to) {
+    return `${DATE_RANGE_LABEL_FORMAT.format(range.from)} – ${DATE_RANGE_LABEL_FORMAT.format(range.to)}`
+  }
+  return DATE_RANGE_LABEL_FORMAT.format((range.from ?? range.to)!)
 }
 
 function StatusPill({ status }: { status?: string }) {
@@ -114,20 +179,20 @@ function EmptyState() {
 
 function LeadTable({ items, showSales }: { items: LeadResponse[]; showSales: boolean }) {
   return (
-    <div className="hidden overflow-x-auto rounded-xl border lg:block">
+    <div className="hidden overflow-x-auto rounded-[14px] border border-[#E7EDF3] shadow-[0_1px_2px_rgba(15,23,42,0.04)] lg:block">
       <table className="w-full text-left text-sm">
-        <thead className="border-b bg-muted/50 text-xs text-muted-foreground uppercase">
+        <thead className={cn('border-b bg-[#F7F9FC]', FILTER_LABEL_CLASSNAME)}>
           <tr>
-            <th className="px-4 py-3 font-medium">Kode</th>
-            <th className="px-4 py-3 font-medium">Perusahaan</th>
-            <th className="px-4 py-3 font-medium">Kota</th>
-            <th className="px-4 py-3 font-medium">PIC</th>
-            <th className="px-4 py-3 font-medium">Status</th>
-            {showSales && <th className="px-4 py-3 font-medium">Sales</th>}
-            <th className="px-4 py-3 text-right font-medium">Follow-up terakhir</th>
+            <th className="px-4 py-3">Kode</th>
+            <th className="px-4 py-3">Perusahaan</th>
+            <th className="px-4 py-3">Kota</th>
+            <th className="px-4 py-3">PIC</th>
+            <th className="px-4 py-3">Status</th>
+            {showSales && <th className="px-4 py-3">Sales</th>}
+            <th className="px-4 py-3 text-right">Follow-up terakhir</th>
           </tr>
         </thead>
-        <tbody className="divide-y">
+        <tbody className="divide-y divide-[#F1F5F9]">
           {items.map((lead) => (
             <tr key={lead.code}>
               <td className="relative px-4 py-3">
@@ -229,6 +294,16 @@ function FilterBar({
   staleOnly,
   onToggleStale,
   sources,
+  showTeamFilter,
+  teamId,
+  onTeamIdChange,
+  teams,
+  showSalesFilter,
+  ownerId,
+  onOwnerIdChange,
+  salesUsers,
+  dateRange,
+  onDateRangeChange,
 }: {
   q: string
   onQChange: (value: string) => void
@@ -239,47 +314,142 @@ function FilterBar({
   staleOnly: boolean
   onToggleStale: () => void
   sources: LeadSourceResponse[]
+  showTeamFilter: boolean
+  teamId: string
+  onTeamIdChange: (value: string) => void
+  teams: TeamResponse[]
+  showSalesFilter: boolean
+  ownerId: string
+  onOwnerIdChange: (value: string) => void
+  salesUsers: UserResponse[]
+  dateRange?: DateRange
+  onDateRangeChange: (range?: DateRange) => void
 }) {
   return (
-    <Card>
-      <CardContent className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
-        <div className="relative lg:min-w-[240px] lg:flex-1">
-          <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={q}
-            onChange={(e) => onQChange(e.target.value)}
-            placeholder="Cari kode lead atau nama perusahaan..."
-            className="pl-8"
-          />
+    <Card className="rounded-[14px] shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <CardContent className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end">
+        <div className="flex flex-col gap-1 lg:min-w-[240px] lg:flex-1">
+          <label className={FILTER_LABEL_CLASSNAME}>Cari</label>
+          <div className="relative">
+            <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={q}
+              onChange={(e) => onQChange(e.target.value)}
+              placeholder="Cari kode lead atau nama perusahaan..."
+              className="pl-8"
+            />
+          </div>
         </div>
 
-        <select
-          value={status}
-          onChange={(e) => onStatusChange(e.target.value as LeadStatus | '')}
-          className={SELECT_CLASSNAME}
-        >
-          <option value="">Semua status</option>
-          {STATUS_OPTIONS.map((option) => (
-            <option key={option} value={option}>
-              {STATUS_CONFIG[option].label}
-            </option>
-          ))}
-        </select>
+        <div className="flex flex-col gap-1">
+          <label className={FILTER_LABEL_CLASSNAME}>Status</label>
+          <select
+            value={status}
+            onChange={(e) => onStatusChange(e.target.value as LeadStatus | '')}
+            className={SELECT_CLASSNAME}
+          >
+            <option value="">Semua status</option>
+            {STATUS_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {STATUS_CONFIG[option].label}
+              </option>
+            ))}
+          </select>
+        </div>
 
-        <select
-          value={sourceId}
-          onChange={(e) => onSourceIdChange(e.target.value)}
-          className={SELECT_CLASSNAME}
-        >
-          <option value="">Semua sumber</option>
-          {sources.map((source, i) => (
-            <option key={source.id ?? i} value={source.id ?? ''}>
-              {source.name}
-            </option>
-          ))}
-        </select>
+        <div className="flex flex-col gap-1">
+          <label className={FILTER_LABEL_CLASSNAME}>Sumber</label>
+          <select
+            value={sourceId}
+            onChange={(e) => onSourceIdChange(e.target.value)}
+            className={SELECT_CLASSNAME}
+          >
+            <option value="">Semua sumber</option>
+            {sources.map((source, i) => (
+              <option key={source.id ?? i} value={source.id ?? ''}>
+                {source.name}
+              </option>
+            ))}
+          </select>
+        </div>
 
-        <Button variant={staleOnly ? 'default' : 'outline'} size="sm" onClick={onToggleStale}>
+        {showTeamFilter && (
+          <div className="flex flex-col gap-1">
+            <label className={FILTER_LABEL_CLASSNAME}>Tim</label>
+            <select
+              value={teamId}
+              onChange={(e) => onTeamIdChange(e.target.value)}
+              className={SELECT_CLASSNAME}
+            >
+              <option value="">Semua tim</option>
+              {teams.map((team, i) => (
+                <option key={team.id ?? i} value={team.id ?? ''}>
+                  {team.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {showSalesFilter && (
+          <div className="flex flex-col gap-1">
+            <label className={FILTER_LABEL_CLASSNAME}>Sales</label>
+            <select
+              value={ownerId}
+              onChange={(e) => onOwnerIdChange(e.target.value)}
+              className={SELECT_CLASSNAME}
+            >
+              <option value="">Semua sales</option>
+              {salesUsers.map((salesUser, i) => (
+                <option key={salesUser.id ?? i} value={salesUser.id ?? ''}>
+                  {salesUser.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        <div className="flex flex-col gap-1">
+          <label className={FILTER_LABEL_CLASSNAME}>Rentang tanggal dibuat</label>
+          <Popover>
+            <PopoverTrigger
+              className={cn(
+                SELECT_CLASSNAME,
+                'inline-flex items-center gap-1.5 text-left whitespace-nowrap'
+              )}
+            >
+              <CalendarIcon className="size-3.5 shrink-0 text-muted-foreground" />
+              <span className={cn(!dateRange?.from && !dateRange?.to && 'text-muted-foreground')}>
+                {formatDateRangeLabel(dateRange)}
+              </span>
+              {(dateRange?.from || dateRange?.to) && (
+                <X
+                  className="ml-auto size-3.5 shrink-0 text-muted-foreground hover:text-foreground"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onDateRangeChange(undefined)
+                  }}
+                />
+              )}
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0">
+              <Calendar
+                mode="range"
+                selected={dateRange}
+                onSelect={onDateRangeChange}
+                defaultMonth={dateRange?.from}
+                numberOfMonths={1}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        <Button
+          variant={staleOnly ? 'default' : 'outline'}
+          size="sm"
+          onClick={onToggleStale}
+          className="lg:self-end"
+        >
           Terlantar
         </Button>
       </CardContent>
@@ -364,15 +534,24 @@ function LeadListContent({
 }
 
 export default function LeadListPage() {
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'ADMIN_SALES' || user?.role === 'SU'
+  const showSalesFilter = user?.role !== 'SALES'
+
   const [retryNonce, setRetryNonce] = useState(0)
 
   const [q, setQ] = useState('')
   const [debouncedQ, setDebouncedQ] = useState('')
   const [status, setStatus] = useState<LeadStatus | ''>('')
   const [sourceId, setSourceId] = useState('')
+  const [teamId, setTeamId] = useState('')
+  const [ownerId, setOwnerId] = useState('')
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
   const [staleOnly, setStaleOnly] = useState(false)
   const [page, setPage] = useState(1)
   const [sources, setSources] = useState<LeadSourceResponse[]>([])
+  const [teams, setTeams] = useState<TeamResponse[]>([])
+  const [salesUsers, setSalesUsers] = useState<UserResponse[]>([])
 
   // Search box only joins the query params ~300ms after typing stops.
   useEffect(() => {
@@ -389,16 +568,45 @@ export default function LeadListPage() {
       })
   }, [])
 
+  // Team filter dropdown is admin-only — don't bother fetching it for a
+  // role that will never see it rendered.
+  useEffect(() => {
+    if (!isAdmin) return
+    fetchTeams()
+      .then(setTeams)
+      .catch(() => {
+        // Same degrade-quietly approach as the sources fetch above.
+      })
+  }, [isAdmin])
+
+  // Sales filter is hidden for SALES callers (and the backend wouldn't
+  // scope it usefully for them anyway) — skip the fetch too.
+  useEffect(() => {
+    if (!showSalesFilter) return
+    fetchSalesUsers()
+      .then(setSalesUsers)
+      .catch(() => {
+        // Same degrade-quietly approach as the sources fetch above.
+      })
+  }, [showSalesFilter])
+
+  const dateFrom = dateRange?.from ? toLocalDateString(dateRange.from) : ''
+  const dateTo = dateRange?.to ? toLocalDateString(dateRange.to) : ''
+
   // A filter change invalidates whatever page the user was on — the old
   // page number may not even exist in the new, possibly-smaller result set.
   useEffect(() => {
     setPage(1)
-  }, [debouncedQ, status, sourceId, staleOnly])
+  }, [debouncedQ, status, sourceId, teamId, ownerId, dateFrom, dateTo, staleOnly])
 
   const params: LeadListParams = {
     q: debouncedQ || undefined,
     status: status || undefined,
     source_id: sourceId || undefined,
+    team_id: teamId || undefined,
+    owner_id: ownerId || undefined,
+    date_from: dateFrom || undefined,
+    date_to: dateTo || undefined,
     stale: staleOnly ? 'true' : undefined,
     page,
   }
@@ -416,6 +624,16 @@ export default function LeadListPage() {
         staleOnly={staleOnly}
         onToggleStale={() => setStaleOnly((v) => !v)}
         sources={sources}
+        showTeamFilter={isAdmin}
+        teamId={teamId}
+        onTeamIdChange={setTeamId}
+        teams={teams}
+        showSalesFilter={showSalesFilter}
+        ownerId={ownerId}
+        onOwnerIdChange={setOwnerId}
+        salesUsers={salesUsers}
+        dateRange={dateRange}
+        onDateRangeChange={setDateRange}
       />
       <LeadListContent
         key={retryNonce}
