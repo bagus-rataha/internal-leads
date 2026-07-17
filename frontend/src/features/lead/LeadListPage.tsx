@@ -74,7 +74,7 @@ const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   LOST: { label: 'Hilang', className: 'bg-[#FEE2E2] text-[#B91C1C]' },
 }
 
-const FILTER_LABEL_CLASSNAME = 'text-[10.5px] font-bold tracking-wide text-[#94A3B8] uppercase'
+const FILTER_LABEL_CLASSNAME = 'text-[10.5px] font-bold tracking-[.05em] text-[#94A3B8] uppercase'
 
 // date.toISOString() converts to UTC first — a user east of UTC clicking
 // "today" on the calendar would have it saved as yesterday. Build the
