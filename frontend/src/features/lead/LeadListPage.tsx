@@ -122,7 +122,7 @@ function SalesBadge({ ownerName }: { ownerName?: string }) {
   const initial = ownerName ? ownerName.charAt(0).toUpperCase() : '?'
   return (
     <div className="flex items-center gap-2">
-      <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary font-display text-xs font-extrabold text-primary-foreground">
+      <div className="flex size-[26px] shrink-0 items-center justify-center rounded-[7px] bg-[#EEF2F7] text-[10.5px] font-bold text-[#475569]">
         {initial}
       </div>
       {ownerName && <span className="text-sm">{ownerName}</span>}

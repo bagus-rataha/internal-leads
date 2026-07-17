@@ -109,7 +109,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         )}
       >
         <div className="flex items-center gap-2.5 border-b px-4 py-4">
-          <div className="flex size-[34px] shrink-0 items-center justify-center rounded-lg bg-primary font-display font-extrabold text-primary-foreground">
+          <div className="flex size-[34px] shrink-0 items-center justify-center rounded-[9px] bg-primary font-display font-extrabold text-primary-foreground shadow-[0_2px_6px_rgba(29,78,216,0.3)]">
             L
           </div>
           <div className="min-w-0">
@@ -143,7 +143,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
         <div className="mt-auto border-t px-4 py-4">
           <div className="flex items-center gap-2.5">
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#EEF3FC] font-display font-extrabold text-sm text-[#1D4ED8]">
+            <div className="flex size-[34px] shrink-0 items-center justify-center rounded-[9px] bg-[#EEF3FC] font-display font-extrabold text-sm text-[#1D4ED8]">
               {initial}
             </div>
             <div className="min-w-0">
