@@ -40,8 +40,8 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <Card className="w-[400px] p-8 rounded-xl shadow-lg">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-[400px] p-8 rounded-xl shadow-lg">
         <div className="flex flex-col items-center gap-4 mb-6">
           <div className="h-14 px-3 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center font-display font-extrabold text-lg tracking-tight">
             LMS
