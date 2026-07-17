@@ -927,7 +927,8 @@ paths:
         in: query
         name: role
         type: string
-      - description: Filter by team id
+      - description: Filter by team id (ignored for LEADER callers, who are always
+          scoped to their own team)
         in: query
         name: team_id
         type: string
@@ -945,7 +946,7 @@ paths:
               type: object
       security:
       - BearerAuth: []
-      summary: List users
+      summary: 'List users (LEADER: own team roster; ADMIN_SALES/SU: unrestricted)'
       tags:
       - users
     post:

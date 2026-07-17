@@ -15,7 +15,7 @@ import (
 type userService interface {
 	GetProfile(userID uuid.UUID) (*dto.UserResponse, error)
 	UpdateProfile(userID uuid.UUID, input dto.UpdateProfileInput) (*dto.UserResponse, error)
-	ListUsers(role, teamID string) ([]dto.UserResponse, error)
+	ListUsers(callerID uuid.UUID, callerRole, role, teamID string) ([]dto.UserResponse, error)
 	CreateUser(input dto.CreateUserInput) (*dto.UserResponse, error)
 	GetUser(userID uuid.UUID) (*dto.UserResponse, error)
 	UpdateUser(userID uuid.UUID, input dto.UpdateUserInput) (*dto.UserResponse, error)
@@ -78,18 +78,24 @@ func (h *UserHandler) UpdateProfile(c *fiber.Ctx) error {
 }
 
 // ListUsers godoc
-// @Summary List users
+// @Summary List users (LEADER: own team roster; ADMIN_SALES/SU: unrestricted)
 // @Tags users
 // @Security BearerAuth
 // @Param role query string false "Filter by role"
-// @Param team_id query string false "Filter by team id"
+// @Param team_id query string false "Filter by team id (ignored for LEADER callers, who are always scoped to their own team)"
 // @Success 200 {object} utils.Response{data=[]dto.UserResponse}
 // @Router /users [get]
 func (h *UserHandler) ListUsers(c *fiber.Ctx) error {
+	callerID, ok := utils.GetUserID(c)
+	if !ok {
+		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Invalid session")
+	}
+	callerRole, _ := c.Locals("role").(string)
+
 	role := c.Query("role")
 	teamID := c.Query("team_id")
 
-	users, err := h.userService.ListUsers(role, teamID)
+	users, err := h.userService.ListUsers(callerID, callerRole, role, teamID)
 	if err != nil {
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError, err.Error())
 	}

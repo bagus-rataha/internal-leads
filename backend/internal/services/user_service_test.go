@@ -88,6 +88,7 @@ func TestUpdateProfile_UserNotFound(t *testing.T) {
 
 func TestListUsers_Success(t *testing.T) {
 	userRepo := new(MockUserRepository)
+	callerID := uuid.Must(uuid.NewV7())
 
 	users := []models.User{
 		{BaseModel: models.BaseModel{ID: uuid.Must(uuid.NewV7())}, Email: "a@test.com", Name: "A"},
@@ -97,23 +98,67 @@ func TestListUsers_Success(t *testing.T) {
 	userRepo.On("ListWithFilter", "", "").Return(users, nil)
 
 	svc := newUserService(userRepo, new(MockRefreshTokenRepository), new(MockSalesTeamRepository))
-	result, err := svc.ListUsers("", "")
+	result, err := svc.ListUsers(callerID, "SU", "", "")
 
 	assert.NoError(t, err)
 	assert.Len(t, result, 2)
 }
 
+// TestListUsers_FilteredByRoleAndTeam covers ADMIN_SALES/SU: unrestricted,
+// client-supplied role/team_id pass straight through unchanged from before.
 func TestListUsers_FilteredByRoleAndTeam(t *testing.T) {
 	userRepo := new(MockUserRepository)
+	callerID := uuid.Must(uuid.NewV7())
 	teamID := uuid.Must(uuid.NewV7()).String()
 
 	userRepo.On("ListWithFilter", "SALES", teamID).Return([]models.User{}, nil)
 
 	svc := newUserService(userRepo, new(MockRefreshTokenRepository), new(MockSalesTeamRepository))
-	_, err := svc.ListUsers("SALES", teamID)
+	_, err := svc.ListUsers(callerID, "ADMIN_SALES", "SALES", teamID)
 
 	assert.NoError(t, err)
 	userRepo.AssertCalled(t, "ListWithFilter", "SALES", teamID)
+	userRepo.AssertNotCalled(t, "FindByID", mock.Anything)
+}
+
+// TestListUsers_Leader_ForcesOwnTeam is the core security property: a LEADER
+// sends a team_id that is NOT their own team, and the service must still
+// query with the LEADER's real team_id, discarding the client's value
+// entirely - not merely validating it.
+func TestListUsers_Leader_ForcesOwnTeam(t *testing.T) {
+	userRepo := new(MockUserRepository)
+	callerID := uuid.Must(uuid.NewV7())
+	ownTeamID := uuid.Must(uuid.NewV7())
+	someoneElsesTeamID := uuid.Must(uuid.NewV7()).String()
+
+	leader := &models.User{BaseModel: models.BaseModel{ID: callerID}, Role: "LEADER", TeamID: &ownTeamID}
+	userRepo.On("FindByID", callerID).Return(leader, nil)
+	userRepo.On("ListWithFilter", "", ownTeamID.String()).Return([]models.User{}, nil)
+
+	svc := newUserService(userRepo, new(MockRefreshTokenRepository), new(MockSalesTeamRepository))
+	_, err := svc.ListUsers(callerID, "LEADER", "", someoneElsesTeamID)
+
+	assert.NoError(t, err)
+	userRepo.AssertCalled(t, "ListWithFilter", "", ownTeamID.String())
+	userRepo.AssertNotCalled(t, "ListWithFilter", "", someoneElsesTeamID)
+}
+
+// TestListUsers_Leader_NoTeam_Errors covers the data-integrity edge case
+// where a LEADER's own team_id is nil - must fail closed with a clean error,
+// never a panic and never an unrestricted list.
+func TestListUsers_Leader_NoTeam_Errors(t *testing.T) {
+	userRepo := new(MockUserRepository)
+	callerID := uuid.Must(uuid.NewV7())
+
+	leader := &models.User{BaseModel: models.BaseModel{ID: callerID}, Role: "LEADER", TeamID: nil}
+	userRepo.On("FindByID", callerID).Return(leader, nil)
+
+	svc := newUserService(userRepo, new(MockRefreshTokenRepository), new(MockSalesTeamRepository))
+	_, err := svc.ListUsers(callerID, "LEADER", "", "")
+
+	assert.Error(t, err)
+	assert.Equal(t, "leader has no team", err.Error())
+	userRepo.AssertNotCalled(t, "ListWithFilter", mock.Anything, mock.Anything)
 }
 
 // --- CreateUser ---

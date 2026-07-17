@@ -868,7 +868,7 @@ const docTemplate = `{
                 "tags": [
                     "users"
                 ],
-                "summary": "List users",
+                "summary": "List users (LEADER: own team roster; ADMIN_SALES/SU: unrestricted)",
                 "parameters": [
                     {
                         "type": "string",
@@ -878,7 +878,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Filter by team id",
+                        "description": "Filter by team id (ignored for LEADER callers, who are always scoped to their own team)",
                         "name": "team_id",
                         "in": "query"
                     }

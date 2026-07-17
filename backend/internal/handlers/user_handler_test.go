@@ -50,8 +50,9 @@ func newTestUserAdminApp(handler *UserHandler, role string) *fiber.App {
 		return c.Next()
 	}
 
+	app.Get("/users", roleMiddleware, middleware.RequireRole("LEADER", "ADMIN_SALES", "SU"), handler.ListUsers)
+
 	admin := app.Group("", roleMiddleware, middleware.RequireRole("ADMIN_SALES", "SU"))
-	admin.Get("/users", handler.ListUsers)
 	admin.Post("/users", handler.CreateUser)
 	admin.Get("/users/:id", handler.GetUser)
 	admin.Patch("/users/:id", handler.UpdateUser)
@@ -134,9 +135,30 @@ func TestUserHandler_ListUsers_Success(t *testing.T) {
 		{ID: uuid.Must(uuid.NewV7()), Email: "b@test.com"},
 	}
 
-	mockSvc.On("ListUsers", "", "").Return(users, nil)
+	mockSvc.On("ListUsers", testAdminCaller, "SU", "", "").Return(users, nil)
 
 	req := httptest.NewRequest("GET", "/users", nil)
+	resp, _ := app.Test(req)
+
+	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
+}
+
+func TestUserHandler_ListUsers_Leader_Success(t *testing.T) {
+	mockSvc := new(MockUserService)
+	handler := NewUserHandler(mockSvc)
+	app := newTestUserAdminApp(handler, "LEADER")
+
+	users := []dto.UserResponse{
+		{ID: uuid.Must(uuid.NewV7()), Email: "a@test.com"},
+	}
+
+	// The handler passes the client's query team_id straight through - it's
+	// the service's job (covered in user_service_test.go) to override it for
+	// a LEADER caller. Here we just confirm the handler wires caller identity
+	// through unmodified.
+	mockSvc.On("ListUsers", testAdminCaller, "LEADER", "", "some-other-team").Return(users, nil)
+
+	req := httptest.NewRequest("GET", "/users?team_id=some-other-team", nil)
 	resp, _ := app.Test(req)
 
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
@@ -151,7 +173,7 @@ func TestUserHandler_ListUsers_WrongRole_403(t *testing.T) {
 	resp, _ := app.Test(req)
 
 	assert.Equal(t, fiber.StatusForbidden, resp.StatusCode)
-	mockSvc.AssertNotCalled(t, "ListUsers", mock.Anything, mock.Anything)
+	mockSvc.AssertNotCalled(t, "ListUsers", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestUserHandler_CreateUser_Success(t *testing.T) {

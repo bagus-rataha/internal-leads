@@ -813,13 +813,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List users */
+        /** List users (LEADER: own team roster; ADMIN_SALES/SU: unrestricted) */
         get: {
             parameters: {
                 query?: {
                     /** @description Filter by role */
                     role?: string;
-                    /** @description Filter by team id */
+                    /** @description Filter by team id (ignored for LEADER callers, who are always scoped to their own team) */
                     team_id?: string;
                 };
                 header?: never;

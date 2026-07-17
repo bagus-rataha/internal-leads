@@ -98,7 +98,27 @@ func (s *UserService) UpdateProfile(userID uuid.UUID, input dto.UpdateProfileInp
 
 // ListUsers returns users optionally narrowed by role and/or team_id query
 // params. Empty string means "no filter" for that field.
-func (s *UserService) ListUsers(role, teamID string) ([]dto.UserResponse, error) {
+//
+// For a LEADER caller, teamID is forced to the caller's own team_id and
+// whatever the client sent is discarded entirely - the client-supplied
+// filter never gets a say, mirroring buildLeadScope in lead_service.go.
+// ADMIN_SALES/SU are unrestricted: their role/teamID pass straight through
+// as filters, unchanged from before.
+func (s *UserService) ListUsers(callerID uuid.UUID, callerRole, role, teamID string) ([]dto.UserResponse, error) {
+	if callerRole == "LEADER" {
+		caller, err := s.userRepo.FindByID(callerID)
+		if err != nil {
+			return nil, errors.New("caller not found")
+		}
+		if caller.TeamID == nil {
+			// Fail closed: a nil team_id must never fall through to an
+			// unrestricted list. A DB CHECK constraint keeps this
+			// unreachable today, but don't rely on that here either.
+			return nil, errors.New("leader has no team")
+		}
+		teamID = caller.TeamID.String()
+	}
+
 	users, err := s.userRepo.ListWithFilter(role, teamID)
 	if err != nil {
 		return nil, err
