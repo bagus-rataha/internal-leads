@@ -5,7 +5,7 @@
 import type { LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { LayoutDashboard, FileText, Users, Tag, Wrench, UserCog, Lock } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { NavLink } from 'react-router-dom'
 import { useAuth } from '@/auth/AuthContext'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -26,13 +26,15 @@ interface NavItemProps {
 // Locked items render as <div>, never <button>/<a> — a disabled-looking
 // interactive element that can still be focused/clicked is worse than one
 // that plainly isn't interactive. Unlocked items with a `to` navigate via
-// <Link> so the browser's own history/routing handles them properly.
+// <NavLink> so the browser's own history/routing handles them properly,
+// and so the active-route highlight comes from the router instead of
+// manually comparing the current location.
 function NavItem({ icon: Icon, label, locked, to, onClick }: NavItemProps) {
   if (locked) {
     return (
       <div
         aria-disabled="true"
-        className="flex cursor-not-allowed items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-muted-foreground select-none"
+        className="flex cursor-not-allowed items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-[#B9C4D2] select-none"
       >
         <Icon className="size-4" />
         <span>{label}</span>
@@ -43,14 +45,21 @@ function NavItem({ icon: Icon, label, locked, to, onClick }: NavItemProps) {
 
   if (to) {
     return (
-      <Link
+      <NavLink
         to={to}
         onClick={onClick}
-        className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium hover:bg-muted"
+        className={({ isActive }) =>
+          cn(
+            'flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm',
+            isActive
+              ? 'bg-[#EEF3FC] font-semibold text-[#1D4ED8]'
+              : 'font-medium text-[#475569] hover:bg-[#F5F8FE]'
+          )
+        }
       >
         <Icon className="size-4" />
         <span>{label}</span>
-      </Link>
+      </NavLink>
     )
   }
 
@@ -68,7 +77,7 @@ function NavItem({ icon: Icon, label, locked, to, onClick }: NavItemProps) {
 function NavGroup({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-1">
-      <p className="px-2.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+      <p className="px-2.5 font-mono text-[10px] font-bold tracking-[.09em] text-[#B4C0CE] uppercase">
         {label}
       </p>
       <div className="flex flex-col gap-0.5">{children}</div>
@@ -94,7 +103,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-40 flex h-screen w-[248px] flex-col border-r bg-background transition-transform',
+          'fixed inset-y-0 left-0 z-40 flex h-screen w-[248px] flex-col border-r-[#E7EDF3] bg-white transition-transform',
           'lg:static lg:translate-x-0',
           isOpen ? 'translate-x-0' : '-translate-x-full'
         )}
@@ -134,7 +143,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
         <div className="mt-auto border-t px-4 py-4">
           <div className="flex items-center gap-2.5">
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary font-display font-extrabold text-sm text-primary-foreground">
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#EEF3FC] font-display font-extrabold text-sm text-[#1D4ED8]">
               {initial}
             </div>
             <div className="min-w-0">
