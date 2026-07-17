@@ -1,8 +1,8 @@
 // List Lead screen: renders whatever useLeads({}) returns (default params
 // — no filters/pagination controls here, those come later). Table at
 // lg: and up, stacked cards below it — same data, no horizontal scroll.
-import { useEffect, useState } from 'react'
-import { Clock, Search, CalendarIcon, X } from 'lucide-react'
+import { useEffect, useState, type ReactNode } from 'react'
+import { Clock, Search, CalendarIcon, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import type { DateRange } from 'react-day-picker'
 import { useAuth } from '@/auth/AuthContext'
 import { apiFetch } from '@/api/client'
@@ -177,63 +177,82 @@ function EmptyState() {
   )
 }
 
-function LeadTable({ items, showSales }: { items: LeadResponse[]; showSales: boolean }) {
+function LeadTable({
+  items,
+  showSales,
+  pagination,
+}: {
+  items: LeadResponse[]
+  showSales: boolean
+  pagination: ReactNode
+}) {
   return (
-    <div className="hidden overflow-x-auto rounded-[14px] border border-[#E7EDF3] bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] lg:block">
-      <table className="w-full text-left text-sm">
-        <thead className={cn('border-b bg-[#F7F9FC]', FILTER_LABEL_CLASSNAME)}>
-          <tr>
-            <th className="px-4 py-3">Kode</th>
-            <th className="px-4 py-3">Perusahaan</th>
-            <th className="px-4 py-3">Kota</th>
-            <th className="px-4 py-3">PIC</th>
-            <th className="px-4 py-3">Status</th>
-            {showSales && <th className="px-4 py-3">Sales</th>}
-            <th className="px-4 py-3 text-right">Follow-up terakhir</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-[#F1F5F9]">
-          {items.map((lead) => (
-            <tr key={lead.code}>
-              <td className="relative px-4 py-3">
-                {lead.is_stale && (
-                  <span className="absolute top-2 bottom-2 left-0 w-[3px] rounded bg-amber-600" />
-                )}
-                <span className="font-mono text-primary">{lead.code}</span>
-              </td>
-              <td className="px-4 py-3">
-                <p className="font-semibold">{lead.company_name}</p>
-                {lead.business_field && (
-                  <p className="text-xs text-muted-foreground">{lead.business_field}</p>
-                )}
-              </td>
-              <td className="px-4 py-3">{lead.city_name ?? '—'}</td>
-              <td className="px-4 py-3">
-                <p>{lead.pic_name}</p>
-                {lead.pic_position && (
-                  <p className="text-xs text-muted-foreground">{lead.pic_position}</p>
-                )}
-              </td>
-              <td className="px-4 py-3">
-                <StatusPill status={lead.status} />
-              </td>
-              {showSales && (
-                <td className="px-4 py-3">
-                  <SalesBadge ownerName={lead.owner_name} />
-                </td>
-              )}
-              <td className="px-4 py-3 text-right">
-                <FollowUpInfo lead={lead} />
-              </td>
+    <div className="hidden overflow-hidden rounded-[14px] border border-[#E7EDF3] bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] lg:block">
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-sm">
+          <thead className={cn('border-b bg-[#F7F9FC]', FILTER_LABEL_CLASSNAME)}>
+            <tr>
+              <th className="px-4 py-3">Kode</th>
+              <th className="px-4 py-3">Perusahaan</th>
+              <th className="px-4 py-3">Kota</th>
+              <th className="px-4 py-3">PIC</th>
+              <th className="px-4 py-3">Status</th>
+              {showSales && <th className="px-4 py-3">Sales</th>}
+              <th className="px-4 py-3 text-right">Follow-up terakhir</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-[#F1F5F9]">
+            {items.map((lead) => (
+              <tr key={lead.code}>
+                <td className="relative px-4 py-3">
+                  {lead.is_stale && (
+                    <span className="absolute top-2 bottom-2 left-0 w-[3px] rounded bg-amber-600" />
+                  )}
+                  <span className="font-mono text-primary">{lead.code}</span>
+                </td>
+                <td className="px-4 py-3">
+                  <p className="font-semibold">{lead.company_name}</p>
+                  {lead.business_field && (
+                    <p className="text-xs text-muted-foreground">{lead.business_field}</p>
+                  )}
+                </td>
+                <td className="px-4 py-3">{lead.city_name ?? '—'}</td>
+                <td className="px-4 py-3">
+                  <p>{lead.pic_name}</p>
+                  {lead.pic_position && (
+                    <p className="text-xs text-muted-foreground">{lead.pic_position}</p>
+                  )}
+                </td>
+                <td className="px-4 py-3">
+                  <StatusPill status={lead.status} />
+                </td>
+                {showSales && (
+                  <td className="px-4 py-3">
+                    <SalesBadge ownerName={lead.owner_name} />
+                  </td>
+                )}
+                <td className="px-4 py-3 text-right">
+                  <FollowUpInfo lead={lead} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {pagination}
     </div>
   )
 }
 
-function LeadCards({ items, showSales }: { items: LeadResponse[]; showSales: boolean }) {
+function LeadCards({
+  items,
+  showSales,
+  pagination,
+}: {
+  items: LeadResponse[]
+  showSales: boolean
+  pagination: ReactNode
+}) {
   return (
     <div className="flex flex-col gap-3 lg:hidden">
       {items.map((lead) => (
@@ -275,6 +294,7 @@ function LeadCards({ items, showSales }: { items: LeadResponse[]; showSales: boo
           </CardContent>
         </Card>
       ))}
+      {pagination}
     </div>
   )
 }
@@ -457,34 +477,84 @@ function FilterBar({
   )
 }
 
+// Windowed pagination: all pages when there's few of them, otherwise first,
+// last, current ±1 neighbor, and an ellipsis filling each gap.
+function getPageItems(page: number, totalPages: number): (number | 'ellipsis')[] {
+  if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1)
+  const items: (number | 'ellipsis')[] = [1]
+  const start = Math.max(2, page - 1)
+  const end = Math.min(totalPages - 1, page + 1)
+  if (start > 2) items.push('ellipsis')
+  for (let p = start; p <= end; p++) items.push(p)
+  if (end < totalPages - 1) items.push('ellipsis')
+  items.push(totalPages)
+  return items
+}
+
+const PAGINATION_BUTTON_CLASSNAME =
+  'flex size-[30px] shrink-0 items-center justify-center rounded-[7px] border text-[12px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40'
+
 function Pagination({
   page,
   limit,
   total,
-  onPrev,
-  onNext,
+  itemsShown,
+  onPageChange,
 }: {
   page: number
   limit: number
   total: number
-  onPrev: () => void
-  onNext: () => void
+  itemsShown: number
+  onPageChange: (page: number) => void
 }) {
   if (total === 0) return null
-  const start = (page - 1) * limit + 1
-  const end = Math.min(page * limit, total)
+  const totalPages = Math.max(1, Math.ceil(total / limit))
+  const pageItems = getPageItems(page, totalPages)
   return (
-    <div className="flex items-center justify-between gap-3 pt-1">
-      <p className="text-sm text-muted-foreground">
-        {start}–{end} dari {total}
+    <div className="flex items-center justify-between border-t border-t-[#F1F5F9] bg-[#FCFDFE] px-4 py-[11px]">
+      <p className="text-[12px] text-[#94A3B8]">
+        Menampilkan <strong className="text-[#475569]">{itemsShown}</strong> dari {total} lead
       </p>
-      <div className="flex gap-2">
-        <Button variant="outline" size="sm" disabled={page <= 1} onClick={onPrev}>
-          Sebelumnya
-        </Button>
-        <Button variant="outline" size="sm" disabled={end >= total} onClick={onNext}>
-          Selanjutnya
-        </Button>
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          aria-label="Halaman sebelumnya"
+          className={cn(PAGINATION_BUTTON_CLASSNAME, 'border-[#E2E8F0] bg-white')}
+          disabled={page <= 1}
+          onClick={() => onPageChange(page - 1)}
+        >
+          <ChevronLeft className="size-4 text-[#94A3B8]" />
+        </button>
+        {pageItems.map((item, i) =>
+          item === 'ellipsis' ? (
+            <span key={`ellipsis-${i}`} className="px-1 text-[12px] text-[#94A3B8]">
+              …
+            </span>
+          ) : (
+            <button
+              key={item}
+              type="button"
+              className={cn(
+                PAGINATION_BUTTON_CLASSNAME,
+                item === page
+                  ? 'border-[#1D4ED8] bg-[#1D4ED8] text-white'
+                  : 'border-[#E2E8F0] bg-white text-[#475569] hover:bg-[#F7F9FC]'
+              )}
+              onClick={() => onPageChange(item)}
+            >
+              {item}
+            </button>
+          )
+        )}
+        <button
+          type="button"
+          aria-label="Halaman berikutnya"
+          className={cn(PAGINATION_BUTTON_CLASSNAME, 'border-[#E2E8F0] bg-white')}
+          disabled={page >= totalPages}
+          onClick={() => onPageChange(page + 1)}
+        >
+          <ChevronRight className="size-4 text-[#94A3B8]" />
+        </button>
       </div>
     </div>
   )
@@ -518,17 +588,20 @@ function LeadListContent({
   const limit = data?.limit ?? params.limit ?? items.length
   const total = data?.total ?? items.length
 
+  const pagination = (
+    <Pagination
+      page={page}
+      limit={limit}
+      total={total}
+      itemsShown={items.length}
+      onPageChange={onPageChange}
+    />
+  )
+
   return (
     <>
-      <LeadTable items={items} showSales={showSales} />
-      <LeadCards items={items} showSales={showSales} />
-      <Pagination
-        page={page}
-        limit={limit}
-        total={total}
-        onPrev={() => onPageChange(page - 1)}
-        onNext={() => onPageChange(page + 1)}
-      />
+      <LeadTable items={items} showSales={showSales} pagination={pagination} />
+      <LeadCards items={items} showSales={showSales} pagination={pagination} />
     </>
   )
 }
