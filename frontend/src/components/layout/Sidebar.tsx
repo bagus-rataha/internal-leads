@@ -1,10 +1,11 @@
-// Presentational shell nav. Every destination is locked (its target
+// Presentational shell nav. Most destinations are locked (their target
 // screen doesn't exist yet) and DATA/Settings are gated to
 // ADMIN_SALES/SU per the RBAC visibility rules — gating is a rendering
 // decision here, the backend is what actually enforces access.
 import type { LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { LayoutDashboard, FileText, Users, Tag, Wrench, UserCog, Lock } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '@/auth/AuthContext'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -18,12 +19,15 @@ interface NavItemProps {
   icon: LucideIcon
   label: string
   locked?: boolean
+  to?: string
+  onClick?: () => void
 }
 
 // Locked items render as <div>, never <button>/<a> — a disabled-looking
 // interactive element that can still be focused/clicked is worse than one
-// that plainly isn't interactive.
-function NavItem({ icon: Icon, label, locked }: NavItemProps) {
+// that plainly isn't interactive. Unlocked items with a `to` navigate via
+// <Link> so the browser's own history/routing handles them properly.
+function NavItem({ icon: Icon, label, locked, to, onClick }: NavItemProps) {
   if (locked) {
     return (
       <div
@@ -34,6 +38,19 @@ function NavItem({ icon: Icon, label, locked }: NavItemProps) {
         <span>{label}</span>
         <Lock className="ml-auto size-3.5" />
       </div>
+    )
+  }
+
+  if (to) {
+    return (
+      <Link
+        to={to}
+        onClick={onClick}
+        className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium hover:bg-muted"
+      >
+        <Icon className="size-4" />
+        <span>{label}</span>
+      </Link>
     )
   }
 
@@ -97,7 +114,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         <nav className="flex flex-col gap-4 overflow-y-auto px-3 py-4">
           <NavGroup label="Kerja Harian">
             <NavItem icon={LayoutDashboard} label="Dashboard" locked />
-            <NavItem icon={FileText} label="Lead" locked />
+            <NavItem icon={FileText} label="Lead" to="/leads" onClick={onClose} />
           </NavGroup>
 
           {isAdmin && (

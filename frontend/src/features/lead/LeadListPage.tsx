@@ -1,13 +1,16 @@
 // List Lead screen: renders whatever useLeads({}) returns (default params
 // — no filters/pagination controls here, those come later). Table at
 // lg: and up, stacked cards below it — same data, no horizontal scroll.
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Clock, Search } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { useLeads } from './useLeads'
+import { getLeadSources } from './refCache'
+import type { LeadListParams, LeadSourceResponse, LeadStatus } from './api'
 import type { components } from '@/api/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 
 type LeadResponse = components['schemas']['dto.LeadResponse']
@@ -211,12 +214,128 @@ function LeadCards({ items, showSales }: { items: LeadResponse[]; showSales: boo
   )
 }
 
+const STATUS_OPTIONS: LeadStatus[] = ['BARU', 'FOLLOW_UP', 'HANDOFF_ODOO', 'LOST']
+
+const SELECT_CLASSNAME =
+  'h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
+
+function FilterBar({
+  q,
+  onQChange,
+  status,
+  onStatusChange,
+  sourceId,
+  onSourceIdChange,
+  staleOnly,
+  onToggleStale,
+  sources,
+}: {
+  q: string
+  onQChange: (value: string) => void
+  status: LeadStatus | ''
+  onStatusChange: (value: LeadStatus | '') => void
+  sourceId: string
+  onSourceIdChange: (value: string) => void
+  staleOnly: boolean
+  onToggleStale: () => void
+  sources: LeadSourceResponse[]
+}) {
+  return (
+    <Card>
+      <CardContent className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
+        <div className="relative lg:min-w-[240px] lg:flex-1">
+          <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={q}
+            onChange={(e) => onQChange(e.target.value)}
+            placeholder="Cari kode lead atau nama perusahaan..."
+            className="pl-8"
+          />
+        </div>
+
+        <select
+          value={status}
+          onChange={(e) => onStatusChange(e.target.value as LeadStatus | '')}
+          className={SELECT_CLASSNAME}
+        >
+          <option value="">Semua status</option>
+          {STATUS_OPTIONS.map((option) => (
+            <option key={option} value={option}>
+              {STATUS_CONFIG[option].label}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={sourceId}
+          onChange={(e) => onSourceIdChange(e.target.value)}
+          className={SELECT_CLASSNAME}
+        >
+          <option value="">Semua sumber</option>
+          {sources.map((source, i) => (
+            <option key={source.id ?? i} value={source.id ?? ''}>
+              {source.name}
+            </option>
+          ))}
+        </select>
+
+        <Button variant={staleOnly ? 'default' : 'outline'} size="sm" onClick={onToggleStale}>
+          Terlantar
+        </Button>
+      </CardContent>
+    </Card>
+  )
+}
+
+function Pagination({
+  page,
+  limit,
+  total,
+  onPrev,
+  onNext,
+}: {
+  page: number
+  limit: number
+  total: number
+  onPrev: () => void
+  onNext: () => void
+}) {
+  if (total === 0) return null
+  const start = (page - 1) * limit + 1
+  const end = Math.min(page * limit, total)
+  return (
+    <div className="flex items-center justify-between gap-3 pt-1">
+      <p className="text-sm text-muted-foreground">
+        {start}–{end} dari {total}
+      </p>
+      <div className="flex gap-2">
+        <Button variant="outline" size="sm" disabled={page <= 1} onClick={onPrev}>
+          Sebelumnya
+        </Button>
+        <Button variant="outline" size="sm" disabled={end >= total} onClick={onNext}>
+          Selanjutnya
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 // Split out from the page component so "Coba lagi" can force a fresh
 // useLeads() call by remounting this subtree (key={retryNonce} below) —
 // useLeads has no refetch of its own and isn't this task's file to change.
-function LeadListContent({ onRetry }: { onRetry: () => void }) {
+// Filters/pagination state lives one level up in LeadListPage so a retry
+// remount here doesn't reset them; params just flow in as a prop.
+function LeadListContent({
+  params,
+  onRetry,
+  onPageChange,
+}: {
+  params: LeadListParams
+  onRetry: () => void
+  onPageChange: (page: number) => void
+}) {
   const { user } = useAuth()
-  const { data, loading, error } = useLeads({})
+  const { data, loading, error } = useLeads(params)
   const showSales = user?.role !== 'SALES'
 
   if (loading) return <LoadingState />
@@ -225,10 +344,21 @@ function LeadListContent({ onRetry }: { onRetry: () => void }) {
   const items = data?.items ?? []
   if (items.length === 0) return <EmptyState />
 
+  const page = data?.page ?? params.page ?? 1
+  const limit = data?.limit ?? params.limit ?? items.length
+  const total = data?.total ?? items.length
+
   return (
     <>
       <LeadTable items={items} showSales={showSales} />
       <LeadCards items={items} showSales={showSales} />
+      <Pagination
+        page={page}
+        limit={limit}
+        total={total}
+        onPrev={() => onPageChange(page - 1)}
+        onNext={() => onPageChange(page + 1)}
+      />
     </>
   )
 }
@@ -236,10 +366,63 @@ function LeadListContent({ onRetry }: { onRetry: () => void }) {
 export default function LeadListPage() {
   const [retryNonce, setRetryNonce] = useState(0)
 
+  const [q, setQ] = useState('')
+  const [debouncedQ, setDebouncedQ] = useState('')
+  const [status, setStatus] = useState<LeadStatus | ''>('')
+  const [sourceId, setSourceId] = useState('')
+  const [staleOnly, setStaleOnly] = useState(false)
+  const [page, setPage] = useState(1)
+  const [sources, setSources] = useState<LeadSourceResponse[]>([])
+
+  // Search box only joins the query params ~300ms after typing stops.
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQ(q), 300)
+    return () => clearTimeout(timer)
+  }, [q])
+
+  useEffect(() => {
+    getLeadSources()
+      .then(setSources)
+      .catch(() => {
+        // An empty dropdown on failure is an acceptable degradation — it
+        // doesn't block the rest of the filter bar or the list itself.
+      })
+  }, [])
+
+  // A filter change invalidates whatever page the user was on — the old
+  // page number may not even exist in the new, possibly-smaller result set.
+  useEffect(() => {
+    setPage(1)
+  }, [debouncedQ, status, sourceId, staleOnly])
+
+  const params: LeadListParams = {
+    q: debouncedQ || undefined,
+    status: status || undefined,
+    source_id: sourceId || undefined,
+    stale: staleOnly ? 'true' : undefined,
+    page,
+  }
+
   return (
     <div className="flex w-full max-w-full flex-col gap-4 p-4 lg:p-6">
       <h1 className="font-display text-xl font-extrabold">Lead</h1>
-      <LeadListContent key={retryNonce} onRetry={() => setRetryNonce((n) => n + 1)} />
+      <FilterBar
+        q={q}
+        onQChange={setQ}
+        status={status}
+        onStatusChange={setStatus}
+        sourceId={sourceId}
+        onSourceIdChange={setSourceId}
+        staleOnly={staleOnly}
+        onToggleStale={() => setStaleOnly((v) => !v)}
+        sources={sources}
+      />
+      <LeadListContent
+        key={retryNonce}
+        params={params}
+        onRetry={() => setRetryNonce((n) => n + 1)}
+        onPageChange={setPage}
+      />
     </div>
   )
 }
