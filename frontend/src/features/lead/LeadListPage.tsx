@@ -179,7 +179,7 @@ function EmptyState() {
 
 function LeadTable({ items, showSales }: { items: LeadResponse[]; showSales: boolean }) {
   return (
-    <div className="hidden overflow-x-auto rounded-[14px] border border-[#E7EDF3] shadow-[0_1px_2px_rgba(15,23,42,0.04)] lg:block">
+    <div className="hidden overflow-x-auto rounded-[14px] border border-[#E7EDF3] bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] lg:block">
       <table className="w-full text-left text-sm">
         <thead className={cn('border-b bg-[#F7F9FC]', FILTER_LABEL_CLASSNAME)}>
           <tr>
