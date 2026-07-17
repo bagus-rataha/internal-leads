@@ -99,7 +99,7 @@ type LeadListQuery struct {
 }
 
 // LeadResponse mirrors models.Lead's field set exactly (see
-// ToLeadResponse), plus FollowUpCount, OwnerName, and IsStale.
+// ToLeadResponse), plus FollowUpCount, OwnerName, CityName, and IsStale.
 type LeadResponse struct {
 	ID             uuid.UUID  `json:"id"`
 	Code           string     `json:"code"`
@@ -133,6 +133,7 @@ type LeadResponse struct {
 	FollowUpCount  int        `json:"follow_up_count"`
 	CreatedAt      time.Time  `json:"created_at"`
 	OwnerName      string     `json:"owner_name"`
+	CityName       *string    `json:"city_name"`
 	IsStale        bool       `json:"is_stale"`
 }
 
@@ -155,6 +156,17 @@ func ownerName(lead *models.Lead) string {
 		return ""
 	}
 	return lead.Owner.Name
+}
+
+// cityName reads lead.City.Name, returning nil when City wasn't preloaded or
+// the lead simply has no city_id (unlike Owner, City is legitimately absent
+// for a lead whose address hasn't been filled in yet). Pointer, not "", so
+// the frontend can distinguish "no city" from an empty name.
+func cityName(lead *models.Lead) *string {
+	if lead.City == nil {
+		return nil
+	}
+	return &lead.City.Name
 }
 
 // ToLeadResponse converts model to DTO
@@ -192,6 +204,7 @@ func ToLeadResponse(lead *models.Lead) LeadResponse {
 		FollowUpCount:  lead.FollowUpCount,
 		CreatedAt:      lead.CreatedAt,
 		OwnerName:      ownerName(lead),
+		CityName:       cityName(lead),
 		// IsStale is intentionally left at its zero value (false) here -
 		// computing it needs repository.StaleLeadThresholdDays, and dto must
 		// not import repository. The service sets it after calling this.

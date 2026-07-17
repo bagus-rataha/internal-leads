@@ -42,4 +42,8 @@ type Lead struct {
 	// Owner is read-only, populated via Preload for display purposes (e.g.
 	// owner_name in the API response). Never written to by this model.
 	Owner *User `gorm:"foreignKey:OwnerID"`
+
+	// City is read-only, populated via Preload for display purposes (e.g.
+	// city_name in the API response). Never written to by this model.
+	City *City `gorm:"foreignKey:CityID"`
 }

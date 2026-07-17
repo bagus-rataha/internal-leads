@@ -20,3 +20,15 @@ func TestToLeadResponse_OwnerName_PopulatedOwner(t *testing.T) {
 	lead := &models.Lead{Status: "BARU", Owner: &models.User{Name: "Budi Santoso"}}
 	assert.Equal(t, "Budi Santoso", ToLeadResponse(lead).OwnerName)
 }
+
+func TestToLeadResponse_CityName_NilCity_Nil(t *testing.T) {
+	lead := &models.Lead{Status: "BARU"}
+	assert.Nil(t, ToLeadResponse(lead).CityName)
+}
+
+func TestToLeadResponse_CityName_PopulatedCity(t *testing.T) {
+	lead := &models.Lead{Status: "BARU", City: &models.City{Name: "Jakarta Selatan"}}
+	if assert.NotNil(t, ToLeadResponse(lead).CityName) {
+		assert.Equal(t, "Jakarta Selatan", *ToLeadResponse(lead).CityName)
+	}
+}

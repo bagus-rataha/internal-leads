@@ -1174,6 +1174,7 @@ export interface components {
             business_field?: string;
             capacity_mbps?: number;
             city_id?: number;
+            city_name?: string;
             code?: string;
             company_name?: string;
             created_at?: string;

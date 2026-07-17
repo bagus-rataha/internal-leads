@@ -70,6 +70,15 @@ type userRepositoryForLead interface {
 	FindByID(id uuid.UUID) (*models.User, error)
 }
 
+// cityRepositoryForLead is the subset needed to populate city_name on a
+// lead that was just created in memory - List/FindByCode get City for free
+// via Preload, but a freshly-inserted lead hasn't gone through one. Satisfied
+// by the same *ReferenceRepository already used for /refs/cities - no new
+// repository type.
+type cityRepositoryForLead interface {
+	FindCityByID(id int) (*models.City, error)
+}
+
 // buildLeadScope translates a caller's identity into a LeadScope. Shared by
 // LeadService and FollowUpService so the role->scope mapping has exactly one
 // definition. SALES scopes to self without touching the DB; LEADER looks up
@@ -106,10 +115,11 @@ type LeadService struct {
 	db       *gorm.DB
 	leadRepo leadRepositoryForLead
 	userRepo userRepositoryForLead
+	cityRepo cityRepositoryForLead
 }
 
-func NewLeadService(db *gorm.DB, leadRepo leadRepositoryForLead, userRepo userRepositoryForLead) *LeadService {
-	return &LeadService{db: db, leadRepo: leadRepo, userRepo: userRepo}
+func NewLeadService(db *gorm.DB, leadRepo leadRepositoryForLead, userRepo userRepositoryForLead, cityRepo cityRepositoryForLead) *LeadService {
+	return &LeadService{db: db, leadRepo: leadRepo, userRepo: userRepo, cityRepo: cityRepo}
 }
 
 // run wraps a multi-step write in a single transaction, mirroring
@@ -197,6 +207,17 @@ func (s *LeadService) createLead(
 		return nil, err
 	}
 	lead.Owner = owner
+
+	// Same reasoning as Owner above, but skipped entirely when CityID is nil
+	// (unlike OwnerID, city_id is optional - a lead with no address filled in
+	// legitimately has no city).
+	if lead.CityID != nil {
+		city, err := s.cityRepo.FindCityByID(*lead.CityID)
+		if err != nil {
+			return nil, err
+		}
+		lead.City = city
+	}
 
 	response := dto.ToLeadResponse(lead)
 	response.IsStale = isLeadStale(lead, time.Now())

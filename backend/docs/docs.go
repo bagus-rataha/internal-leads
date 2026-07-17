@@ -1417,6 +1417,9 @@ const docTemplate = `{
                 "city_id": {
                     "type": "integer"
                 },
+                "city_name": {
+                    "type": "string"
+                },
                 "code": {
                     "type": "string"
                 },

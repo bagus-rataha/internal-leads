@@ -35,7 +35,7 @@ func NewContainer(db *gorm.DB, cfg *config.Config) *Container {
 	userService := services.NewUserService(db, userRepo, refreshTokenRepo, salesTeamRepo)
 	teamService := services.NewTeamService(salesTeamRepo)
 	referenceService := services.NewReferenceService(referenceRepo)
-	leadService := services.NewLeadService(db, leadRepo, userRepo)
+	leadService := services.NewLeadService(db, leadRepo, userRepo, referenceRepo)
 	followUpService := services.NewFollowUpService(db, followUpRepo, leadRepo, userRepo)
 
 	// Initialize handlers
