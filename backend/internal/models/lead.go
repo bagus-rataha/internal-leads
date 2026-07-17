@@ -38,4 +38,8 @@ type Lead struct {
 	LeadSourceID   *uuid.UUID `gorm:"type:uuid"`
 	LastFollowUpAt *time.Time `gorm:"index"`
 	FollowUpCount  int        `gorm:"not null;default:0"`
+
+	// Owner is read-only, populated via Preload for display purposes (e.g.
+	// owner_name in the API response). Never written to by this model.
+	Owner *User `gorm:"foreignKey:OwnerID"`
 }

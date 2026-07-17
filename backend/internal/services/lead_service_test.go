@@ -6,6 +6,7 @@ import (
 	"fiber-api-boilerplate/internal/models"
 	"fiber-api-boilerplate/internal/repository"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -14,12 +15,46 @@ import (
 	"gorm.io/gorm"
 )
 
+func TestIsLeadStale_ActivePastThreshold_True(t *testing.T) {
+	now := time.Now()
+	old := now.AddDate(0, 0, -10)
+
+	byLastFollowUp := &models.Lead{Status: "FOLLOW_UP", LastFollowUpAt: &old}
+	assert.True(t, isLeadStale(byLastFollowUp, now))
+
+	byCreatedAt := &models.Lead{
+		BaseModel: models.BaseModel{CreatedAt: old},
+		Status:    "BARU",
+	}
+	assert.True(t, isLeadStale(byCreatedAt, now), "falls back to created_at when never followed up")
+}
+
+func TestIsLeadStale_Terminal_AlwaysFalse(t *testing.T) {
+	now := time.Now()
+	old := now.AddDate(0, 0, -10)
+
+	handoff := &models.Lead{Status: "HANDOFF_ODOO", LastFollowUpAt: &old}
+	assert.False(t, isLeadStale(handoff, now), "terminal status is never stale regardless of dates")
+
+	lost := &models.Lead{Status: "LOST", LastFollowUpAt: &old}
+	assert.False(t, isLeadStale(lost, now), "terminal status is never stale regardless of dates")
+}
+
+func TestIsLeadStale_WithinWindow_False(t *testing.T) {
+	now := time.Now()
+	recent := now.AddDate(0, 0, -1)
+
+	lead := &models.Lead{Status: "FOLLOW_UP", LastFollowUpAt: &recent}
+	assert.False(t, isLeadStale(lead, now))
+}
+
 func TestLeadCreate_Sales_OwnerForcedToSelf(t *testing.T) {
 	leadRepo := new(MockLeadRepository)
 	userRepo := new(MockUserRepository)
 	salesID := uuid.Must(uuid.NewV7())
 	otherID := uuid.Must(uuid.NewV7())
 
+	userRepo.On("FindByID", salesID).Return(&models.User{Name: "Sales Person"}, nil)
 	leadRepo.On("NextCode", mock.AnythingOfType("time.Time")).Return("LD-2607-0001", nil)
 	leadRepo.On("Create", mock.AnythingOfType("*models.Lead")).Run(func(args mock.Arguments) {
 		lead := args.Get(0).(*models.Lead)
@@ -32,7 +67,30 @@ func TestLeadCreate_Sales_OwnerForcedToSelf(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, salesID, result.OwnerID)
-	userRepo.AssertNotCalled(t, "FindByID", mock.Anything)
+	// Exactly one FindByID call (the post-create owner-name fetch) - no
+	// team-membership validation query happens for SALES.
+	userRepo.AssertNumberOfCalls(t, "FindByID", 1)
+}
+
+// TestLeadCreate_OwnerNamePopulatedInResponse is the regression test for the
+// create-response gap: createLead used to build the DTO straight from the
+// in-memory lead without ever loading Owner, so owner_name always came back
+// "" even though a real owner had just been assigned.
+func TestLeadCreate_OwnerNamePopulatedInResponse(t *testing.T) {
+	leadRepo := new(MockLeadRepository)
+	userRepo := new(MockUserRepository)
+	salesID := uuid.Must(uuid.NewV7())
+
+	userRepo.On("FindByID", salesID).Return(&models.User{Name: "Budi Santoso"}, nil)
+	leadRepo.On("NextCode", mock.AnythingOfType("time.Time")).Return("LD-2607-0013", nil)
+	leadRepo.On("Create", mock.AnythingOfType("*models.Lead")).Return(nil)
+
+	svc := NewLeadService(nil, leadRepo, userRepo)
+	input := dto.CreateLeadInput{CompanyName: "Acme"}
+	result, err := svc.createLead(leadRepo, userRepo, salesID, "SALES", input)
+
+	assert.NoError(t, err)
+	assert.Equal(t, "Budi Santoso", result.OwnerName, "owner_name must be populated on the create response, not left empty")
 }
 
 func TestLeadCreate_Leader_ValidatesOwnerIsTeamMember(t *testing.T) {
@@ -78,6 +136,7 @@ func TestLeadCreate_Admin_OwnerIDOmitted_DefaultsToSelf(t *testing.T) {
 	userRepo := new(MockUserRepository)
 	adminID := uuid.Must(uuid.NewV7())
 
+	userRepo.On("FindByID", adminID).Return(&models.User{Name: "Admin"}, nil)
 	leadRepo.On("NextCode", mock.AnythingOfType("time.Time")).Return("LD-2607-0003", nil)
 	leadRepo.On("Create", mock.AnythingOfType("*models.Lead")).Return(nil)
 

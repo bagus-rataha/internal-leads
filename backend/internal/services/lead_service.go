@@ -27,6 +27,24 @@ var ErrOwnerNotTeamMember = errors.New("owner is not a member of your team")
 // this to 422.
 var ErrInvalidStatusTransition = errors.New("invalid status transition")
 
+// isLeadStale mirrors the SQL stale predicate in repository.applyLeadFilter
+// exactly, so the query-param filter and this per-row flag can never
+// disagree: status still active (BARU/FOLLOW_UP) and the last activity
+// (last_follow_up_at, falling back to created_at) is older than
+// repository.StaleLeadThresholdDays. now is passed in explicitly (rather than
+// calling time.Now() internally) so tests can pin the clock. Lives here
+// rather than in dto because dto must not import repository.
+func isLeadStale(lead *models.Lead, now time.Time) bool {
+	if lead.Status != "BARU" && lead.Status != "FOLLOW_UP" {
+		return false
+	}
+	lastActivity := lead.CreatedAt
+	if lead.LastFollowUpAt != nil {
+		lastActivity = *lead.LastFollowUpAt
+	}
+	return lastActivity.Before(now.AddDate(0, 0, -repository.StaleLeadThresholdDays))
+}
+
 // ErrInvalidReference is returned when a create/update write fails a
 // foreign-key constraint (invalid province_id/city_id/.../lead_source_id).
 // Per ARCHITECTURE.md, these fields aren't existence-checked in the service
@@ -170,7 +188,18 @@ func (s *LeadService) createLead(
 		return nil, translateWriteError(err)
 	}
 
+	// Populate Owner for the response after Create (not before) - setting a
+	// non-nil association before Create would make GORM try to upsert the
+	// User row too. lead is in-memory only here, so this is exactly one
+	// extra fetch, not a Preload/N+1 concern.
+	owner, err := userRepo.FindByID(lead.OwnerID)
+	if err != nil {
+		return nil, err
+	}
+	lead.Owner = owner
+
 	response := dto.ToLeadResponse(lead)
+	response.IsStale = isLeadStale(lead, time.Now())
 	return &response, nil
 }
 
@@ -251,8 +280,14 @@ func (s *LeadService) List(callerID uuid.UUID, role string, query dto.LeadListQu
 		return nil, err
 	}
 
+	items := dto.ToLeadResponseList(leads)
+	now := time.Now()
+	for i := range items {
+		items[i].IsStale = isLeadStale(&leads[i], now)
+	}
+
 	return &dto.PaginatedLeadResponse{
-		Items: dto.ToLeadResponseList(leads),
+		Items: items,
 		Total: total,
 		Page:  query.Page,
 		Limit: query.Limit,
@@ -272,6 +307,7 @@ func (s *LeadService) FindByCode(callerID uuid.UUID, role, code string) (*dto.Le
 	}
 
 	response := dto.ToLeadResponse(lead)
+	response.IsStale = isLeadStale(lead, time.Now())
 	return &response, nil
 }
 
@@ -296,6 +332,7 @@ func (s *LeadService) Update(callerID uuid.UUID, role, code string, input dto.Up
 	}
 
 	response := dto.ToLeadResponse(lead)
+	response.IsStale = isLeadStale(lead, time.Now())
 	return &response, nil
 }
 
@@ -420,5 +457,6 @@ func (s *LeadService) UpdateStatus(callerID uuid.UUID, role, code string, input 
 	}
 
 	response := dto.ToLeadResponse(lead)
+	response.IsStale = isLeadStale(lead, time.Now())
 	return &response, nil
 }

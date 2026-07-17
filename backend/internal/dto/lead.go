@@ -99,7 +99,7 @@ type LeadListQuery struct {
 }
 
 // LeadResponse mirrors models.Lead's field set exactly (see
-// ToLeadResponse), plus FollowUpCount.
+// ToLeadResponse), plus FollowUpCount, OwnerName, and IsStale.
 type LeadResponse struct {
 	ID             uuid.UUID  `json:"id"`
 	Code           string     `json:"code"`
@@ -132,6 +132,8 @@ type LeadResponse struct {
 	LastFollowUpAt *time.Time `json:"last_follow_up_at"`
 	FollowUpCount  int        `json:"follow_up_count"`
 	CreatedAt      time.Time  `json:"created_at"`
+	OwnerName      string     `json:"owner_name"`
+	IsStale        bool       `json:"is_stale"`
 }
 
 // PaginatedLeadResponse is GET /leads's Data payload - an object, not a bare
@@ -141,6 +143,18 @@ type PaginatedLeadResponse struct {
 	Total int64          `json:"total"`
 	Page  int            `json:"page"`
 	Limit int            `json:"limit"`
+}
+
+// ownerName reads lead.Owner.Name, defensively falling back to "" if the
+// Owner association wasn't preloaded rather than panicking on a nil pointer.
+// This depends only on models, unlike is_stale - which needs
+// repository.StaleLeadThresholdDays, so that computation lives in the
+// service instead and is set on the response after ToLeadResponse returns.
+func ownerName(lead *models.Lead) string {
+	if lead.Owner == nil {
+		return ""
+	}
+	return lead.Owner.Name
 }
 
 // ToLeadResponse converts model to DTO
@@ -177,6 +191,10 @@ func ToLeadResponse(lead *models.Lead) LeadResponse {
 		LastFollowUpAt: lead.LastFollowUpAt,
 		FollowUpCount:  lead.FollowUpCount,
 		CreatedAt:      lead.CreatedAt,
+		OwnerName:      ownerName(lead),
+		// IsStale is intentionally left at its zero value (false) here -
+		// computing it needs repository.StaleLeadThresholdDays, and dto must
+		// not import repository. The service sets it after calling this.
 	}
 }
 

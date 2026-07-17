@@ -1444,6 +1444,9 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "is_stale": {
+                    "type": "boolean"
+                },
                 "last_follow_up_at": {
                     "type": "string"
                 },
@@ -1463,6 +1466,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "owner_id": {
+                    "type": "string"
+                },
+                "owner_name": {
                     "type": "string"
                 },
                 "pic_name": {

@@ -1183,6 +1183,7 @@ export interface components {
             existing_isp?: string;
             follow_up_count?: number;
             id?: string;
+            is_stale?: boolean;
             last_follow_up_at?: string;
             lead_source_id?: string;
             lost_reason?: string;
@@ -1190,6 +1191,7 @@ export interface components {
             office_phone?: string;
             other_services?: string;
             owner_id?: string;
+            owner_name?: string;
             pic_name?: string;
             pic_position?: string;
             price?: number;

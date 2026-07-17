@@ -168,6 +168,8 @@ definitions:
         type: integer
       id:
         type: string
+      is_stale:
+        type: boolean
       last_follow_up_at:
         type: string
       lead_source_id:
@@ -181,6 +183,8 @@ definitions:
       other_services:
         type: string
       owner_id:
+        type: string
+      owner_name:
         type: string
       pic_name:
         type: string
