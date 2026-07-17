@@ -78,19 +78,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   async function login(email: string, password: string) {
-    const res = await apiFetch('/api/v1/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    })
-    const body = await res.json()
-    if (!res.ok) {
-      throw new Error(body?.message || 'Login gagal')
+    let res: Response
+    try {
+      res = await apiFetch('/api/v1/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      })
+    } catch {
+      throw new Error('Unable to reach the server. Please check your connection and try again.')
     }
 
-    const data: TokenResponse | undefined = body?.data
+    if (!res.ok) {
+      // Status checked before parsing the body: the 401 case is deliberately
+      // generic here too, matching the backend's anti-enumeration behavior
+      // (user-not-found, wrong-password, deactivated all return 401 with the
+      // same message) — never surface which factor failed.
+      if (res.status === 401) {
+        throw new Error('Incorrect email or password. Please check your credentials and try again.')
+      }
+      if (res.status === 429) {
+        throw new Error('Too many login attempts. Please wait a moment and try again.')
+      }
+      if (res.status >= 500) {
+        throw new Error('The server ran into a problem. Please try again later.')
+      }
+      throw new Error('Login failed. Please check your input and try again.')
+    }
+
+    let body: { data?: TokenResponse }
+    try {
+      body = await res.json()
+    } catch {
+      throw new Error('The server ran into a problem. Please try again later.')
+    }
+    const data = body?.data
     if (!data?.access_token || !data?.user) {
-      throw new Error('Respons login tidak valid')
+      throw new Error('The server ran into a problem. Please try again later.')
     }
     setAccessToken(data.access_token)
     setUser(data.user)
