@@ -122,6 +122,7 @@ export default function LeadDetailPage() {
         setDraft('')
         showToast('Follow-up tercatat')
       },
+      onError: () => showToast('Gagal menyimpan follow-up. Coba lagi.'),
     })
   }
 
@@ -133,6 +134,7 @@ export default function LeadDetailPage() {
           setModal(null)
           showToast('Lead di-handoff ke Odoo')
         },
+        onError: () => showToast('Gagal mengubah status. Coba lagi.'),
       }
     )
   }
@@ -144,6 +146,7 @@ export default function LeadDetailPage() {
         setReassignOpen(false)
         showToast(`Owner dipindahkan`)
       },
+      onError: () => showToast('Gagal memindahkan owner. Coba lagi.'),
     })
   }
 
@@ -158,6 +161,7 @@ export default function LeadDetailPage() {
           setLostReason('')
           showToast('Lead ditandai Lost')
         },
+        onError: () => showToast('Gagal mengubah status. Coba lagi.'),
       }
     )
   }
@@ -215,24 +219,24 @@ export default function LeadDetailPage() {
               </button>
             )}
             {canAct && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setModal('lost')}
-                  className="inline-flex items-center gap-[7px] rounded-[8px] bg-[#FEE2E2] px-[14px] py-2 text-[13px] font-semibold text-[#B91C1C] hover:bg-[#FECACA]"
-                >
-                  <XIcon className="size-[15px]" />
-                  Tandai Lost
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setModal('handoff')}
-                  className="inline-flex items-center gap-[7px] rounded-[8px] bg-[#1D4ED8] px-[15px] py-2 text-[13px] font-semibold text-white shadow-[0_1px_2px_rgba(29,78,216,0.3)] hover:bg-[#1A45BE]"
-                >
-                  <Check className="size-[15px]" />
-                  Handoff ke Odoo
-                </button>
-              </>
+              <button
+                type="button"
+                onClick={() => setModal('lost')}
+                className="inline-flex items-center gap-[7px] rounded-[8px] bg-[#FEE2E2] px-[14px] py-2 text-[13px] font-semibold text-[#B91C1C] hover:bg-[#FECACA]"
+              >
+                <XIcon className="size-[15px]" />
+                Tandai Lost
+              </button>
+            )}
+            {lead.status === 'FOLLOW_UP' && (
+              <button
+                type="button"
+                onClick={() => setModal('handoff')}
+                className="inline-flex items-center gap-[7px] rounded-[8px] bg-[#1D4ED8] px-[15px] py-2 text-[13px] font-semibold text-white shadow-[0_1px_2px_rgba(29,78,216,0.3)] hover:bg-[#1A45BE]"
+              >
+                <Check className="size-[15px]" />
+                Handoff ke Odoo
+              </button>
             )}
           </div>
         </div>
