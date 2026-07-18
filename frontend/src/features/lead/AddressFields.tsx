@@ -31,12 +31,18 @@ function SelectChevron() {
   )
 }
 
+type AddressField = 'province_id' | 'city_id' | 'district_id' | 'village_id'
+
 export function AddressFields({
   value,
   onChange,
+  errors,
+  onBlurField,
 }: {
   value: AddressValue
   onChange: (next: AddressValue) => void
+  errors?: Partial<Record<AddressField, string>>
+  onBlurField?: (field: AddressField) => void
 }) {
   const { data: provinces = [] } = useProvinces()
   const { data: cities = [] } = useCities(value.province_id)
@@ -59,7 +65,9 @@ export function AddressFields({
   return (
     <>
       <div>
-        <label className={FIELD_LABEL}>Provinsi *</label>
+        <label className={FIELD_LABEL}>
+          Provinsi <span className="text-[#DC2626]">*</span>
+        </label>
         <div className="relative">
           <select
             required
@@ -67,7 +75,10 @@ export function AddressFields({
             onChange={(e) =>
               onChange({ province_id: Number(e.target.value) || undefined })
             }
-            className={FIELD_SELECT}
+            onBlur={() => onBlurField?.('province_id')}
+            className={
+              errors?.province_id ? FIELD_SELECT + ' border-[#DC2626]' : FIELD_SELECT
+            }
           >
             <option value="">Pilih provinsi…</option>
             {provinces.map((p) => (
@@ -78,10 +89,15 @@ export function AddressFields({
           </select>
           <SelectChevron />
         </div>
+        {errors?.province_id && (
+          <p className="mt-1 text-[11px] text-[#DC2626]">{errors.province_id}</p>
+        )}
       </div>
 
       <div>
-        <label className={FIELD_LABEL}>Kota/Kabupaten *</label>
+        <label className={FIELD_LABEL}>
+          Kota/Kabupaten <span className="text-[#DC2626]">*</span>
+        </label>
         <div className="relative">
           <select
             required
@@ -93,7 +109,11 @@ export function AddressFields({
                 city_id: Number(e.target.value) || undefined,
               })
             }
-            className={value.province_id ? FIELD_SELECT : FIELD_SELECT_DISABLED}
+            onBlur={() => onBlurField?.('city_id')}
+            className={
+              (value.province_id ? FIELD_SELECT : FIELD_SELECT_DISABLED) +
+              (errors?.city_id ? ' border-[#DC2626]' : '')
+            }
           >
             <option value="">
               {value.province_id ? 'Pilih kota/kabupaten…' : 'Pilih provinsi dulu'}
@@ -106,10 +126,15 @@ export function AddressFields({
           </select>
           <SelectChevron />
         </div>
+        {errors?.city_id && (
+          <p className="mt-1 text-[11px] text-[#DC2626]">{errors.city_id}</p>
+        )}
       </div>
 
       <div>
-        <label className={FIELD_LABEL}>Kecamatan *</label>
+        <label className={FIELD_LABEL}>
+          Kecamatan <span className="text-[#DC2626]">*</span>
+        </label>
         <div className="relative">
           <select
             required
@@ -122,7 +147,11 @@ export function AddressFields({
                 district_id: Number(e.target.value) || undefined,
               })
             }
-            className={value.city_id ? FIELD_SELECT : FIELD_SELECT_DISABLED}
+            onBlur={() => onBlurField?.('district_id')}
+            className={
+              (value.city_id ? FIELD_SELECT : FIELD_SELECT_DISABLED) +
+              (errors?.district_id ? ' border-[#DC2626]' : '')
+            }
           >
             <option value="">{value.city_id ? 'Pilih kecamatan…' : 'Pilih kota dulu'}</option>
             {districts.map((d) => (
@@ -133,17 +162,26 @@ export function AddressFields({
           </select>
           <SelectChevron />
         </div>
+        {errors?.district_id && (
+          <p className="mt-1 text-[11px] text-[#DC2626]">{errors.district_id}</p>
+        )}
       </div>
 
       <div>
-        <label className={FIELD_LABEL}>Kelurahan *</label>
+        <label className={FIELD_LABEL}>
+          Kelurahan <span className="text-[#DC2626]">*</span>
+        </label>
         <div className="relative">
           <select
             required
             disabled={!value.district_id}
             value={value.village_id ?? ''}
             onChange={onVillageChange}
-            className={value.district_id ? FIELD_SELECT : FIELD_SELECT_DISABLED}
+            onBlur={() => onBlurField?.('village_id')}
+            className={
+              (value.district_id ? FIELD_SELECT : FIELD_SELECT_DISABLED) +
+              (errors?.village_id ? ' border-[#DC2626]' : '')
+            }
           >
             <option value="">
               {value.district_id ? 'Pilih kelurahan…' : 'Pilih kecamatan dulu'}
@@ -156,6 +194,9 @@ export function AddressFields({
           </select>
           <SelectChevron />
         </div>
+        {errors?.village_id && (
+          <p className="mt-1 text-[11px] text-[#DC2626]">{errors.village_id}</p>
+        )}
       </div>
     </>
   )
