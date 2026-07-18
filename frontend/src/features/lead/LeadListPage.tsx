@@ -3,7 +3,7 @@
 // lg: and up, stacked cards below it — same data, no horizontal scroll.
 import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Clock, Search, CalendarIcon, X, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import { Clock, Search, CalendarIcon, X, ChevronLeft, ChevronRight, Plus, SlidersHorizontal } from 'lucide-react'
 import type { DateRange } from 'react-day-picker'
 import { useAuth } from '@/auth/AuthContext'
 import { useLeads } from './useLeads'
@@ -541,6 +541,7 @@ export default function LeadListPage() {
   const showSalesFilter = user?.role !== 'SALES'
 
   const [retryNonce, setRetryNonce] = useState(0)
+  const [filtersOpen, setFiltersOpen] = useState(false)
 
   const [q, setQ] = useState('')
   const [debouncedQ, setDebouncedQ] = useState('')
@@ -613,40 +614,62 @@ export default function LeadListPage() {
     page,
   }
 
+  const activeFilterCount = [status, sourceId, teamId, ownerId, staleOnly, dateRange?.from].filter(
+    Boolean
+  ).length
+
   return (
     <div className="flex w-full max-w-full flex-col gap-4 p-4 lg:p-6">
       <div className="flex items-center justify-between">
         <h1 className="font-display text-xl font-extrabold">Lead</h1>
-        <button
-          type="button"
-          onClick={() => navigate('/leads/new')}
-          className="inline-flex items-center gap-2 rounded-[8px] bg-[#1D4ED8] px-[17px] py-[9px] text-[13.5px] font-semibold text-white shadow-[0_1px_2px_rgba(29,78,216,0.3)] hover:bg-[#1A45BE]"
-        >
-          <Plus className="size-4" />
-          Lead Baru
-        </button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant={filtersOpen ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setFiltersOpen((v) => !v)}
+            className="gap-1.5"
+          >
+            <SlidersHorizontal className="size-4" />
+            Filter
+            {activeFilterCount > 0 && (
+              <span className="ml-0.5 flex size-4 items-center justify-center rounded-full bg-white/20 text-[10px] font-bold">
+                {activeFilterCount}
+              </span>
+            )}
+          </Button>
+          <button
+            type="button"
+            onClick={() => navigate('/leads/new')}
+            className="inline-flex items-center gap-2 rounded-[8px] bg-[#1D4ED8] px-[17px] py-[9px] text-[13.5px] font-semibold text-white shadow-[0_1px_2px_rgba(29,78,216,0.3)] hover:bg-[#1A45BE]"
+          >
+            <Plus className="size-4" />
+            Lead Baru
+          </button>
+        </div>
       </div>
-      <FilterBar
-        q={q}
-        onQChange={setQ}
-        status={status}
-        onStatusChange={setStatus}
-        sourceId={sourceId}
-        onSourceIdChange={setSourceId}
-        staleOnly={staleOnly}
-        onToggleStale={() => setStaleOnly((v) => !v)}
-        sources={sources}
-        showTeamFilter={isAdmin}
-        teamId={teamId}
-        onTeamIdChange={setTeamId}
-        teams={teams}
-        showSalesFilter={showSalesFilter}
-        ownerId={ownerId}
-        onOwnerIdChange={setOwnerId}
-        salesUsers={salesUsers}
-        dateRange={dateRange}
-        onDateRangeChange={setDateRange}
-      />
+      {filtersOpen && (
+        <FilterBar
+          q={q}
+          onQChange={setQ}
+          status={status}
+          onStatusChange={setStatus}
+          sourceId={sourceId}
+          onSourceIdChange={setSourceId}
+          staleOnly={staleOnly}
+          onToggleStale={() => setStaleOnly((v) => !v)}
+          sources={sources}
+          showTeamFilter={isAdmin}
+          teamId={teamId}
+          onTeamIdChange={setTeamId}
+          teams={teams}
+          showSalesFilter={showSalesFilter}
+          ownerId={ownerId}
+          onOwnerIdChange={setOwnerId}
+          salesUsers={salesUsers}
+          dateRange={dateRange}
+          onDateRangeChange={setDateRange}
+        />
+      )}
       <LeadListContent
         key={retryNonce}
         params={params}
