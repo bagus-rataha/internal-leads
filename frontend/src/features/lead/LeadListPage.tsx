@@ -195,13 +195,8 @@ function LeadCards({
             </div>
             <StatusPill status={lead.status} />
           </div>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-            <span>{lead.city_name ?? '—'}</span>
-            <span>{lead.pic_name}</span>
-            {lead.pic_position && <span>{lead.pic_position}</span>}
-            {showSales && <SalesBadge ownerName={lead.owner_name} />}
-          </div>
           <FollowUpInfo lead={lead} />
+          {showSales && <SalesBadge ownerName={lead.owner_name} />}
         </div>
       ))}
       {pagination}
