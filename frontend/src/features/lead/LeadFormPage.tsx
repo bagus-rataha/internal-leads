@@ -7,10 +7,9 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { ChevronLeft, ChevronDown, Info, Check } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { showToast } from '@/hooks/useToast'
-import { useServiceTypes } from '@/features/reference/queries'
-import { getLeadSources } from './refCache'
+import { useServiceTypes, useLeadSources } from '@/features/reference/queries'
 import { useCreateLead, useUpdateLead, useSalesRoster, useLeadDetail } from './queries'
-import type { CreateLeadInput, LeadDetailResponse, LeadSourceResponse } from './api'
+import type { CreateLeadInput, LeadDetailResponse } from './api'
 import {
   AddressFields,
   FIELD_LABEL,
@@ -336,7 +335,7 @@ export default function LeadFormPage() {
   const [values, setValues] = useState<LeadFormValues>(blankForm())
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [touched, setTouched] = useState<Record<string, boolean>>({})
-  const [sources, setSources] = useState<LeadSourceResponse[]>([])
+  const { data: sources = [] } = useLeadSources()
   const { data: serviceTypes = [] } = useServiceTypes()
   const showOwnerField = user?.role !== 'SALES'
   const { data: salesRoster = [] } = useSalesRoster(showOwnerField)
@@ -345,15 +344,6 @@ export default function LeadFormPage() {
   const createMutation = useCreateLead()
   const updateMutation = useUpdateLead(code ?? '')
   const detail = useLeadDetail(code ?? '')
-
-  useEffect(() => {
-    getLeadSources()
-      .then(setSources)
-      .catch(() => {
-        // An empty dropdown on failure is an acceptable degradation — same
-        // pattern as LeadListPage's FilterBar.
-      })
-  }, [])
 
   // Once the edit-mode detail has loaded (keyed on `id` so it only runs once
   // per lead, not on every refetch/invalidation): bounce terminal leads back

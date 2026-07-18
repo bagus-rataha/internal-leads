@@ -128,15 +128,15 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
           {isAdmin && (
             <NavGroup label="DATA">
-              <NavItem icon={Users} label="Sales Team" locked />
-              <NavItem icon={Tag} label="Sumber Lead" locked />
-              <NavItem icon={Wrench} label="Type Layanan" locked />
+              <NavItem icon={Users} label="Sales Team" to="/data/sales-team" onClick={onClose} />
+              <NavItem icon={Tag} label="Sumber Lead" to="/data/lead-sources" onClick={onClose} />
+              <NavItem icon={Wrench} label="Type Layanan" to="/data/service-types" onClick={onClose} />
             </NavGroup>
           )}
 
           {isAdmin && (
             <NavGroup label="Settings">
-              <NavItem icon={UserCog} label="User" locked />
+              <NavItem icon={UserCog} label="User" to="/settings/users" onClick={onClose} />
             </NavGroup>
           )}
         </nav>

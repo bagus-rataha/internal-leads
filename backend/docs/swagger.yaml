@@ -81,6 +81,24 @@ definitions:
     required:
     - company_name
     type: object
+  dto.CreateLeadSourceInput:
+    properties:
+      name:
+        maxLength: 100
+        minLength: 2
+        type: string
+    required:
+    - name
+    type: object
+  dto.CreateServiceTypeInput:
+    properties:
+      name:
+        maxLength: 100
+        minLength: 2
+        type: string
+    required:
+    - name
+    type: object
   dto.CreateTeamInput:
     properties:
       name:
@@ -304,6 +322,17 @@ definitions:
       zip_id:
         type: integer
     type: object
+  dto.LeadSourceAdminResponse:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      is_active:
+        type: boolean
+      name:
+        type: string
+    type: object
   dto.LeadSourceResponse:
     properties:
       id:
@@ -356,6 +385,17 @@ definitions:
         type: string
     required:
     - new_password
+    type: object
+  dto.ServiceTypeAdminResponse:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      is_active:
+        type: boolean
+      name:
+        type: string
     type: object
   dto.ServiceTypeResponse:
     properties:
@@ -447,6 +487,15 @@ definitions:
       zip_id:
         type: integer
     type: object
+  dto.UpdateLeadSourceInput:
+    properties:
+      is_active:
+        type: boolean
+      name:
+        maxLength: 100
+        minLength: 2
+        type: string
+    type: object
   dto.UpdateLeadStatusInput:
     properties:
       lost_reason:
@@ -469,6 +518,15 @@ definitions:
         type: string
     required:
     - name
+    type: object
+  dto.UpdateServiceTypeInput:
+    properties:
+      is_active:
+        type: boolean
+      name:
+        maxLength: 100
+        minLength: 2
+        type: string
     type: object
   dto.UpdateTeamInput:
     properties:
@@ -609,6 +667,77 @@ paths:
       summary: Refresh token
       tags:
       - auth
+  /lead-sources:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/dto.LeadSourceAdminResponse'
+                  type: array
+              type: object
+      security:
+      - BearerAuth: []
+      summary: List all lead sources, active and inactive (admin only)
+      tags:
+      - lead-sources
+    post:
+      parameters:
+      - description: Create lead source
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateLeadSourceInput'
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.LeadSourceAdminResponse'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Create lead source (admin only)
+      tags:
+      - lead-sources
+  /lead-sources/{id}:
+    patch:
+      parameters:
+      - description: Lead source ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Update lead source
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateLeadSourceInput'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.LeadSourceAdminResponse'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Update lead source (admin only)
+      tags:
+      - lead-sources
   /leads:
     get:
       responses:
@@ -918,6 +1047,77 @@ paths:
       summary: List villages by district
       tags:
       - refs
+  /service-types:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/dto.ServiceTypeAdminResponse'
+                  type: array
+              type: object
+      security:
+      - BearerAuth: []
+      summary: List all service types, active and inactive (admin only)
+      tags:
+      - service-types
+    post:
+      parameters:
+      - description: Create service type
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateServiceTypeInput'
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.ServiceTypeAdminResponse'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Create service type (admin only)
+      tags:
+      - service-types
+  /service-types/{id}:
+    patch:
+      parameters:
+      - description: Service type ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Update service type
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateServiceTypeInput'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.ServiceTypeAdminResponse'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Update service type (admin only)
+      tags:
+      - service-types
   /teams:
     get:
       responses:

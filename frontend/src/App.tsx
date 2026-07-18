@@ -1,11 +1,16 @@
 import { Routes, Route } from 'react-router-dom'
 import { RouteGuard } from '@/auth/RouteGuard'
+import { AdminRouteGuard } from '@/auth/AdminRouteGuard'
 import { LoginPage } from '@/features/auth/LoginPage'
 import { Shell } from '@/components/layout/Shell'
 import { WelcomeHome } from '@/components/layout/WelcomeHome'
 import LeadListPage from '@/features/lead/LeadListPage'
 import LeadDetailPage from '@/features/lead/LeadDetailPage'
 import LeadFormPage from '@/features/lead/LeadFormPage'
+import SalesTeamPage from '@/features/team/SalesTeamPage'
+import LeadSourcePage from '@/features/reference/LeadSourcePage'
+import TypeLayananPage from '@/features/reference/TypeLayananPage'
+import UserPage from '@/features/user/UserPage'
 
 function App() {
   return (
@@ -17,6 +22,10 @@ function App() {
         <Route path="leads/new" element={<LeadFormPage />} />
         <Route path="leads/:code" element={<LeadDetailPage />} />
         <Route path="leads/:code/edit" element={<LeadFormPage />} />
+        <Route path="data/sales-team" element={<AdminRouteGuard><SalesTeamPage /></AdminRouteGuard>} />
+        <Route path="data/lead-sources" element={<AdminRouteGuard><LeadSourcePage /></AdminRouteGuard>} />
+        <Route path="data/service-types" element={<AdminRouteGuard><TypeLayananPage /></AdminRouteGuard>} />
+        <Route path="settings/users" element={<AdminRouteGuard><UserPage /></AdminRouteGuard>} />
       </Route>
     </Routes>
   )

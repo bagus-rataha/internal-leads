@@ -184,3 +184,55 @@ func (m *MockReferenceService) ListVillages(districtID int, q string) ([]dto.Vil
 	}
 	return args.Get(0).([]dto.VillageResponse), args.Error(1)
 }
+
+// MockLeadSourceService is a manual testify mock for the leadSourceService interface.
+type MockLeadSourceService struct {
+	mock.Mock
+}
+
+func (m *MockLeadSourceService) Create(input dto.CreateLeadSourceInput) (*dto.LeadSourceAdminResponse, error) {
+	args := m.Called(input)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*dto.LeadSourceAdminResponse), args.Error(1)
+}
+
+func (m *MockLeadSourceService) List() ([]dto.LeadSourceAdminResponse, error) {
+	args := m.Called()
+	return args.Get(0).([]dto.LeadSourceAdminResponse), args.Error(1)
+}
+
+func (m *MockLeadSourceService) Update(id uuid.UUID, input dto.UpdateLeadSourceInput) (*dto.LeadSourceAdminResponse, error) {
+	args := m.Called(id, input)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*dto.LeadSourceAdminResponse), args.Error(1)
+}
+
+// MockServiceTypeService is a manual testify mock for the serviceTypeService interface.
+type MockServiceTypeService struct {
+	mock.Mock
+}
+
+func (m *MockServiceTypeService) Create(input dto.CreateServiceTypeInput) (*dto.ServiceTypeAdminResponse, error) {
+	args := m.Called(input)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*dto.ServiceTypeAdminResponse), args.Error(1)
+}
+
+func (m *MockServiceTypeService) List() ([]dto.ServiceTypeAdminResponse, error) {
+	args := m.Called()
+	return args.Get(0).([]dto.ServiceTypeAdminResponse), args.Error(1)
+}
+
+func (m *MockServiceTypeService) Update(id uuid.UUID, input dto.UpdateServiceTypeInput) (*dto.ServiceTypeAdminResponse, error) {
+	args := m.Called(id, input)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*dto.ServiceTypeAdminResponse), args.Error(1)
+}

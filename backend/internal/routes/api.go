@@ -23,6 +23,8 @@ func SetupAPIRoutes(app *fiber.App, cnt interface{}, cfg *config.Config) {
 	setupAuthRoutes(api, c, cfg)
 	setupUserRoutes(api, c, cfg)
 	setupTeamRoutes(api, c, cfg)
+	setupLeadSourceRoutes(api, c, cfg)
+	setupServiceTypeRoutes(api, c, cfg)
 	setupReferenceRoutes(api, c, cfg)
 	setupLeadRoutes(api, c, cfg)
 }
@@ -67,6 +69,32 @@ func setupTeamRoutes(api fiber.Router, c *container.Container, cfg *config.Confi
 	teams.Post("/", c.TeamHandler.CreateTeam)
 	teams.Get("/:id", c.TeamHandler.GetTeam)
 	teams.Patch("/:id", c.TeamHandler.UpdateTeam)
+}
+
+// setupLeadSourceRoutes configures lead source management routes
+// (admin-only). Distinct from the read-only /refs/lead-sources group, which
+// stays open to every role and filtered to active-only for the create-lead
+// dropdown.
+func setupLeadSourceRoutes(api fiber.Router, c *container.Container, cfg *config.Config) {
+	sources := api.Group("/lead-sources")
+	sources.Use(middleware.JWTProtected(cfg.JWTAccessSecret))
+	sources.Use(middleware.RequireRole("ADMIN_SALES", "SU"))
+
+	sources.Get("/", c.LeadSourceHandler.ListLeadSourcesAdmin)
+	sources.Post("/", c.LeadSourceHandler.CreateLeadSource)
+	sources.Patch("/:id", c.LeadSourceHandler.UpdateLeadSource)
+}
+
+// setupServiceTypeRoutes configures service type management routes
+// (admin-only). Distinct from the read-only /refs/service-types group.
+func setupServiceTypeRoutes(api fiber.Router, c *container.Container, cfg *config.Config) {
+	types := api.Group("/service-types")
+	types.Use(middleware.JWTProtected(cfg.JWTAccessSecret))
+	types.Use(middleware.RequireRole("ADMIN_SALES", "SU"))
+
+	types.Get("/", c.ServiceTypeHandler.ListServiceTypesAdmin)
+	types.Post("/", c.ServiceTypeHandler.CreateServiceType)
+	types.Patch("/:id", c.ServiceTypeHandler.UpdateServiceType)
 }
 
 // setupReferenceRoutes configures read-only reference routes (lead sources,

@@ -162,6 +162,117 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/lead-sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List all lead sources, active and inactive (admin only) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["utils.Response"] & {
+                            data?: components["schemas"]["dto.LeadSourceAdminResponse"][];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Create lead source (admin only) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Create lead source */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["dto.CreateLeadSourceInput"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["utils.Response"] & {
+                            data?: components["schemas"]["dto.LeadSourceAdminResponse"];
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lead-sources/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update lead source (admin only) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Lead source ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Update lead source */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["dto.UpdateLeadSourceInput"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["utils.Response"] & {
+                            data?: components["schemas"]["dto.LeadSourceAdminResponse"];
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
     "/leads": {
         parameters: {
             query?: never;
@@ -654,6 +765,117 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/service-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List all service types, active and inactive (admin only) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["utils.Response"] & {
+                            data?: components["schemas"]["dto.ServiceTypeAdminResponse"][];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Create service type (admin only) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Create service type */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["dto.CreateServiceTypeInput"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["utils.Response"] & {
+                            data?: components["schemas"]["dto.ServiceTypeAdminResponse"];
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/service-types/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update service type (admin only) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Service type ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Update service type */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["dto.UpdateServiceTypeInput"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["utils.Response"] & {
+                            data?: components["schemas"]["dto.ServiceTypeAdminResponse"];
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
     "/teams": {
         parameters: {
             query?: never;
@@ -1129,6 +1351,12 @@ export interface components {
             website?: string;
             zip_id?: number;
         };
+        "dto.CreateLeadSourceInput": {
+            name: string;
+        };
+        "dto.CreateServiceTypeInput": {
+            name: string;
+        };
         "dto.CreateTeamInput": {
             name: string;
         };
@@ -1236,6 +1464,12 @@ export interface components {
             website?: string;
             zip_id?: number;
         };
+        "dto.LeadSourceAdminResponse": {
+            created_at?: string;
+            id?: string;
+            is_active?: boolean;
+            name?: string;
+        };
         "dto.LeadSourceResponse": {
             id?: string;
             name?: string;
@@ -1260,6 +1494,12 @@ export interface components {
         };
         "dto.ResetPasswordInput": {
             new_password: string;
+        };
+        "dto.ServiceTypeAdminResponse": {
+            created_at?: string;
+            id?: string;
+            is_active?: boolean;
+            name?: string;
         };
         "dto.ServiceTypeResponse": {
             id?: string;
@@ -1301,6 +1541,10 @@ export interface components {
             website?: string;
             zip_id?: number;
         };
+        "dto.UpdateLeadSourceInput": {
+            is_active?: boolean;
+            name?: string;
+        };
         "dto.UpdateLeadStatusInput": {
             lost_reason?: string;
             /** @enum {string} */
@@ -1308,6 +1552,10 @@ export interface components {
         };
         "dto.UpdateProfileInput": {
             name: string;
+        };
+        "dto.UpdateServiceTypeInput": {
+            is_active?: boolean;
+            name?: string;
         };
         "dto.UpdateTeamInput": {
             is_active?: boolean;

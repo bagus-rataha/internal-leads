@@ -4,6 +4,11 @@
 import { apiFetch } from '@/api/client'
 import type { components } from '@/api/types'
 
+export type { TeamResponse } from '@/features/team/api'
+export type { UserResponse } from '@/features/user/api'
+export { fetchTeams } from '@/features/team/api'
+export { fetchSalesUsers } from '@/features/user/api'
+
 export type PaginatedLeadResponse = components['schemas']['dto.PaginatedLeadResponse']
 export type LeadSourceResponse = components['schemas']['dto.LeadSourceResponse']
 export type LeadResponse = components['schemas']['dto.LeadResponse']
@@ -80,8 +85,6 @@ export async function fetchLeadSources(): Promise<LeadSourceResponse[]> {
 
 export type LeadDetailResponse = components['schemas']['dto.LeadDetailResponse']
 export type FollowUpResponse = components['schemas']['dto.FollowUpResponse']
-export type TeamResponse = components['schemas']['dto.TeamResponse']
-export type UserResponse = components['schemas']['dto.UserResponse']
 
 export async function fetchLeadDetail(code: string): Promise<LeadDetailResponse> {
   const res = await apiFetch(`/api/v1/leads/${code}`)
@@ -180,36 +183,6 @@ export async function reassignOwner(code: string, ownerId: string): Promise<Lead
     throw new Error('Failed to reassign owner')
   }
   return body.data
-}
-
-// Moved from LeadListPage.tsx so the Reassign dropdown and the existing
-// Tim/Sales filters share one implementation instead of two.
-export async function fetchTeams(): Promise<TeamResponse[]> {
-  const res = await apiFetch('/api/v1/teams')
-  if (!res.ok) {
-    throw new Error('Failed to load teams')
-  }
-  let body: { data?: TeamResponse[] }
-  try {
-    body = await res.json()
-  } catch {
-    throw new Error('Failed to load teams')
-  }
-  return body?.data ?? []
-}
-
-export async function fetchSalesUsers(): Promise<UserResponse[]> {
-  const res = await apiFetch('/api/v1/users?role=SALES')
-  if (!res.ok) {
-    throw new Error('Failed to load sales users')
-  }
-  let body: { data?: UserResponse[] }
-  try {
-    body = await res.json()
-  } catch {
-    throw new Error('Failed to load sales users')
-  }
-  return body?.data ?? []
 }
 
 export type CreateLeadInput = components['schemas']['dto.CreateLeadInput']

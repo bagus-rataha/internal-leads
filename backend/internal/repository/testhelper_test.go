@@ -39,11 +39,21 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	if err != nil {
 		t.Fatal("Failed to connect test DB:", err)
 	}
+	t.Cleanup(func() {
+		if sqlDB, err := db.DB(); err == nil {
+			sqlDB.Close()
+		}
+	})
 
 	m, err := migrate.New("file://../../migrations", dbURL)
 	if err != nil {
 		t.Fatal("Failed to init migrate:", err)
 	}
+	t.Cleanup(func() {
+		srcErr, dbErr := m.Close()
+		_ = srcErr
+		_ = dbErr
+	})
 
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
 		t.Fatal("Failed to run migrations:", err)
