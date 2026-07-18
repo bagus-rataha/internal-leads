@@ -146,3 +146,83 @@ func TestLogoutAll_Success(t *testing.T) {
 
 	assert.NoError(t, err)
 }
+
+func TestRefreshToken_GraceWindow_SameOldTokenReturnsSamePair(t *testing.T) {
+	userRepo := new(MockUserRepository)
+	rtRepo := new(MockRefreshTokenRepository)
+
+	user := &models.User{
+		BaseModel: models.BaseModel{ID: uuid.Must(uuid.NewV7())},
+		Email:     "test@test.com",
+		Role:      "SU",
+		IsActive:  true,
+	}
+	oldToken := "old-refresh-token"
+
+	rtRepo.On("FindByToken", oldToken).Return(&models.RefreshToken{Token: oldToken, UserID: user.ID}, nil).Once()
+	rtRepo.On("DeleteByToken", oldToken).Return(nil).Once()
+	userRepo.On("FindByID", user.ID).Return(user, nil).Once()
+	rtRepo.On("Create", mock.AnythingOfType("*models.RefreshToken")).Return(nil).Once()
+
+	svc := newAuthService(userRepo, rtRepo)
+	// The mock config's JWTRefreshSecret must actually sign oldToken for
+	// ValidateToken to succeed on the first call — generate it the same way
+	// Login/generateAndStoreTokens would, rather than a literal string.
+	signedOldToken, err := utils.GenerateToken(user.ID, user.Email, user.Role, newTestConfig().JWTRefreshSecret, time.Hour)
+	assert.NoError(t, err)
+
+	rtRepo.ExpectedCalls = nil // reset the string-literal expectations above
+	rtRepo.On("FindByToken", signedOldToken).Return(&models.RefreshToken{Token: signedOldToken, UserID: user.ID}, nil).Once()
+	rtRepo.On("DeleteByToken", signedOldToken).Return(nil).Once()
+	rtRepo.On("Create", mock.AnythingOfType("*models.RefreshToken")).Return(nil).Once()
+
+	first, err := svc.RefreshToken(signedOldToken)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, first.AccessToken)
+
+	// Second call with the SAME now-rotated old token must NOT hit
+	// FindByToken/DeleteByToken/Create again (mock.Once() above would fail
+	// the test on a second real call) - it must be served from the grace
+	// cache, returning the identical pair.
+	second, err := svc.RefreshToken(signedOldToken)
+	assert.NoError(t, err)
+	assert.Equal(t, first.AccessToken, second.AccessToken)
+	assert.Equal(t, first.RefreshToken, second.RefreshToken)
+
+	userRepo.AssertExpectations(t)
+	rtRepo.AssertExpectations(t)
+}
+
+func TestRefreshToken_GraceWindow_ExpiredEntryFallsThrough(t *testing.T) {
+	userRepo := new(MockUserRepository)
+	rtRepo := new(MockRefreshTokenRepository)
+	user := &models.User{
+		BaseModel: models.BaseModel{ID: uuid.Must(uuid.NewV7())},
+		Email:     "test@test.com",
+		Role:      "SU",
+		IsActive:  true,
+	}
+
+	svc := newAuthService(userRepo, rtRepo)
+	oldToken, err := utils.GenerateToken(user.ID, user.Email, user.Role, newTestConfig().JWTRefreshSecret, time.Hour)
+	assert.NoError(t, err)
+
+	// Manually seed an already-expired grace entry (bypassing the real 5s
+	// wait) to prove expired entries are not served and fall through to a
+	// real (here: not-found) lookup instead of being trusted forever.
+	svc.storeRefreshGraceForTest(oldToken, &dto.TokenResponse{AccessToken: "stale"}, time.Now().Add(-time.Second))
+
+	rtRepo.On("FindByToken", oldToken).Return(nil, gorm.ErrRecordNotFound).Once()
+
+	_, err = svc.RefreshToken(oldToken)
+	assert.Error(t, err)
+	assert.Equal(t, "invalid or revoked refresh token", err.Error())
+}
+
+// storeRefreshGraceForTest lets tests seed a grace-cache entry with an
+// arbitrary expiry, so expiry behavior can be tested without a real sleep.
+func (s *AuthService) storeRefreshGraceForTest(oldToken string, response *dto.TokenResponse, expiresAt time.Time) {
+	s.graceMu.Lock()
+	defer s.graceMu.Unlock()
+	s.graceCache[oldToken] = refreshGraceEntry{response: response, expiresAt: expiresAt}
+}

@@ -6,6 +6,7 @@ import (
 	"fiber-api-boilerplate/internal/dto"
 	"fiber-api-boilerplate/internal/models"
 	"fiber-api-boilerplate/internal/utils"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -30,10 +31,33 @@ type refreshTokenRepository interface {
 	DeleteAllByUserID(userID uuid.UUID) error
 }
 
+// refreshGraceWindow is how long a just-rotated refresh token still returns
+// the pair its rotation produced instead of "invalid or revoked refresh
+// token". This absorbs a real race: two refresh calls landing close
+// together for the same old token (most plausibly two browser tabs
+// bootstrapping around the same time — the frontend's single-flight guard
+// only dedupes within one tab) would otherwise have the loser bounced to
+// login even though nothing was actually expired. The window is
+// deliberately short: a delayed revoke (deactivate/role-change) racing a
+// grace-served refresh could still hand out a valid pair for up to this
+// long after the revoke - an accepted, bounded trade-off for this app's
+// scale, not something to close further without discussion.
+const refreshGraceWindow = 5 * time.Second
+
+// refreshGraceEntry is one cached rotation result, keyed by the OLD token
+// string that produced it.
+type refreshGraceEntry struct {
+	response  *dto.TokenResponse
+	expiresAt time.Time
+}
+
 type AuthService struct {
 	userRepo         userRepository
 	refreshTokenRepo refreshTokenRepository
 	config           *config.Config
+
+	graceMu    sync.Mutex
+	graceCache map[string]refreshGraceEntry
 }
 
 func NewAuthService(
@@ -44,7 +68,8 @@ func NewAuthService(
 	return &AuthService{
 		userRepo:         userRepo,
 		refreshTokenRepo: refreshTokenRepo,
- 		config:           cfg,
+		config:           cfg,
+		graceCache:       make(map[string]refreshGraceEntry),
 	}
 }
 
@@ -107,7 +132,47 @@ func (s *AuthService) Login(input dto.LoginInput) (*dto.TokenResponse, error) {
 	return s.generateAndStoreTokens(user)
 }
 
+// checkRefreshGrace returns the token pair a previous rotation of oldToken
+// already produced, if that rotation happened within refreshGraceWindow.
+// Expired entries are evicted on access - no background sweep needed at
+// this app's scale.
+func (s *AuthService) checkRefreshGrace(oldToken string) (*dto.TokenResponse, bool) {
+	s.graceMu.Lock()
+	defer s.graceMu.Unlock()
+
+	entry, ok := s.graceCache[oldToken]
+	if !ok {
+		return nil, false
+	}
+	if time.Now().After(entry.expiresAt) {
+		delete(s.graceCache, oldToken)
+		return nil, false
+	}
+	return entry.response, true
+}
+
+// storeRefreshGrace records the result of rotating oldToken so a racing
+// duplicate refresh call gets the same pair instead of an error. Also
+// opportunistically evicts any other expired entries, keeping the map from
+// growing unbounded without a dedicated cleanup goroutine.
+func (s *AuthService) storeRefreshGrace(oldToken string, response *dto.TokenResponse) {
+	s.graceMu.Lock()
+	defer s.graceMu.Unlock()
+
+	now := time.Now()
+	for token, entry := range s.graceCache {
+		if now.After(entry.expiresAt) {
+			delete(s.graceCache, token)
+		}
+	}
+	s.graceCache[oldToken] = refreshGraceEntry{response: response, expiresAt: now.Add(refreshGraceWindow)}
+}
+
 func (s *AuthService) RefreshToken(refreshToken string) (*dto.TokenResponse, error) {
+	if cached, ok := s.checkRefreshGrace(refreshToken); ok {
+		return cached, nil
+	}
+
 	claims, err := utils.ValidateToken(refreshToken, s.config.JWTRefreshSecret)
 	if err != nil {
 		return nil, errors.New("invalid refresh token")
@@ -136,7 +201,13 @@ func (s *AuthService) RefreshToken(refreshToken string) (*dto.TokenResponse, err
 		return nil, err
 	}
 
-	return s.generateAndStoreTokens(user)
+	result, err := s.generateAndStoreTokens(user)
+	if err != nil {
+		return nil, err
+	}
+
+	s.storeRefreshGrace(refreshToken, result)
+	return result, nil
 }
 
 // Logout revokes a single refresh token. Idempotent — it does not error if
