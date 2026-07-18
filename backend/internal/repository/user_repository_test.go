@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 )
 
@@ -70,6 +71,27 @@ func TestUserRepository_FindByID(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, user.ID, found.ID)
+}
+
+func TestUserRepository_FindByID_PreloadsTeam(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewUserRepository(db)
+	teamRepo := NewSalesTeamRepository(db)
+
+	team := &models.SalesTeam{Name: "Tim Utara"}
+	require.NoError(t, teamRepo.Create(team))
+
+	user := &models.User{
+		Name: "Test Sales", Email: "sales-team-preload@test.com", Password: "hashed",
+		Role: "SALES", TeamID: &team.ID, IsActive: true,
+	}
+	require.NoError(t, repo.Create(user))
+
+	found, err := repo.FindByID(user.ID)
+	assert.NoError(t, err)
+	if assert.NotNil(t, found.Team) {
+		assert.Equal(t, "Tim Utara", found.Team.Name)
+	}
 }
 
 func TestUserRepository_Update(t *testing.T) {

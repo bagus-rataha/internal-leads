@@ -14,6 +14,7 @@ type UserResponse struct {
 	Name      string     `json:"name"`
 	Role      string     `json:"role"`
 	TeamID    *uuid.UUID `json:"team_id"`
+	TeamName  *string    `json:"team_name"`
 	IsActive  bool       `json:"is_active"`
 	CreatedAt time.Time  `json:"created_at"`
 }
@@ -58,6 +59,15 @@ type DeactivateUserInput struct {
 	ReassignToUserID *uuid.UUID `json:"reassign_to_user_id"`
 }
 
+// teamName reads user.Team.Name, nil when the relation wasn't preloaded or
+// the user legitimately has no team (ADMIN_SALES/SU can be teamless).
+func teamName(user *models.User) *string {
+	if user.Team == nil {
+		return nil
+	}
+	return &user.Team.Name
+}
+
 // ToUserResponse converts model to DTO
 func ToUserResponse(user *models.User) UserResponse {
 	return UserResponse{
@@ -66,6 +76,7 @@ func ToUserResponse(user *models.User) UserResponse {
 		Name:      user.Name,
 		Role:      user.Role,
 		TeamID:    user.TeamID,
+		TeamName:  teamName(user),
 		IsActive:  user.IsActive,
 		CreatedAt: user.CreatedAt,
 	}
