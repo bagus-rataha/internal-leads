@@ -1,9 +1,11 @@
 import { useState } from 'react'
+import { MoreHorizontal } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Modal } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { showToast } from '@/hooks/useToast'
 import { useAuth } from '@/auth/AuthContext'
 import { useTeams } from '@/features/team/queries'
@@ -15,6 +17,63 @@ type Role = (typeof ROLES)[number]
 
 function needsTeam(role: string) {
   return role === 'SALES' || role === 'LEADER'
+}
+
+function UserActionsMenu({
+  user,
+  onEdit,
+  onResetPassword,
+  onDeactivate,
+  onReactivate,
+  reactivatePending,
+}: {
+  user: UserResponse
+  onEdit: () => void
+  onResetPassword: () => void
+  onDeactivate: () => void
+  onReactivate: () => void
+  reactivatePending: boolean
+}) {
+  return (
+    <Popover>
+      <PopoverTrigger
+        aria-label={`Aksi untuk ${user.name}`}
+        className="flex size-7 items-center justify-center rounded-lg border border-input bg-background hover:bg-muted"
+      >
+        <MoreHorizontal className="size-4" />
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-44 gap-0.5 p-1">
+        <PopoverClose
+          className="w-full rounded-md px-2.5 py-1.5 text-left text-sm hover:bg-muted"
+          onClick={onEdit}
+        >
+          Edit
+        </PopoverClose>
+        <PopoverClose
+          className="w-full rounded-md px-2.5 py-1.5 text-left text-sm hover:bg-muted"
+          onClick={onResetPassword}
+        >
+          Reset Password
+        </PopoverClose>
+        {user.is_active ? (
+          <PopoverClose
+            className="w-full rounded-md px-2.5 py-1.5 text-left text-sm text-destructive hover:bg-destructive/10"
+            onClick={onDeactivate}
+          >
+            Nonaktifkan
+          </PopoverClose>
+        ) : (
+          <PopoverClose
+            className="w-full rounded-md px-2.5 py-1.5 text-left text-sm hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
+            disabled={reactivatePending}
+            onClick={onReactivate}
+          >
+            Aktifkan
+          </PopoverClose>
+        )}
+      </PopoverContent>
+    </Popover>
+  )
 }
 
 export default function UserPage() {
@@ -241,32 +300,14 @@ export default function UserPage() {
                       {isForbiddenTarget ? (
                         <span className="text-xs text-muted-foreground">Tidak dapat dikelola</span>
                       ) : (
-                        <>
-                          <Button variant="outline" size="sm" onClick={() => openEdit(u)}>
-                            Edit
-                          </Button>
-                          <Button variant="outline" size="sm" onClick={() => setResetTarget(u)}>
-                            Reset Password
-                          </Button>
-                          {u.is_active ? (
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => setConfirmDeactivateTarget(u)}
-                            >
-                              Nonaktifkan
-                            </Button>
-                          ) : (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleReactivate(u.id ?? '', u.name)}
-                              disabled={updateUser.isPending}
-                            >
-                              Aktifkan
-                            </Button>
-                          )}
-                        </>
+                        <UserActionsMenu
+                          user={u}
+                          onEdit={() => openEdit(u)}
+                          onResetPassword={() => setResetTarget(u)}
+                          onDeactivate={() => setConfirmDeactivateTarget(u)}
+                          onReactivate={() => handleReactivate(u.id ?? '', u.name)}
+                          reactivatePending={updateUser.isPending}
+                        />
                       )}
                     </div>
                   </td>
