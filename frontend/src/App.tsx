@@ -16,6 +16,7 @@ function App() {
         <Route path="leads" element={<LeadListPage />} />
         <Route path="leads/new" element={<LeadFormPage />} />
         <Route path="leads/:code" element={<LeadDetailPage />} />
+        <Route path="leads/:code/edit" element={<LeadFormPage />} />
       </Route>
     </Routes>
   )

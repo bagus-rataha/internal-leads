@@ -1,16 +1,16 @@
-// Create-lead form screen: 5 numbered cards (company, address, PIC,
+// Create/edit lead form screen: 5 numbered cards (company, address, PIC,
 // existing service, source + owner), reachable from the "Lead Baru" button
-// on the list. Edit mode (pre-population from an existing lead) is a later
-// task — this file only wires up creation.
+// on the list (create) or the "Edit Lead" button on the detail page (edit —
+// mode is derived from the presence of a `:code` route param).
 import { useEffect, useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { ChevronLeft, ChevronDown, Info, Check } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { showToast } from '@/hooks/useToast'
 import { useServiceTypes } from '@/features/reference/queries'
 import { getLeadSources } from './refCache'
-import { useCreateLead, useSalesRoster } from './queries'
-import type { CreateLeadInput, LeadSourceResponse } from './api'
+import { useCreateLead, useUpdateLead, useSalesRoster, useLeadDetail } from './queries'
+import type { CreateLeadInput, LeadDetailResponse, LeadSourceResponse } from './api'
 import {
   AddressFields,
   FIELD_LABEL,
@@ -49,6 +49,37 @@ export function blankForm(): LeadFormValues {
     office_phone: '', mobile_phone: '', email: '', service_type_id: '',
     capacity_mbps: '', existing_isp: '', price: '', other_services: '',
     lead_source_id: '', owner_id: '',
+  }
+}
+
+function fromDetail(d: LeadDetailResponse): LeadFormValues {
+  return {
+    company_name: d.company_name ?? '',
+    business_field: d.business_field ?? '',
+    website: d.website ?? '',
+    address: {
+      province_id: d.province_id,
+      city_id: d.city_id,
+      district_id: d.district_id,
+      village_id: d.village_id,
+      zip_id: d.zip_id,
+      zip_code: d.zip_code,
+    },
+    rt: d.rt ?? '',
+    rw: d.rw ?? '',
+    street: d.street ?? '',
+    pic_name: d.pic_name ?? '',
+    pic_position: d.pic_position ?? '',
+    office_phone: d.office_phone ?? '',
+    mobile_phone: d.mobile_phone ?? '',
+    email: d.email ?? '',
+    service_type_id: d.service_type_id ?? '',
+    capacity_mbps: d.capacity_mbps != null ? String(d.capacity_mbps) : '',
+    existing_isp: d.existing_isp ?? '',
+    price: d.price != null ? String(d.price) : '',
+    other_services: d.other_services ?? '',
+    lead_source_id: d.lead_source_id ?? '',
+    owner_id: d.owner_id ?? '',
   }
 }
 
@@ -144,12 +175,18 @@ function FormCard({
 export default function LeadFormPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { code } = useParams<{ code?: string }>()
+  const mode = code ? 'edit' : 'create'
   const [values, setValues] = useState<LeadFormValues>(blankForm())
   const [sources, setSources] = useState<LeadSourceResponse[]>([])
   const { data: serviceTypes = [] } = useServiceTypes()
   const showOwnerField = user?.role !== 'SALES'
   const { data: salesRoster = [] } = useSalesRoster(showOwnerField)
+  // Both mutations are declared unconditionally — hooks can't be conditional.
+  // Only the one matching `mode` is ever fired in handleSubmit.
   const createMutation = useCreateLead()
+  const updateMutation = useUpdateLead(code ?? '')
+  const detail = useLeadDetail(code ?? '')
 
   useEffect(() => {
     getLeadSources()
@@ -160,6 +197,20 @@ export default function LeadFormPage() {
       })
   }, [])
 
+  // Once the edit-mode detail has loaded (keyed on `id` so it only runs once
+  // per lead, not on every refetch/invalidation): bounce terminal leads back
+  // to their detail page (defense-in-depth — the Edit button is already
+  // hidden for them, this covers a direct URL visit), otherwise seed the form.
+  useEffect(() => {
+    if (mode !== 'edit' || !detail.data) return
+    if (detail.data.status === 'HANDOFF_ODOO' || detail.data.status === 'LOST') {
+      navigate('/leads/' + code, { replace: true })
+      return
+    }
+    setValues(fromDetail(detail.data))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detail.data?.id])
+
   function set<K extends keyof LeadFormValues>(key: K, value: LeadFormValues[K]) {
     setValues((v) => ({ ...v, [key]: value }))
   }
@@ -168,6 +219,18 @@ export default function LeadFormPage() {
     e.preventDefault()
     const includeOwner = showOwnerField
     const payload = buildLeadPayload(values, includeOwner)
+    if (mode === 'edit') {
+      updateMutation.mutate(payload, {
+        onSuccess: () => {
+          showToast('Perubahan tersimpan')
+          navigate('/leads/' + code)
+        },
+        onError: () => {
+          showToast('Gagal menyimpan perubahan. Periksa data lalu coba lagi.')
+        },
+      })
+      return
+    }
     createMutation.mutate(payload, {
       onSuccess: (lead) => {
         showToast('Lead tersimpan · ' + lead.code)
@@ -177,6 +240,25 @@ export default function LeadFormPage() {
         showToast('Gagal menyimpan lead. Periksa data alamat/referensi lalu coba lagi.')
       },
     })
+  }
+
+  if (mode === 'edit' && detail.isLoading) {
+    return <div className="p-6 text-sm text-muted-foreground">Memuat…</div>
+  }
+  if (mode === 'edit' && (detail.isError || !detail.data)) {
+    return (
+      <div className="mx-auto max-w-[900px] p-4 lg:p-6">
+        <button
+          type="button"
+          onClick={() => navigate('/leads')}
+          className="-ml-2 mb-[14px] inline-flex items-center gap-1.5 rounded-[7px] px-2 py-1.5 text-[13px] font-semibold text-[#64748B] hover:bg-[#EEF2F7] hover:text-[#1D4ED8]"
+        >
+          <ChevronLeft className="size-4" />
+          Kembali ke daftar lead
+        </button>
+        <div className="p-6 text-sm text-destructive">Lead tidak ditemukan.</div>
+      </div>
+    )
   }
 
   const initials = (user?.name ?? '?')
@@ -191,17 +273,21 @@ export default function LeadFormPage() {
     <div className="mx-auto max-w-[900px] p-4 lg:p-6">
       <button
         type="button"
-        onClick={() => navigate('/leads')}
+        onClick={() => navigate(mode === 'edit' ? '/leads/' + code : '/leads')}
         className="-ml-2 mb-[14px] inline-flex items-center gap-1.5 rounded-[7px] px-2 py-1.5 text-[13px] font-semibold text-[#64748B] hover:bg-[#EEF2F7] hover:text-[#1D4ED8]"
       >
         <ChevronLeft className="size-4" />
-        Kembali ke daftar lead
+        {mode === 'edit' ? 'Kembali ke detail lead' : 'Kembali ke daftar lead'}
       </button>
 
-      <h1 className="font-display text-[26px] font-extrabold tracking-[-.02em]">Lead Baru</h1>
+      <h1 className="font-display text-[26px] font-extrabold tracking-[-.02em]">
+        {mode === 'edit' ? 'Edit Lead' : 'Lead Baru'}
+      </h1>
       <p className="mt-1.5 mb-5 flex items-center gap-1.5 text-[13px] text-[#64748B]">
         <Info className="size-[15px] shrink-0" />
-        Kode lead dihasilkan otomatis oleh sistem setelah tersimpan (mis. LD-2607-00XX).
+        {mode === 'edit'
+          ? 'Kode lead tidak dapat diubah. Perubahan tersimpan ke riwayat lead.'
+          : 'Kode lead dihasilkan otomatis oleh sistem setelah tersimpan (mis. LD-2607-00XX).'}
       </p>
 
       <form onSubmit={handleSubmit}>
@@ -490,18 +576,18 @@ export default function LeadFormPage() {
         <div className="flex justify-end gap-[10px]">
           <button
             type="button"
-            onClick={() => navigate('/leads')}
+            onClick={() => navigate(mode === 'edit' ? '/leads/' + code : '/leads')}
             className="rounded-[8px] border border-[#CBD5E1] bg-white px-[18px] py-[9px] text-[14px] font-semibold text-[#334155] hover:bg-[#F7F9FC]"
           >
             Batal
           </button>
           <button
             type="submit"
-            disabled={createMutation.isPending}
+            disabled={mode === 'edit' ? updateMutation.isPending : createMutation.isPending}
             className="inline-flex items-center gap-[7px] rounded-[8px] bg-[#1D4ED8] px-[18px] py-[9px] text-[14px] font-semibold text-white shadow-[0_1px_2px_rgba(29,78,216,0.3)] hover:bg-[#1A45BE] disabled:opacity-60"
           >
             <Check className="size-[15px]" />
-            Simpan Lead
+            {mode === 'edit' ? 'Simpan Perubahan' : 'Simpan Lead'}
           </button>
         </div>
       </form>

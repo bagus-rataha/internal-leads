@@ -16,8 +16,17 @@ import {
   type UpdateLeadInput,
 } from './api'
 
+// `enabled: !!code` guards LeadFormPage's create mode, which calls this hook
+// unconditionally (hooks can't be conditional) with code === '' — without
+// the guard that would fire a wasted GET /api/v1/leads/ on every create-mode
+// render. LeadDetailPage's existing usage always passes a real code, so its
+// behavior is unchanged.
 export function useLeadDetail(code: string) {
-  return useQuery({ queryKey: ['lead', code], queryFn: () => fetchLeadDetail(code) })
+  return useQuery({
+    queryKey: ['lead', code],
+    queryFn: () => fetchLeadDetail(code),
+    enabled: !!code,
+  })
 }
 
 export function useFollowUps(code: string) {
