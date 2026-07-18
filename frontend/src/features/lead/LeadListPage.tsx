@@ -178,49 +178,31 @@ function LeadCards({
 }) {
   const navigate = useNavigate()
   return (
-    <div className="flex flex-col gap-3 lg:hidden">
+    <div className="flex flex-col divide-y divide-[#F1F5F9] rounded-[14px] border border-[#E7EDF3] bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] lg:hidden">
       {items.map((lead) => (
-        <Card
+        <div
           key={lead.code}
-          className="relative cursor-pointer"
+          className="relative flex cursor-pointer flex-col gap-1.5 px-4 py-3 active:bg-[#F7F9FC]"
           onClick={() => navigate(`/leads/${lead.code}`)}
         >
           {lead.is_stale && (
-            <span className="absolute top-3 bottom-3 left-0 w-[3px] rounded bg-amber-600" />
+            <span className="absolute top-2 bottom-2 left-0 w-[3px] rounded bg-amber-600" />
           )}
-          <CardContent className="flex flex-col gap-2">
-            <div className="flex items-start justify-between gap-2">
-              <span className="font-mono text-primary">{lead.code}</span>
-              <StatusPill status={lead.status} />
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="font-mono text-xs text-primary">{lead.code}</p>
+              <p className="truncate font-semibold">{lead.company_name}</p>
             </div>
-            <div>
-              <p className="font-semibold">{lead.company_name}</p>
-              {lead.business_field && (
-                <p className="text-xs text-muted-foreground">{lead.business_field}</p>
-              )}
-            </div>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div>
-                <p className="text-xs text-muted-foreground">Kota</p>
-                <p>{lead.city_name ?? '—'}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">PIC</p>
-                <p>{lead.pic_name}</p>
-                {lead.pic_position && (
-                  <p className="text-xs text-muted-foreground">{lead.pic_position}</p>
-                )}
-              </div>
-            </div>
-            {showSales && (
-              <div>
-                <p className="text-xs text-muted-foreground">Sales</p>
-                <SalesBadge ownerName={lead.owner_name} />
-              </div>
-            )}
-            <FollowUpInfo lead={lead} />
-          </CardContent>
-        </Card>
+            <StatusPill status={lead.status} />
+          </div>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+            <span>{lead.city_name ?? '—'}</span>
+            <span>{lead.pic_name}</span>
+            {lead.pic_position && <span>{lead.pic_position}</span>}
+            {showSales && <SalesBadge ownerName={lead.owner_name} />}
+          </div>
+          <FollowUpInfo lead={lead} />
+        </div>
       ))}
       {pagination}
     </div>
