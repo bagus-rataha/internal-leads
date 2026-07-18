@@ -8,6 +8,7 @@ import (
 	"fiber-api-boilerplate/internal/utils"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 )
 
@@ -16,11 +17,42 @@ import (
 // handler maps this to 422 with the active lead count as payload.
 var ErrActiveLeadsExist = errors.New("user has active leads")
 
+// ErrForbiddenTarget is returned when an ADMIN_SALES caller tries to
+// mutate (update, reset password, deactivate, or reactivate) a user whose
+// role is SU. SU-level accounts can only be managed by other SU users. The
+// handler maps this to 403.
+var ErrForbiddenTarget = errors.New("cannot manage this user")
+
+// EmailTakenError is returned by CreateUser when the submitted email
+// already belongs to another account. Carries the existing account's id,
+// name, and active status so the caller can be offered reactivation
+// instead of a duplicate-account error, when that account is inactive.
+// ExistingUserID is uuid.Nil (zero value) in the rare case where the
+// collision was only caught by the database's unique index at insert time
+// (a race with a concurrent create) rather than the FindByEmail pre-check —
+// there's no fetched record to describe in that fallback.
+type EmailTakenError struct {
+	ExistingUserID uuid.UUID
+	ExistingName   string
+	ExistingActive bool
+}
+
+func (e *EmailTakenError) Error() string { return "email already registered" }
+
+// callerForbiddenFromTarget reports whether callerRole may not mutate a
+// user whose current role is targetRole. The only restriction today: an
+// ADMIN_SALES caller cannot act on an SU account. SU callers face no
+// restriction on any target role.
+func callerForbiddenFromTarget(callerRole, targetRole string) bool {
+	return callerRole == "ADMIN_SALES" && targetRole == "SU"
+}
+
 // userRepositoryForUser is the subset of repository methods UserService needs.
 // Defined consumer-side for testability (satisfied by the real repo or a mock).
 type userRepositoryForUser interface {
 	Create(user *models.User) error
 	FindByID(id uuid.UUID) (*models.User, error)
+	FindByEmail(email string) (*models.User, error)
 	Update(user *models.User) error
 	ListWithFilter(role, teamID string) ([]models.User, error)
 	CountActiveByOwner(ownerID uuid.UUID) (int64, error)
@@ -174,6 +206,14 @@ func (s *UserService) CreateUser(input dto.CreateUserInput) (*dto.UserResponse, 
 		return nil, err
 	}
 
+	if existing, err := s.userRepo.FindByEmail(input.Email); err == nil {
+		return nil, &EmailTakenError{
+			ExistingUserID: existing.ID,
+			ExistingName:   existing.Name,
+			ExistingActive: existing.IsActive,
+		}
+	}
+
 	if input.TeamID != nil {
 		team, err := s.teamRepo.FindByID(*input.TeamID)
 		if err != nil {
@@ -199,24 +239,37 @@ func (s *UserService) CreateUser(input dto.CreateUserInput) (*dto.UserResponse, 
 	}
 
 	if err := s.userRepo.Create(user); err != nil {
-		return nil, err
+		return nil, translateCreateUserError(err)
 	}
 
 	response := dto.ToUserResponse(user)
 	return &response, nil
 }
 
+// translateCreateUserError maps a Postgres unique-violation on the email
+// index (SQLSTATE 23505) to an EmailTakenError with no existing-account
+// details — the backstop for the rare race where two creates for the same
+// email land concurrently and the FindByEmail pre-check above missed it.
+// Any other error passes through unchanged.
+func translateCreateUserError(err error) error {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		return &EmailTakenError{}
+	}
+	return err
+}
+
 // UpdateUser applies the fields the admin sent, transactionally. If the
 // effective role or team_id changes, every refresh token belonging to the
 // user is revoked in the same transaction - role/team_id are JWT-adjacent
 // facts and a stale token must not outlive the change.
-func (s *UserService) UpdateUser(userID uuid.UUID, input dto.UpdateUserInput) (*dto.UserResponse, error) {
+func (s *UserService) UpdateUser(callerRole string, userID uuid.UUID, input dto.UpdateUserInput) (*dto.UserResponse, error) {
 	var result *dto.UserResponse
 	err := s.run(func(tx *gorm.DB) error {
 		txUserRepo := repository.NewUserRepository(tx)
 		txRefreshRepo := repository.NewRefreshTokenRepository(tx)
 
-		response, err := s.updateUser(txUserRepo, txRefreshRepo, userID, input)
+		response, err := s.updateUser(txUserRepo, txRefreshRepo, callerRole, userID, input)
 		if err != nil {
 			return err
 		}
@@ -233,12 +286,21 @@ func (s *UserService) UpdateUser(userID uuid.UUID, input dto.UpdateUserInput) (*
 func (s *UserService) updateUser(
 	userRepo userRepositoryForUser,
 	refreshRepo refreshTokenRepository,
+	callerRole string,
 	userID uuid.UUID,
 	input dto.UpdateUserInput,
 ) (*dto.UserResponse, error) {
 	user, err := userRepo.FindByID(userID)
 	if err != nil {
 		return nil, errors.New("user not found")
+	}
+
+	if callerForbiddenFromTarget(callerRole, user.Role) {
+		return nil, ErrForbiddenTarget
+	}
+
+	if input.IsActive != nil && !*input.IsActive {
+		return nil, errors.New("use the deactivate endpoint to deactivate a user")
 	}
 
 	newRole := user.Role
@@ -278,6 +340,9 @@ func (s *UserService) updateUser(
 	}
 	user.Role = newRole
 	user.TeamID = newTeamID
+	if input.IsActive != nil {
+		user.IsActive = true // false already rejected above
+	}
 
 	if err := userRepo.Update(user); err != nil {
 		return nil, err
@@ -295,23 +360,27 @@ func (s *UserService) updateUser(
 
 // ResetPassword sets a new password and revokes every refresh token
 // belonging to the user, in one transaction.
-func (s *UserService) ResetPassword(userID uuid.UUID, input dto.ResetPasswordInput) error {
+func (s *UserService) ResetPassword(callerRole string, userID uuid.UUID, input dto.ResetPasswordInput) error {
 	return s.run(func(tx *gorm.DB) error {
 		txUserRepo := repository.NewUserRepository(tx)
 		txRefreshRepo := repository.NewRefreshTokenRepository(tx)
-		return s.resetPassword(txUserRepo, txRefreshRepo, userID, input)
+		return s.resetPassword(txUserRepo, txRefreshRepo, callerRole, userID, input)
 	})
 }
 
 func (s *UserService) resetPassword(
 	userRepo userRepositoryForUser,
 	refreshRepo refreshTokenRepository,
+	callerRole string,
 	userID uuid.UUID,
 	input dto.ResetPasswordInput,
 ) error {
 	user, err := userRepo.FindByID(userID)
 	if err != nil {
 		return errors.New("user not found")
+	}
+	if callerForbiddenFromTarget(callerRole, user.Role) {
+		return ErrForbiddenTarget
 	}
 
 	hashed, err := utils.HashPassword(input.NewPassword)
@@ -333,13 +402,13 @@ func (s *UserService) resetPassword(
 // count query - the caller decides whether to reassign or abort. With a
 // reassignment target, reassign + deactivate + revoke happen in one
 // transaction.
-func (s *UserService) DeactivateUser(callerID, userID uuid.UUID, input dto.DeactivateUserInput) (int64, error) {
+func (s *UserService) DeactivateUser(callerID uuid.UUID, callerRole string, userID uuid.UUID, input dto.DeactivateUserInput) (int64, error) {
 	var activeCount int64
 	err := s.run(func(tx *gorm.DB) error {
 		txUserRepo := repository.NewUserRepository(tx)
 		txRefreshRepo := repository.NewRefreshTokenRepository(tx)
 
-		count, err := s.deactivateUser(txUserRepo, txRefreshRepo, callerID, userID, input)
+		count, err := s.deactivateUser(txUserRepo, txRefreshRepo, callerID, callerRole, userID, input)
 		activeCount = count
 		return err
 	})
@@ -350,6 +419,7 @@ func (s *UserService) deactivateUser(
 	userRepo userRepositoryForUser,
 	refreshRepo refreshTokenRepository,
 	callerID uuid.UUID,
+	callerRole string,
 	userID uuid.UUID,
 	input dto.DeactivateUserInput,
 ) (int64, error) {
@@ -362,6 +432,10 @@ func (s *UserService) deactivateUser(
 	user, err := userRepo.FindByID(userID)
 	if err != nil {
 		return 0, errors.New("user not found")
+	}
+
+	if callerForbiddenFromTarget(callerRole, user.Role) {
+		return 0, ErrForbiddenTarget
 	}
 
 	// Never remove the last active administrator. Only admins can reach this

@@ -96,7 +96,7 @@ func TestUpdateUser_Transaction_CommitsMutationAndRevokeTogether(t *testing.T) {
 	}))
 
 	newRole := "LEADER"
-	_, err := svc.UpdateUser(user.ID, dto.UpdateUserInput{Role: &newRole})
+	_, err := svc.UpdateUser("SU", user.ID, dto.UpdateUserInput{Role: &newRole})
 	require.NoError(t, err)
 
 	// Both effects must have committed.
@@ -132,7 +132,7 @@ func TestUpdateUser_NameOnly_KeepsTokens(t *testing.T) {
 	}))
 
 	newName := "New Name"
-	_, err := svc.UpdateUser(user.ID, dto.UpdateUserInput{Name: &newName})
+	_, err := svc.UpdateUser("SU", user.ID, dto.UpdateUserInput{Name: &newName})
 	require.NoError(t, err)
 
 	var tokenCount int64

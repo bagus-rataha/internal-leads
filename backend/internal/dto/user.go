@@ -39,6 +39,12 @@ type UpdateUserInput struct {
 	Name   *string    `json:"name" validate:"omitempty,min=2,max=100"`
 	Role   *string    `json:"role" validate:"omitempty,oneof=SALES LEADER ADMIN_SALES SU"`
 	TeamID *uuid.UUID `json:"team_id"`
+
+	// IsActive, when true, reactivates a previously deactivated user. false
+	// is rejected by the service — deactivation only happens through
+	// POST /users/:id/deactivate, which carries the active-lead-reassignment
+	// and last-active-administrator safety checks this endpoint doesn't.
+	IsActive *bool `json:"is_active"`
 }
 
 // ResetPasswordInput for admin-triggered password resets.
