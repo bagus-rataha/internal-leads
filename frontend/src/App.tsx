@@ -5,6 +5,7 @@ import { Shell } from '@/components/layout/Shell'
 import { WelcomeHome } from '@/components/layout/WelcomeHome'
 import LeadListPage from '@/features/lead/LeadListPage'
 import LeadDetailPage from '@/features/lead/LeadDetailPage'
+import LeadFormPage from '@/features/lead/LeadFormPage'
 
 function App() {
   return (
@@ -13,6 +14,7 @@ function App() {
       <Route element={<RouteGuard><Shell /></RouteGuard>}>
         <Route index element={<WelcomeHome />} />
         <Route path="leads" element={<LeadListPage />} />
+        <Route path="leads/new" element={<LeadFormPage />} />
         <Route path="leads/:code" element={<LeadDetailPage />} />
       </Route>
     </Routes>

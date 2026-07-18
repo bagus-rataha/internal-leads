@@ -157,16 +157,6 @@ export function AddressFields({
           <SelectChevron />
         </div>
       </div>
-
-      <div>
-        <label className={FIELD_LABEL}>Kode Pos</label>
-        <input
-          readOnly
-          value={value.zip_code ?? ''}
-          placeholder="otomatis"
-          className={FIELD_INPUT_MONO + ' bg-[#F7F9FC] text-[#475569]'}
-        />
-      </div>
     </>
   )
 }
