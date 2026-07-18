@@ -231,3 +231,86 @@ func ToLeadResponseList(leads []models.Lead) []LeadResponse {
 	}
 	return responses
 }
+
+// LeadDetailResponse is GET /leads/:code's response - LeadResponse plus
+// every resolved reference name List never renders, kept as a separate
+// type (not merged into LeadResponse) so List's Preload chain doesn't grow
+// for fields the List UI never shows. See LeadRepository.FindDetailByCode.
+type LeadDetailResponse struct {
+	LeadResponse
+	ProvinceName    *string `json:"province_name"`
+	DistrictName    *string `json:"district_name"`
+	VillageName     *string `json:"village_name"`
+	ZipCode         *string `json:"zip_code"`
+	ServiceTypeName *string `json:"service_type_name"`
+	LeadSourceName  *string `json:"lead_source_name"`
+	CreatedByName   string  `json:"created_by_name"`
+}
+
+func provinceName(lead *models.Lead) *string {
+	if lead.Province == nil {
+		return nil
+	}
+	return &lead.Province.Name
+}
+
+func districtName(lead *models.Lead) *string {
+	if lead.District == nil {
+		return nil
+	}
+	return &lead.District.Name
+}
+
+func villageName(lead *models.Lead) *string {
+	if lead.Village == nil {
+		return nil
+	}
+	return &lead.Village.Name
+}
+
+// zipCode reads lead.Zip (the lead's own zip_id, which can be overridden
+// independently of village_id per FRONTEND.md's address-cascade rule) - not
+// lead.Village.Zip, which is a different, merely-suggested value.
+func zipCode(lead *models.Lead) *string {
+	if lead.Zip == nil {
+		return nil
+	}
+	return &lead.Zip.Code
+}
+
+func serviceTypeName(lead *models.Lead) *string {
+	if lead.ServiceType == nil {
+		return nil
+	}
+	return &lead.ServiceType.Name
+}
+
+func leadSourceName(lead *models.Lead) *string {
+	if lead.LeadSource == nil {
+		return nil
+	}
+	return &lead.LeadSource.Name
+}
+
+func leadCreatedByName(lead *models.Lead) string {
+	if lead.CreatedBy == nil {
+		return ""
+	}
+	return lead.CreatedBy.Name
+}
+
+// ToLeadDetailResponse converts a model to the Detail-only DTO. lead must
+// have gone through LeadRepository.FindDetailByCode, not the plain
+// FindByCode, or every *Name field below comes back nil/empty.
+func ToLeadDetailResponse(lead *models.Lead) LeadDetailResponse {
+	return LeadDetailResponse{
+		LeadResponse:    ToLeadResponse(lead),
+		ProvinceName:    provinceName(lead),
+		DistrictName:    districtName(lead),
+		VillageName:     villageName(lead),
+		ZipCode:         zipCode(lead),
+		ServiceTypeName: serviceTypeName(lead),
+		LeadSourceName:  leadSourceName(lead),
+		CreatedByName:   leadCreatedByName(lead),
+	}
+}

@@ -254,7 +254,7 @@ export interface paths {
                     };
                     content: {
                         "*/*": components["schemas"]["utils.Response"] & {
-                            data?: components["schemas"]["dto.LeadResponse"];
+                            data?: components["schemas"]["dto.LeadDetailResponse"];
                         };
                     };
                 };
@@ -1154,6 +1154,50 @@ export interface components {
             id?: string;
             lead_id?: string;
             note?: string;
+        };
+        "dto.LeadDetailResponse": {
+            business_field?: string;
+            capacity_mbps?: number;
+            city_id?: number;
+            city_name?: string;
+            code?: string;
+            company_name?: string;
+            created_at?: string;
+            created_by_id?: string;
+            created_by_name?: string;
+            district_id?: number;
+            district_name?: string;
+            email?: string;
+            existing_isp?: string;
+            follow_up_count?: number;
+            id?: string;
+            is_stale?: boolean;
+            last_follow_up_at?: string;
+            lead_source_id?: string;
+            lead_source_name?: string;
+            lost_reason?: string;
+            mobile_phone?: string;
+            office_phone?: string;
+            other_services?: string;
+            owner_id?: string;
+            owner_name?: string;
+            owner_team_name?: string;
+            pic_name?: string;
+            pic_position?: string;
+            price?: number;
+            province_id?: number;
+            province_name?: string;
+            rt?: string;
+            rw?: string;
+            service_type_id?: string;
+            service_type_name?: string;
+            status?: string;
+            street?: string;
+            village_id?: number;
+            village_name?: string;
+            website?: string;
+            zip_code?: string;
+            zip_id?: number;
         };
         "dto.LeadResponse": {
             business_field?: string;

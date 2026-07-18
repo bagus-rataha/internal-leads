@@ -101,6 +101,29 @@ func (r *LeadRepository) FindByCode(scope LeadScope, code string) (*models.Lead,
 	return &lead, nil
 }
 
+// FindDetailByCode is FindByCode plus every reference-name association
+// GET /leads/:code's response needs and List/write-path FindByCode don't -
+// kept as a separate method (not a shared helper) so List's and the write
+// paths' Preload chains stay exactly as lean as they were.
+func (r *LeadRepository) FindDetailByCode(scope LeadScope, code string) (*models.Lead, error) {
+	var lead models.Lead
+	err := applyLeadScope(r.db.Model(&models.Lead{}), scope).
+		Preload("Owner.Team").
+		Preload("City").
+		Preload("Province").
+		Preload("District").
+		Preload("Village").
+		Preload("Zip").
+		Preload("ServiceType").
+		Preload("LeadSource").
+		Preload("CreatedBy").
+		Where("leads.code = ?", code).First(&lead).Error
+	if err != nil {
+		return nil, err
+	}
+	return &lead, nil
+}
+
 // Update saves an existing lead's fields
 func (r *LeadRepository) Update(lead *models.Lead) error {
 	return r.db.Save(lead).Error

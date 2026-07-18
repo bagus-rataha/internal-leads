@@ -60,6 +60,7 @@ type leadRepositoryForLead interface {
 	Create(lead *models.Lead) error
 	List(scope repository.LeadScope, filter repository.LeadFilter) ([]models.Lead, int64, error)
 	FindByCode(scope repository.LeadScope, code string) (*models.Lead, error)
+	FindDetailByCode(scope repository.LeadScope, code string) (*models.Lead, error)
 	Update(lead *models.Lead) error
 }
 
@@ -316,18 +317,18 @@ func (s *LeadService) List(callerID uuid.UUID, role string, query dto.LeadListQu
 }
 
 // FindByCode fetches a single lead, scoped.
-func (s *LeadService) FindByCode(callerID uuid.UUID, role, code string) (*dto.LeadResponse, error) {
+func (s *LeadService) FindByCode(callerID uuid.UUID, role, code string) (*dto.LeadDetailResponse, error) {
 	scope, err := buildLeadScope(s.userRepo, callerID, role)
 	if err != nil {
 		return nil, err
 	}
 
-	lead, err := s.leadRepo.FindByCode(scope, code)
+	lead, err := s.leadRepo.FindDetailByCode(scope, code)
 	if err != nil {
 		return nil, ErrLeadNotFound
 	}
 
-	response := dto.ToLeadResponse(lead)
+	response := dto.ToLeadDetailResponse(lead)
 	response.IsStale = isLeadStale(lead, time.Now())
 	return &response, nil
 }

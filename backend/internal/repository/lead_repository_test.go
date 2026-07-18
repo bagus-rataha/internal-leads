@@ -319,4 +319,58 @@ func TestLeadRepository_FindByCode_PreloadsOwnerTeam(t *testing.T) {
 	assert.Equal(t, "Tim Jakarta 1", found.Owner.Team.Name)
 }
 
+func TestLeadRepository_FindDetailByCode_PreloadsEverything(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewLeadRepository(db)
+	userID := seedTestUser(t, db)
+
+	province := &models.Province{ID: 1, ExternalID: "p1", Name: "DKI Jakarta"}
+	city := &models.City{ID: 1, ExternalID: "c1", ProvinceID: 1, Name: "Jakarta Selatan"}
+	district := &models.District{ID: 1, ExternalID: "d1", CityID: 1, Name: "Setiabudi"}
+	zip := &models.Zip{ID: 1, ExternalID: "z1", Code: "12950", CityID: 1, DistrictID: 1}
+	village := &models.Village{ID: 1, ExternalID: "v1", DistrictID: 1, ZipID: &zip.ID, Name: "Kuningan Timur"}
+	require.NoError(t, db.Create(province).Error)
+	require.NoError(t, db.Create(city).Error)
+	require.NoError(t, db.Create(district).Error)
+	require.NoError(t, db.Create(zip).Error)
+	require.NoError(t, db.Create(village).Error)
+	serviceType := &models.ServiceType{Name: "Dedicated", IsActive: true}
+	leadSource := &models.LeadSource{Name: "Google", IsActive: true}
+	require.NoError(t, db.Create(serviceType).Error)
+	require.NoError(t, db.Create(leadSource).Error)
+
+	lead := &models.Lead{
+		Code: "LD-2607-1401", OwnerID: userID, CreatedByID: userID, CompanyName: "Acme",
+		ProvinceID: &province.ID, CityID: &city.ID, DistrictID: &district.ID, VillageID: &village.ID, ZipID: &zip.ID,
+		ServiceTypeID: &serviceType.ID, LeadSourceID: &leadSource.ID,
+	}
+	require.NoError(t, repo.Create(lead))
+
+	found, err := repo.FindDetailByCode(LeadScope{}, "LD-2607-1401")
+	require.NoError(t, err)
+	require.NotNil(t, found.Province)
+	assert.Equal(t, "DKI Jakarta", found.Province.Name)
+	require.NotNil(t, found.District)
+	assert.Equal(t, "Setiabudi", found.District.Name)
+	require.NotNil(t, found.Village)
+	assert.Equal(t, "Kuningan Timur", found.Village.Name)
+	require.NotNil(t, found.Zip)
+	assert.Equal(t, "12950", found.Zip.Code)
+	require.NotNil(t, found.ServiceType)
+	assert.Equal(t, "Dedicated", found.ServiceType.Name)
+	require.NotNil(t, found.LeadSource)
+	assert.Equal(t, "Google", found.LeadSource.Name)
+	require.NotNil(t, found.CreatedBy)
+	assert.Equal(t, "Test User", found.CreatedBy.Name)
+}
+
+func TestLeadRepository_FindDetailByCode_OutOfScope_NotFound(t *testing.T) {
+	db := setupTestDB(t)
+	_, _, _, salesB, leadA, _ := seedScopeFixture(t, db)
+	repo := NewLeadRepository(db)
+
+	_, err := repo.FindDetailByCode(LeadScope{OwnerID: &salesB.ID}, leadA.Code)
+	assert.Error(t, err, "scope must apply to the detail read path exactly like FindByCode")
+}
+
 func strPtr(s string) *string { return &s }

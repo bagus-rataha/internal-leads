@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 )
 
@@ -273,7 +274,7 @@ func TestLeadFindByCode_OutOfScope_NotFound(t *testing.T) {
 	leadRepo := new(MockLeadRepository)
 	userRepo := new(MockUserRepository)
 	salesID := uuid.Must(uuid.NewV7())
-	leadRepo.On("FindByCode", repository.LeadScope{OwnerID: &salesID}, "LD-2607-0008").
+	leadRepo.On("FindDetailByCode", repository.LeadScope{OwnerID: &salesID}, "LD-2607-0008").
 		Return(nil, gorm.ErrRecordNotFound)
 
 	svc := NewLeadService(nil, leadRepo, userRepo, nil)
@@ -308,7 +309,7 @@ func TestLeadFindByCode_Leader_NilTeamID_FailsClosed(t *testing.T) {
 	_, err := svc.FindByCode(leaderID, "LEADER", "LD-2607-0011")
 
 	assert.Error(t, err, "a LEADER with nil team_id must never get an unrestricted scope")
-	leadRepo.AssertNotCalled(t, "FindByCode", mock.Anything, mock.Anything)
+	leadRepo.AssertNotCalled(t, "FindDetailByCode", mock.Anything, mock.Anything)
 }
 
 func TestTranslateWriteError_FKViolation_MapsToErrInvalidReference(t *testing.T) {
@@ -365,6 +366,31 @@ func TestLeadFindByCode_UnrecognizedRole_FailsClosed(t *testing.T) {
 
 	assert.Error(t, err)
 	leadRepo.AssertNotCalled(t, "FindByCode", mock.Anything, mock.Anything)
+}
+
+func TestLeadFindByCode_ReturnsDetailResponseWithResolvedNames(t *testing.T) {
+	leadRepo := new(MockLeadRepository)
+	userRepo := new(MockUserRepository)
+	callerID := uuid.Must(uuid.NewV7())
+	serviceTypeID := uuid.Must(uuid.NewV7())
+
+	lead := &models.Lead{
+		BaseModel: models.BaseModel{ID: uuid.Must(uuid.NewV7())},
+		Code:      "LD-2607-0001", Status: "BARU", OwnerID: callerID, CreatedByID: callerID,
+		ServiceTypeID: &serviceTypeID,
+		Owner:         &models.User{Name: "Rani"},
+		ServiceType:   &models.ServiceType{Name: "Dedicated"},
+		CreatedBy:     &models.User{Name: "Rani"},
+	}
+	leadRepo.On("FindDetailByCode", mock.Anything, "LD-2607-0001").Return(lead, nil)
+
+	svc := NewLeadService(nil, leadRepo, userRepo, nil)
+	result, err := svc.FindByCode(callerID, "SALES", "LD-2607-0001")
+
+	require.NoError(t, err)
+	assert.Equal(t, "Dedicated", *result.ServiceTypeName)
+	assert.Equal(t, "Rani", result.CreatedByName)
+	assert.Nil(t, result.ProvinceName, "unset province_id must produce a nil name, not a panic or empty string")
 }
 
 func strPtrSvc(s string) *string { return &s }
