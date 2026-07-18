@@ -2,12 +2,20 @@
 // and a sticky right-column follow-up timeline + composer.
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, ExternalLink, Building2, MapPin, User, Wifi, Tag, AlertTriangle, Check, X as XIcon } from 'lucide-react'
-import { useLeadDetail, useFollowUps, useCreateFollowUp, useUpdateLeadStatus } from './queries'
+import {
+  useLeadDetail,
+  useFollowUps,
+  useCreateFollowUp,
+  useUpdateLeadStatus,
+  useSalesRoster,
+  useReassignOwner,
+} from './queries'
 import { StatusPill, formatRelativeTime } from './shared'
 import type { FollowUpResponse } from './api'
 import { useState } from 'react'
 import { Modal } from '@/components/ui/modal'
 import { showToast } from '@/hooks/useToast'
+import { useAuth } from '@/auth/AuthContext'
 
 const DT_ROW = 'flex items-start justify-between gap-4 border-b border-[#F5F8FC] py-[9px]'
 const DT_ROW_LAST = 'flex items-start justify-between gap-4 py-[9px]'
@@ -74,6 +82,7 @@ function TimelineEntry({ entry }: { entry: FollowUpResponse }) {
 export default function LeadDetailPage() {
   const { code } = useParams<{ code: string }>()
   const navigate = useNavigate()
+  const { user } = useAuth()
   const { data: lead, isLoading, error } = useLeadDetail(code!)
   const { data: followUps } = useFollowUps(code!)
   const createFollowUp = useCreateFollowUp(code!)
@@ -81,6 +90,10 @@ export default function LeadDetailPage() {
   const [draft, setDraft] = useState('')
   const [modal, setModal] = useState<'handoff' | 'lost' | null>(null)
   const [lostReason, setLostReason] = useState('')
+  const [reassignOpen, setReassignOpen] = useState(false)
+  const { data: salesRoster } = useSalesRoster(reassignOpen)
+  const [reassignTo, setReassignTo] = useState('')
+  const reassign = useReassignOwner(code!)
 
   if (isLoading) {
     return <div className="p-6 text-sm text-muted-foreground">Memuat…</div>
@@ -91,6 +104,8 @@ export default function LeadDetailPage() {
 
   const isTerminal = lead.status === 'HANDOFF_ODOO' || lead.status === 'LOST'
   const canAct = !isTerminal
+  const isAdmin = user?.role === 'ADMIN_SALES' || user?.role === 'SU'
+  const canReassign = isAdmin && canAct
   const showCreatedBy = lead.created_by_id !== lead.owner_id
   const websiteHref = lead.website
     ? /^https?:\/\//.test(lead.website)
@@ -120,6 +135,16 @@ export default function LeadDetailPage() {
         },
       }
     )
+  }
+
+  function handleReassignConfirm() {
+    if (!reassignTo) return
+    reassign.mutate(reassignTo, {
+      onSuccess: () => {
+        setReassignOpen(false)
+        showToast(`Owner dipindahkan`)
+      },
+    })
   }
 
   function handleLostConfirm() {
@@ -177,6 +202,18 @@ export default function LeadDetailPage() {
           </div>
 
           <div className="flex shrink-0 gap-[9px]">
+            {canReassign && (
+              <button
+                type="button"
+                onClick={() => {
+                  setReassignTo(lead.owner_id ?? '')
+                  setReassignOpen(true)
+                }}
+                className="inline-flex items-center gap-[5px] rounded-[7px] border border-[#CBD5E1] bg-white px-[10px] py-[3px] text-[11.5px] font-semibold text-[#334155] hover:bg-[#F7F9FC]"
+              >
+                Reassign
+              </button>
+            )}
             {canAct && (
               <>
                 <button
@@ -437,6 +474,39 @@ export default function LeadDetailPage() {
           >
             <XIcon className="size-[15px]" />
             Tandai Lost
+          </button>
+        </div>
+      </Modal>
+
+      <Modal open={reassignOpen} onClose={() => setReassignOpen(false)} maxWidth={420}>
+        <div className="font-display text-[19px] font-extrabold text-[#0F172A]">Reassign Owner</div>
+        <div className="mt-1 text-[13px] leading-[1.55] text-[#64748B]">
+          Pindahkan kepemilikan lead <strong className="text-[#334155]">{lead.company_name}</strong> ke sales lain.
+        </div>
+        <label className="mt-4 mb-[7px] block text-[12px] font-semibold text-[#334155]">Owner baru</label>
+        <select
+          value={reassignTo}
+          onChange={(e) => setReassignTo(e.target.value)}
+          className="h-[42px] w-full rounded-[9px] border border-[#CBD5E1] px-3 text-[13.5px] text-[#0F172A] outline-none"
+        >
+          <option value="">Pilih sales…</option>
+          {(salesRoster ?? []).map((u) => (
+            <option key={u.id} value={u.id}>
+              {u.name}
+            </option>
+          ))}
+        </select>
+        <div className="mt-5 flex justify-end gap-[10px]">
+          <button type="button" onClick={() => setReassignOpen(false)} className="rounded-[8px] border border-[#CBD5E1] bg-white px-[18px] py-[9px] text-[14px] font-semibold text-[#334155] hover:bg-[#F7F9FC]">
+            Batal
+          </button>
+          <button
+            type="button"
+            onClick={handleReassignConfirm}
+            disabled={!reassignTo || reassign.isPending}
+            className="rounded-[8px] bg-[#1D4ED8] px-[18px] py-[9px] text-[14px] font-semibold text-white shadow-[0_1px_2px_rgba(29,78,216,0.3)] hover:bg-[#1A45BE] disabled:opacity-60"
+          >
+            Simpan
           </button>
         </div>
       </Modal>
