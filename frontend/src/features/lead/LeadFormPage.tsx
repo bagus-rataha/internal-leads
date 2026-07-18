@@ -52,6 +52,17 @@ export function blankForm(): LeadFormValues {
   }
 }
 
+// Editing a lead loads the stored phone as `62<national>` (or possibly a
+// legacy `0<national>`/`+62<national>`) — strip it back to the bare national
+// digits so the input shows only what the user is meant to type.
+function stripPhonePrefix(raw: string | undefined | null): string {
+  const v = (raw ?? '').trim()
+  if (v.startsWith('+62')) return v.slice(3)
+  if (v.startsWith('62')) return v.slice(2)
+  if (v.startsWith('0')) return v.slice(1)
+  return v
+}
+
 function fromDetail(d: LeadDetailResponse): LeadFormValues {
   return {
     company_name: d.company_name ?? '',
@@ -70,8 +81,8 @@ function fromDetail(d: LeadDetailResponse): LeadFormValues {
     street: d.street ?? '',
     pic_name: d.pic_name ?? '',
     pic_position: d.pic_position ?? '',
-    office_phone: d.office_phone ?? '',
-    mobile_phone: d.mobile_phone ?? '',
+    office_phone: stripPhonePrefix(d.office_phone),
+    mobile_phone: stripPhonePrefix(d.mobile_phone),
     email: d.email ?? '',
     service_type_id: d.service_type_id ?? '',
     capacity_mbps: d.capacity_mbps != null ? String(d.capacity_mbps) : '',
@@ -91,6 +102,20 @@ const n = (x: string) => {
   return Number.isFinite(num) ? num : undefined
 }
 
+// National digits -> full stored phone (`62<national>`); undefined when empty.
+const normalizePhone = (national: string) => {
+  const v = national.trim()
+  return v === '' ? undefined : '62' + v
+}
+
+// Bare domain -> schemed URL; undefined when empty. Already-schemed input
+// passes through untouched (the lenient WEBSITE_RE accepts either).
+const normalizeWebsite = (website: string) => {
+  const v = website.trim()
+  if (v === '') return undefined
+  return /^https?:\/\//i.test(v) ? v : 'https://' + v
+}
+
 // Build the API payload. `includeOwner` is false for SALES (owner is forced
 // server-side to self; the field isn't even shown). Works for both Create
 // and Update (Update's shape is the same, all-optional).
@@ -98,7 +123,7 @@ export function buildLeadPayload(v: LeadFormValues, includeOwner: boolean): Crea
   return {
     company_name: v.company_name.trim(),
     business_field: s(v.business_field),
-    website: s(v.website),
+    website: normalizeWebsite(v.website),
     province_id: v.address.province_id,
     city_id: v.address.city_id,
     district_id: v.address.district_id,
@@ -109,8 +134,8 @@ export function buildLeadPayload(v: LeadFormValues, includeOwner: boolean): Crea
     street: s(v.street),
     pic_name: s(v.pic_name),
     pic_position: s(v.pic_position),
-    office_phone: s(v.office_phone),
-    mobile_phone: s(v.mobile_phone),
+    office_phone: normalizePhone(v.office_phone),
+    mobile_phone: normalizePhone(v.mobile_phone),
     email: s(v.email),
     service_type_id: s(v.service_type_id),
     capacity_mbps: n(v.capacity_mbps),
@@ -121,6 +146,137 @@ export function buildLeadPayload(v: LeadFormValues, includeOwner: boolean): Crea
     ...(includeOwner && v.owner_id ? { owner_id: v.owner_id } : {}),
   }
 }
+
+// ---- Validation ---------------------------------------------------------
+
+type AddressField = 'province_id' | 'city_id' | 'district_id' | 'village_id'
+type FieldName = keyof LeadFormValues | AddressField
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const WEBSITE_RE = /^(https?:\/\/)?([a-z0-9-]+\.)+[a-z]{2,}(\/\S*)?$/i
+const RTRW_RE = /^\d{1,4}$/
+
+function phoneError(national: string, required: boolean): string | undefined {
+  const v = national.trim()
+  if (!v) return required ? 'Wajib diisi' : undefined
+  if (!/^\d+$/.test(v)) return 'Hanya angka, tanpa spasi/tanda'
+  if (v.startsWith('0')) return 'Tanpa 0 di depan'
+  if (v.length < 8 || v.length > 13) return 'Nomor tidak valid'
+  return undefined
+}
+
+// Order matters: it's also the top-to-bottom DOM order used to find the
+// first errored field to scroll to on a blocked submit.
+const ALL_FIELDS: FieldName[] = [
+  'company_name',
+  'business_field',
+  'website',
+  'province_id',
+  'city_id',
+  'district_id',
+  'village_id',
+  'rt',
+  'rw',
+  'street',
+  'pic_name',
+  'pic_position',
+  'office_phone',
+  'mobile_phone',
+  'email',
+  'capacity_mbps',
+  'price',
+  'lead_source_id',
+  'owner_id',
+]
+
+function validateField(
+  name: FieldName,
+  values: LeadFormValues,
+  showOwner: boolean,
+): string | undefined {
+  switch (name) {
+    case 'company_name':
+    case 'business_field':
+    case 'street':
+    case 'pic_name':
+    case 'pic_position':
+      return values[name].trim() === '' ? 'Wajib diisi' : undefined
+    case 'lead_source_id':
+      return values.lead_source_id === '' ? 'Wajib dipilih' : undefined
+    case 'owner_id':
+      return showOwner && values.owner_id === '' ? 'Wajib dipilih' : undefined
+    case 'province_id':
+    case 'city_id':
+    case 'district_id':
+    case 'village_id':
+      return values.address[name] == null ? 'Wajib dipilih' : undefined
+    case 'email': {
+      const v = values.email.trim()
+      if (!v) return 'Wajib diisi'
+      return EMAIL_RE.test(v) ? undefined : 'Format email tidak valid'
+    }
+    case 'mobile_phone':
+      return phoneError(values.mobile_phone, true)
+    case 'office_phone':
+      return phoneError(values.office_phone, false)
+    case 'website': {
+      const v = values.website.trim()
+      if (!v) return undefined
+      return WEBSITE_RE.test(v) ? undefined : 'Format website tidak valid'
+    }
+    case 'rt':
+    case 'rw': {
+      const v = values[name].trim()
+      if (!v) return undefined
+      return RTRW_RE.test(v) ? undefined : 'Hanya angka (maks 4 digit)'
+    }
+    case 'capacity_mbps': {
+      const v = values.capacity_mbps.trim()
+      if (!v) return undefined
+      const num = Number(v)
+      return Number.isInteger(num) && num > 0 ? undefined : 'Harus lebih dari 0'
+    }
+    case 'price': {
+      const v = values.price.trim()
+      if (!v) return undefined
+      const num = Number(v)
+      return Number.isFinite(num) && num >= 0 ? undefined : 'Tidak boleh negatif'
+    }
+    default:
+      return undefined
+  }
+}
+
+function validateAll(values: LeadFormValues, showOwner: boolean): Record<string, string> {
+  const errs: Record<string, string> = {}
+  for (const f of ALL_FIELDS) {
+    const err = validateField(f, values, showOwner)
+    if (err) errs[f] = err
+  }
+  return errs
+}
+
+// The four address ids don't have their own DOM ids (AddressFields is a
+// sibling task's file, not touched here) — scroll to the whole address
+// block instead of the exact select.
+const ADDRESS_FIELD_SET = new Set<FieldName>([
+  'province_id',
+  'city_id',
+  'district_id',
+  'village_id',
+])
+const scrollTargetId = (field: FieldName) =>
+  ADDRESS_FIELD_SET.has(field) ? 'address-fields' : field
+
+// +62 prefix group: input's left corners flattened, no left border (the
+// prefix chip supplies it), right side keeps the normal field rounding.
+const PHONE_INPUT = FIELD_INPUT_MONO
+  .replace('w-full', 'flex-1 min-w-0')
+  .replace('rounded-[9px]', 'rounded-r-[9px] rounded-l-none') + ' border-l-0'
+const PHONE_PREFIX =
+  'flex h-[42px] shrink-0 items-center rounded-l-[9px] border border-r-0 border-[#CBD5E1] bg-[#F1F5F9] px-3 font-mono text-[13px] text-[#64748B]'
+
+const errClass = (base: string, hasError: boolean) => (hasError ? base + ' border-[#DC2626]' : base)
 
 function RequiredMark() {
   return <span className="text-[#DC2626]">*</span>
@@ -178,6 +334,8 @@ export default function LeadFormPage() {
   const { code } = useParams<{ code?: string }>()
   const mode = code ? 'edit' : 'create'
   const [values, setValues] = useState<LeadFormValues>(blankForm())
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [touched, setTouched] = useState<Record<string, boolean>>({})
   const [sources, setSources] = useState<LeadSourceResponse[]>([])
   const { data: serviceTypes = [] } = useServiceTypes()
   const showOwnerField = user?.role !== 'SALES'
@@ -215,8 +373,36 @@ export default function LeadFormPage() {
     setValues((v) => ({ ...v, [key]: value }))
   }
 
+  // Validates on first blur, then live on every change while touched.
+  function blur(field: keyof LeadFormValues) {
+    setTouched((t) => ({ ...t, [field]: true }))
+    setErrors((e) => ({ ...e, [field]: validateField(field, values, showOwnerField) ?? '' }))
+  }
+
+  function change<K extends keyof LeadFormValues>(key: K, value: LeadFormValues[K]) {
+    set(key, value)
+    if (touched[key]) {
+      const next = { ...values, [key]: value }
+      setErrors((e) => ({ ...e, [key]: validateField(key, next, showOwnerField) ?? '' }))
+    }
+  }
+
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
+    const errs = validateAll(values, showOwnerField)
+    setErrors(errs)
+    setTouched((t) => {
+      const next = { ...t }
+      for (const f of ALL_FIELDS) next[f] = true
+      return next
+    })
+    if (Object.keys(errs).length > 0) {
+      const firstField = ALL_FIELDS.find((f) => errs[f])
+      if (firstField) {
+        document.getElementById(scrollTargetId(firstField))?.scrollIntoView({ block: 'center' })
+      }
+      return
+    }
     const includeOwner = showOwnerField
     const payload = buildLeadPayload(values, includeOwner)
     if (mode === 'edit') {
@@ -290,7 +476,7 @@ export default function LeadFormPage() {
           : 'Kode lead dihasilkan otomatis oleh sistem setelah tersimpan (mis. LD-2607-00XX).'}
       </p>
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} noValidate>
         <FormCard number={1} title="Data Perusahaan">
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr]">
             <div>
@@ -298,32 +484,47 @@ export default function LeadFormPage() {
                 Nama Perusahaan <RequiredMark />
               </label>
               <input
+                id="company_name"
                 required
                 value={values.company_name}
-                onChange={(e) => set('company_name', e.target.value)}
-                className={FIELD_INPUT}
+                onChange={(e) => change('company_name', e.target.value)}
+                onBlur={() => blur('company_name')}
+                className={errClass(FIELD_INPUT, touched.company_name && !!errors.company_name)}
               />
+              {touched.company_name && errors.company_name && (
+                <p className="mt-1 text-[11px] text-[#DC2626]">{errors.company_name}</p>
+              )}
             </div>
             <div>
               <label className={FIELD_LABEL}>
                 Bidang Usaha <RequiredMark />
               </label>
               <input
+                id="business_field"
                 required
                 value={values.business_field}
-                onChange={(e) => set('business_field', e.target.value)}
-                className={FIELD_INPUT}
+                onChange={(e) => change('business_field', e.target.value)}
+                onBlur={() => blur('business_field')}
+                className={errClass(FIELD_INPUT, touched.business_field && !!errors.business_field)}
               />
+              {touched.business_field && errors.business_field && (
+                <p className="mt-1 text-[11px] text-[#DC2626]">{errors.business_field}</p>
+              )}
             </div>
             <div className="lg:col-span-2">
               <label className={FIELD_LABEL}>
                 Website <OptTag />
               </label>
               <input
+                id="website"
                 value={values.website}
-                onChange={(e) => set('website', e.target.value)}
-                className={FIELD_INPUT}
+                onChange={(e) => change('website', e.target.value)}
+                onBlur={() => blur('website')}
+                className={errClass(FIELD_INPUT, touched.website && !!errors.website)}
               />
+              {touched.website && errors.website && (
+                <p className="mt-1 text-[11px] text-[#DC2626]">{errors.website}</p>
+              )}
             </div>
           </div>
         </FormCard>
@@ -333,10 +534,32 @@ export default function LeadFormPage() {
             Pilih bertingkat: provinsi → kota/kabupaten → kecamatan → kelurahan. Kode pos terisi
             otomatis dari kelurahan yang dipilih.
           </p>
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div id="address-fields" className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <AddressFields
               value={values.address}
-              onChange={(address) => setValues((v) => ({ ...v, address }))}
+              onChange={(address) => {
+                setValues((v) => ({ ...v, address }))
+                setErrors((e) => {
+                  const next = { ...e }
+                  for (const f of ['province_id', 'city_id', 'district_id', 'village_id'] as const) {
+                    if (touched[f]) {
+                      next[f] =
+                        validateField(f, { ...values, address }, showOwnerField) ?? ''
+                    }
+                  }
+                  return next
+                })
+              }}
+              errors={{
+                province_id: touched.province_id ? errors.province_id : undefined,
+                city_id: touched.city_id ? errors.city_id : undefined,
+                district_id: touched.district_id ? errors.district_id : undefined,
+                village_id: touched.village_id ? errors.village_id : undefined,
+              }}
+              onBlurField={(f) => {
+                setTouched((t) => ({ ...t, [f]: true }))
+                setErrors((e) => ({ ...e, [f]: validateField(f, values, showOwnerField) ?? '' }))
+              }}
             />
           </div>
           <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -354,20 +577,34 @@ export default function LeadFormPage() {
                 RT <OptTag />
               </label>
               <input
+                id="rt"
+                inputMode="numeric"
+                maxLength={4}
                 value={values.rt}
-                onChange={(e) => set('rt', e.target.value)}
-                className={FIELD_INPUT_MONO}
+                onChange={(e) => change('rt', e.target.value)}
+                onBlur={() => blur('rt')}
+                className={errClass(FIELD_INPUT_MONO, touched.rt && !!errors.rt)}
               />
+              {touched.rt && errors.rt && (
+                <p className="mt-1 text-[11px] text-[#DC2626]">{errors.rt}</p>
+              )}
             </div>
             <div>
               <label className={FIELD_LABEL}>
                 RW <OptTag />
               </label>
               <input
+                id="rw"
+                inputMode="numeric"
+                maxLength={4}
                 value={values.rw}
-                onChange={(e) => set('rw', e.target.value)}
-                className={FIELD_INPUT_MONO}
+                onChange={(e) => change('rw', e.target.value)}
+                onBlur={() => blur('rw')}
+                className={errClass(FIELD_INPUT_MONO, touched.rw && !!errors.rw)}
               />
+              {touched.rw && errors.rw && (
+                <p className="mt-1 text-[11px] text-[#DC2626]">{errors.rw}</p>
+              )}
             </div>
           </div>
           <div className="mt-4">
@@ -375,11 +612,16 @@ export default function LeadFormPage() {
               Nama Jalan Lengkap <RequiredMark />
             </label>
             <input
+              id="street"
               required
               value={values.street}
-              onChange={(e) => set('street', e.target.value)}
-              className={FIELD_INPUT}
+              onChange={(e) => change('street', e.target.value)}
+              onBlur={() => blur('street')}
+              className={errClass(FIELD_INPUT, touched.street && !!errors.street)}
             />
+            {touched.street && errors.street && (
+              <p className="mt-1 text-[11px] text-[#DC2626]">{errors.street}</p>
+            )}
           </div>
         </FormCard>
 
@@ -390,55 +632,90 @@ export default function LeadFormPage() {
                 Nama PIC <RequiredMark />
               </label>
               <input
+                id="pic_name"
                 required
                 value={values.pic_name}
-                onChange={(e) => set('pic_name', e.target.value)}
-                className={FIELD_INPUT}
+                onChange={(e) => change('pic_name', e.target.value)}
+                onBlur={() => blur('pic_name')}
+                className={errClass(FIELD_INPUT, touched.pic_name && !!errors.pic_name)}
               />
+              {touched.pic_name && errors.pic_name && (
+                <p className="mt-1 text-[11px] text-[#DC2626]">{errors.pic_name}</p>
+              )}
             </div>
             <div>
               <label className={FIELD_LABEL}>
                 Jabatan <RequiredMark />
               </label>
               <input
+                id="pic_position"
                 required
                 value={values.pic_position}
-                onChange={(e) => set('pic_position', e.target.value)}
-                className={FIELD_INPUT}
+                onChange={(e) => change('pic_position', e.target.value)}
+                onBlur={() => blur('pic_position')}
+                className={errClass(FIELD_INPUT, touched.pic_position && !!errors.pic_position)}
               />
+              {touched.pic_position && errors.pic_position && (
+                <p className="mt-1 text-[11px] text-[#DC2626]">{errors.pic_position}</p>
+              )}
             </div>
             <div>
               <label className={FIELD_LABEL}>
                 Telepon Kantor <OptTag />
               </label>
-              <input
-                value={values.office_phone}
-                onChange={(e) => set('office_phone', e.target.value)}
-                className={FIELD_INPUT_MONO}
-              />
+              <div className="flex">
+                <span className={PHONE_PREFIX}>+62</span>
+                <input
+                  id="office_phone"
+                  inputMode="numeric"
+                  maxLength={13}
+                  value={values.office_phone}
+                  onChange={(e) => change('office_phone', e.target.value)}
+                  onBlur={() => blur('office_phone')}
+                  className={errClass(PHONE_INPUT, touched.office_phone && !!errors.office_phone)}
+                />
+              </div>
+              {touched.office_phone && errors.office_phone && (
+                <p className="mt-1 text-[11px] text-[#DC2626]">{errors.office_phone}</p>
+              )}
             </div>
             <div>
               <label className={FIELD_LABEL}>
                 No. HP <RequiredMark />
               </label>
-              <input
-                required
-                value={values.mobile_phone}
-                onChange={(e) => set('mobile_phone', e.target.value)}
-                className={FIELD_INPUT_MONO}
-              />
+              <div className="flex">
+                <span className={PHONE_PREFIX}>+62</span>
+                <input
+                  id="mobile_phone"
+                  required
+                  inputMode="numeric"
+                  maxLength={13}
+                  value={values.mobile_phone}
+                  onChange={(e) => change('mobile_phone', e.target.value)}
+                  onBlur={() => blur('mobile_phone')}
+                  className={errClass(PHONE_INPUT, touched.mobile_phone && !!errors.mobile_phone)}
+                />
+              </div>
+              {touched.mobile_phone && errors.mobile_phone && (
+                <p className="mt-1 text-[11px] text-[#DC2626]">{errors.mobile_phone}</p>
+              )}
             </div>
             <div className="lg:col-span-2">
               <label className={FIELD_LABEL}>
                 Email <RequiredMark />
               </label>
               <input
+                id="email"
                 required
                 type="email"
                 value={values.email}
-                onChange={(e) => set('email', e.target.value)}
-                className={FIELD_INPUT}
+                onChange={(e) => change('email', e.target.value)}
+                onBlur={() => blur('email')}
+                className={errClass(FIELD_INPUT, touched.email && !!errors.email)}
               />
+              {touched.email && errors.email && (
+                <p className="mt-1 text-[11px] text-[#DC2626]">{errors.email}</p>
+              )}
             </div>
           </div>
         </FormCard>
@@ -479,11 +756,16 @@ export default function LeadFormPage() {
             <div>
               <label className={FIELD_LABEL}>Kapasitas (Mbps)</label>
               <input
+                id="capacity_mbps"
                 type="number"
                 value={values.capacity_mbps}
-                onChange={(e) => set('capacity_mbps', e.target.value)}
-                className={FIELD_INPUT}
+                onChange={(e) => change('capacity_mbps', e.target.value)}
+                onBlur={() => blur('capacity_mbps')}
+                className={errClass(FIELD_INPUT, touched.capacity_mbps && !!errors.capacity_mbps)}
               />
+              {touched.capacity_mbps && errors.capacity_mbps && (
+                <p className="mt-1 text-[11px] text-[#DC2626]">{errors.capacity_mbps}</p>
+              )}
             </div>
             <div>
               <label className={FIELD_LABEL}>ISP Eksisting</label>
@@ -496,11 +778,16 @@ export default function LeadFormPage() {
             <div>
               <label className={FIELD_LABEL}>Harga / bulan</label>
               <input
+                id="price"
                 type="number"
                 value={values.price}
-                onChange={(e) => set('price', e.target.value)}
-                className={FIELD_INPUT_MONO}
+                onChange={(e) => change('price', e.target.value)}
+                onBlur={() => blur('price')}
+                className={errClass(FIELD_INPUT_MONO, touched.price && !!errors.price)}
               />
+              {touched.price && errors.price && (
+                <p className="mt-1 text-[11px] text-[#DC2626]">{errors.price}</p>
+              )}
             </div>
             <div className="lg:col-span-2">
               <label className={FIELD_LABEL}>Layanan Lainnya</label>
@@ -521,10 +808,15 @@ export default function LeadFormPage() {
               </label>
               <div className="relative">
                 <select
+                  id="lead_source_id"
                   required
                   value={values.lead_source_id}
-                  onChange={(e) => set('lead_source_id', e.target.value)}
-                  className={FIELD_SELECT}
+                  onChange={(e) => change('lead_source_id', e.target.value)}
+                  onBlur={() => blur('lead_source_id')}
+                  className={errClass(
+                    FIELD_SELECT,
+                    touched.lead_source_id && !!errors.lead_source_id,
+                  )}
                 >
                   <option value="">Pilih…</option>
                   {sources.map((source, i) => (
@@ -535,6 +827,9 @@ export default function LeadFormPage() {
                 </select>
                 <SelectChevron />
               </div>
+              {touched.lead_source_id && errors.lead_source_id && (
+                <p className="mt-1 text-[11px] text-[#DC2626]">{errors.lead_source_id}</p>
+              )}
             </div>
 
             {showOwnerField ? (
@@ -544,10 +839,12 @@ export default function LeadFormPage() {
                 </label>
                 <div className="relative">
                   <select
+                    id="owner_id"
                     required
                     value={values.owner_id}
-                    onChange={(e) => set('owner_id', e.target.value)}
-                    className={FIELD_SELECT}
+                    onChange={(e) => change('owner_id', e.target.value)}
+                    onBlur={() => blur('owner_id')}
+                    className={errClass(FIELD_SELECT, touched.owner_id && !!errors.owner_id)}
                   >
                     <option value="">Pilih…</option>
                     {salesRoster.map((salesUser, i) => (
@@ -558,6 +855,9 @@ export default function LeadFormPage() {
                   </select>
                   <SelectChevron />
                 </div>
+                {touched.owner_id && errors.owner_id && (
+                  <p className="mt-1 text-[11px] text-[#DC2626]">{errors.owner_id}</p>
+                )}
               </div>
             ) : (
               <div>
