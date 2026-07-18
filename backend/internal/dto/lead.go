@@ -269,8 +269,8 @@ func villageName(lead *models.Lead) *string {
 }
 
 // zipCode reads lead.Zip (the lead's own zip_id, which can be overridden
-// independently of village_id per FRONTEND.md's address-cascade rule) - not
-// lead.Village.Zip, which is a different, merely-suggested value.
+// independently of village_id) - not lead.Village.Zip, which is a
+// different, merely-suggested value.
 func zipCode(lead *models.Lead) *string {
 	if lead.Zip == nil {
 		return nil

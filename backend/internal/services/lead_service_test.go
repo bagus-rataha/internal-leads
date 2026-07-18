@@ -365,7 +365,7 @@ func TestLeadFindByCode_UnrecognizedRole_FailsClosed(t *testing.T) {
 	_, err := svc.FindByCode(callerID, "BOGUS", "LD-2607-0010")
 
 	assert.Error(t, err)
-	leadRepo.AssertNotCalled(t, "FindByCode", mock.Anything, mock.Anything)
+	leadRepo.AssertNotCalled(t, "FindDetailByCode", mock.Anything, mock.Anything)
 }
 
 func TestLeadFindByCode_ReturnsDetailResponseWithResolvedNames(t *testing.T) {
