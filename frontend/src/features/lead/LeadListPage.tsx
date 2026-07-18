@@ -619,14 +619,14 @@ export default function LeadListPage() {
               </span>
             )}
           </Button>
-          <button
-            type="button"
+          <Button
+            size="sm"
             onClick={() => navigate('/leads/new')}
-            className="inline-flex items-center gap-2 rounded-[8px] bg-[#1D4ED8] px-[17px] py-[9px] text-[13.5px] font-semibold text-white shadow-[0_1px_2px_rgba(29,78,216,0.3)] hover:bg-[#1A45BE]"
+            className="gap-1.5 bg-[#1D4ED8] text-white shadow-[0_1px_2px_rgba(29,78,216,0.3)] hover:bg-[#1A45BE]"
           >
             <Plus className="size-4" />
             Lead Baru
-          </button>
+          </Button>
         </div>
       </div>
       {filtersOpen && (
