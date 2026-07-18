@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 )
 
@@ -26,6 +27,7 @@ func TestFollowUpCreate_Success_RecordsAndTransitions(t *testing.T) {
 	followUpRepo.On("Create", mock.AnythingOfType("*models.FollowUp")).Return(nil)
 	leadRepo.On("RecordFollowUp", leadID).Return(nil)
 	leadRepo.On("MaybeTransitionToFollowUp", leadID).Return(nil)
+	userRepo.On("FindByID", callerID).Return(&models.User{Name: "Test Caller"}, nil)
 
 	svc := NewFollowUpService(nil, followUpRepo, leadRepo, userRepo)
 	result, err := svc.createFollowUp(followUpRepo, leadRepo, callerID, "ADMIN_SALES", "LD-2607-3001", dto.CreateFollowUpInput{Note: "called, will follow up next week"})
@@ -84,4 +86,24 @@ func TestFollowUpList_Success(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Len(t, result, 1)
+}
+
+func TestFollowUpCreate_CreatedByNamePopulatedInResponse(t *testing.T) {
+	followUpRepo := new(MockFollowUpRepository)
+	leadRepo := new(MockLeadRepositoryForFollowUp)
+	userRepo := new(MockUserRepository)
+	callerID := uuid.Must(uuid.NewV7())
+	leadID := uuid.Must(uuid.NewV7())
+
+	leadRepo.On("FindByCode", mock.Anything, "LD-2607-0001").Return(&models.Lead{BaseModel: models.BaseModel{ID: leadID}, Status: "BARU"}, nil)
+	followUpRepo.On("Create", mock.AnythingOfType("*models.FollowUp")).Return(nil)
+	leadRepo.On("RecordFollowUp", leadID).Return(nil)
+	leadRepo.On("MaybeTransitionToFollowUp", leadID).Return(nil)
+	userRepo.On("FindByID", callerID).Return(&models.User{Name: "Budi Santoso"}, nil)
+
+	svc := NewFollowUpService(nil, followUpRepo, leadRepo, userRepo)
+	result, err := svc.createFollowUp(followUpRepo, leadRepo, callerID, "SALES", "LD-2607-0001", dto.CreateFollowUpInput{Note: "contacted"})
+
+	require.NoError(t, err)
+	assert.Equal(t, "Budi Santoso", result.CreatedByName, "created_by_name must be populated on the create response")
 }

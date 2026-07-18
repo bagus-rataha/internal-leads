@@ -92,7 +92,7 @@ func (r *LeadRepository) Create(lead *models.Lead) error {
 func (r *LeadRepository) FindByCode(scope LeadScope, code string) (*models.Lead, error) {
 	var lead models.Lead
 	err := applyLeadScope(r.db.Model(&models.Lead{}), scope).
-		Preload("Owner").
+		Preload("Owner.Team").
 		Preload("City").
 		Where("leads.code = ?", code).First(&lead).Error
 	if err != nil {
@@ -119,7 +119,7 @@ func (r *LeadRepository) List(scope LeadScope, filter LeadFilter) ([]models.Lead
 
 	var leads []models.Lead
 	offset := (filter.Page - 1) * filter.Limit
-	err := applyLeadSort(tx, filter.Sort).Preload("Owner").Preload("City").Offset(offset).Limit(filter.Limit).Find(&leads).Error
+	err := applyLeadSort(tx, filter.Sort).Preload("Owner.Team").Preload("City").Offset(offset).Limit(filter.Limit).Find(&leads).Error
 	return leads, total, err
 }
 

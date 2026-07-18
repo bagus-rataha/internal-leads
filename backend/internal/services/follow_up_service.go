@@ -98,6 +98,15 @@ func (s *FollowUpService) createFollowUp(
 		return nil, err
 	}
 
+	// followUp is in-memory only (no Preload happened) - fetch the creator
+	// so created_by_name isn't empty on the response, mirroring createLead's
+	// post-Create owner-name fetch.
+	creator, err := s.userRepo.FindByID(callerID)
+	if err != nil {
+		return nil, err
+	}
+	followUp.CreatedBy = creator
+
 	response := dto.ToFollowUpResponse(followUp)
 	return &response, nil
 }

@@ -302,4 +302,21 @@ func TestLeadRepository_MaybeTransitionToFollowUp(t *testing.T) {
 	assert.Equal(t, "LOST", found.Status, "already-terminal status must not be pulled back")
 }
 
+func TestLeadRepository_FindByCode_PreloadsOwnerTeam(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewLeadRepository(db)
+	team := &models.SalesTeam{Name: "Tim Jakarta 1", IsActive: true}
+	require.NoError(t, db.Create(team).Error)
+	owner := &models.User{Email: fmt.Sprintf("owner-%s@test.local", uuid.Must(uuid.NewV7())), Password: "h", Name: "Rani", Role: "SALES", TeamID: &team.ID, IsActive: true}
+	require.NoError(t, db.Create(owner).Error)
+	lead := &models.Lead{Code: "LD-2607-1201", OwnerID: owner.ID, CreatedByID: owner.ID, CompanyName: "Acme"}
+	require.NoError(t, repo.Create(lead))
+
+	found, err := repo.FindByCode(LeadScope{}, "LD-2607-1201")
+	require.NoError(t, err)
+	require.NotNil(t, found.Owner)
+	require.NotNil(t, found.Owner.Team, "Owner.Team must be preloaded")
+	assert.Equal(t, "Tim Jakarta 1", found.Owner.Team.Name)
+}
+
 func strPtr(s string) *string { return &s }

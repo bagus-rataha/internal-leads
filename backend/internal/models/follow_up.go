@@ -16,6 +16,10 @@ type FollowUp struct {
 	Note        string    `gorm:"not null"`
 	CreatedByID uuid.UUID `gorm:"type:uuid;not null"`
 	CreatedAt   time.Time `gorm:"index:idx_follow_ups_lead_id_created_at"`
+
+	// CreatedBy is read-only, populated via Preload for display purposes
+	// (created_by_name in the API response). Never written to by this model.
+	CreatedBy *User `gorm:"foreignKey:CreatedByID"`
 }
 
 // BeforeCreate generates UUID v7 before INSERT if the ID isn't already set,

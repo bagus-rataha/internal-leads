@@ -135,6 +135,8 @@ definitions:
         type: string
       created_by_id:
         type: string
+      created_by_name:
+        type: string
       id:
         type: string
       lead_id:
@@ -187,6 +189,8 @@ definitions:
       owner_id:
         type: string
       owner_name:
+        type: string
+      owner_team_name:
         type: string
       pic_name:
         type: string

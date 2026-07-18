@@ -47,3 +47,19 @@ func TestFollowUpRepository_ListByLeadID_OnlyThatLead(t *testing.T) {
 	require.Len(t, results, 1)
 	assert.Equal(t, "for A", results[0].Note)
 }
+
+func TestFollowUpRepository_ListByLeadID_PreloadsCreatedBy(t *testing.T) {
+	db := setupTestDB(t)
+	leadRepo := NewLeadRepository(db)
+	followUpRepo := NewFollowUpRepository(db)
+	userID := seedTestUser(t, db)
+	lead := &models.Lead{Code: "LD-2607-1301", OwnerID: userID, CreatedByID: userID, CompanyName: "Acme"}
+	require.NoError(t, leadRepo.Create(lead))
+	require.NoError(t, followUpRepo.Create(&models.FollowUp{LeadID: lead.ID, Note: "first contact", CreatedByID: userID}))
+
+	results, err := followUpRepo.ListByLeadID(lead.ID)
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	require.NotNil(t, results[0].CreatedBy, "CreatedBy must be preloaded")
+	assert.Equal(t, "Test User", results[0].CreatedBy.Name)
+}

@@ -1394,6 +1394,9 @@ const docTemplate = `{
                 "created_by_id": {
                     "type": "string"
                 },
+                "created_by_name": {
+                    "type": "string"
+                },
                 "id": {
                     "type": "string"
                 },
@@ -1472,6 +1475,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "owner_name": {
+                    "type": "string"
+                },
+                "owner_team_name": {
                     "type": "string"
                 },
                 "pic_name": {

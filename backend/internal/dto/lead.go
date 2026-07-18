@@ -133,6 +133,7 @@ type LeadResponse struct {
 	FollowUpCount  int        `json:"follow_up_count"`
 	CreatedAt      time.Time  `json:"created_at"`
 	OwnerName      string     `json:"owner_name"`
+	OwnerTeamName  *string    `json:"owner_team_name"`
 	CityName       *string    `json:"city_name"`
 	IsStale        bool       `json:"is_stale"`
 }
@@ -156,6 +157,16 @@ func ownerName(lead *models.Lead) string {
 		return ""
 	}
 	return lead.Owner.Name
+}
+
+// ownerTeamName reads lead.Owner.Team.Name, nil when Owner or its Team
+// wasn't preloaded, or the owner legitimately has no team (ADMIN_SALES/SU
+// owners can be teamless; SALES/LEADER can't per the DB CHECK constraint).
+func ownerTeamName(lead *models.Lead) *string {
+	if lead.Owner == nil || lead.Owner.Team == nil {
+		return nil
+	}
+	return &lead.Owner.Team.Name
 }
 
 // cityName reads lead.City.Name, returning nil when City wasn't preloaded or
@@ -204,6 +215,7 @@ func ToLeadResponse(lead *models.Lead) LeadResponse {
 		FollowUpCount:  lead.FollowUpCount,
 		CreatedAt:      lead.CreatedAt,
 		OwnerName:      ownerName(lead),
+		OwnerTeamName:  ownerTeamName(lead),
 		CityName:       cityName(lead),
 		// IsStale is intentionally left at its zero value (false) here -
 		// computing it needs repository.StaleLeadThresholdDays, and dto must
