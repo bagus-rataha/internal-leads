@@ -1,7 +1,7 @@
 // Detail Lead screen: header (code/status/owner), 5 left-column data cards,
 // and a sticky right-column follow-up timeline + composer.
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, ExternalLink, Building2, MapPin, User, Wifi, Tag, AlertTriangle, Check, X as XIcon } from 'lucide-react'
+import { ArrowLeft, ExternalLink, Building2, MapPin, User, Wifi, Tag, AlertTriangle, Check, X as XIcon, Pencil } from 'lucide-react'
 import {
   useLeadDetail,
   useFollowUps,
@@ -206,6 +206,16 @@ export default function LeadDetailPage() {
           </div>
 
           <div className="flex shrink-0 gap-[9px]">
+            {canAct && (
+              <button
+                type="button"
+                onClick={() => navigate(`/leads/${lead.code}/edit`)}
+                className="inline-flex items-center gap-[7px] rounded-[8px] border border-[#CBD5E1] bg-white px-[14px] py-2 text-[13px] font-semibold text-[#334155] hover:bg-[#F7F9FC]"
+              >
+                <Pencil className="size-[15px]" />
+                Edit Lead
+              </button>
+            )}
             {canReassign && (
               <button
                 type="button"

@@ -9,11 +9,24 @@ import {
   updateLeadStatus,
   reassignOwner,
   fetchSalesUsers,
+  createLead,
+  updateLead,
   type UpdateLeadStatusInput,
+  type CreateLeadInput,
+  type UpdateLeadInput,
 } from './api'
 
+// `enabled: !!code` guards LeadFormPage's create mode, which calls this hook
+// unconditionally (hooks can't be conditional) with code === '' — without
+// the guard that would fire a wasted GET /api/v1/leads/ on every create-mode
+// render. LeadDetailPage's existing usage always passes a real code, so its
+// behavior is unchanged.
 export function useLeadDetail(code: string) {
-  return useQuery({ queryKey: ['lead', code], queryFn: () => fetchLeadDetail(code) })
+  return useQuery({
+    queryKey: ['lead', code],
+    queryFn: () => fetchLeadDetail(code),
+    enabled: !!code,
+  })
 }
 
 export function useFollowUps(code: string) {
@@ -51,6 +64,22 @@ export function useReassignOwner(code: string) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (ownerId: string) => reassignOwner(code, ownerId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lead', code] })
+    },
+  })
+}
+
+export function useCreateLead() {
+  return useMutation({
+    mutationFn: (input: CreateLeadInput) => createLead(input),
+  })
+}
+
+export function useUpdateLead(code: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: UpdateLeadInput) => updateLead(code, input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lead', code] })
     },

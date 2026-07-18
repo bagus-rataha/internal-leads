@@ -3,7 +3,7 @@
 // lg: and up, stacked cards below it — same data, no horizontal scroll.
 import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Clock, Search, CalendarIcon, X, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Clock, Search, CalendarIcon, X, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import type { DateRange } from 'react-day-picker'
 import { useAuth } from '@/auth/AuthContext'
 import { useLeads } from './useLeads'
@@ -535,6 +535,7 @@ function LeadListContent({
 }
 
 export default function LeadListPage() {
+  const navigate = useNavigate()
   const { user } = useAuth()
   const isAdmin = user?.role === 'ADMIN_SALES' || user?.role === 'SU'
   const showSalesFilter = user?.role !== 'SALES'
@@ -614,7 +615,17 @@ export default function LeadListPage() {
 
   return (
     <div className="flex w-full max-w-full flex-col gap-4 p-4 lg:p-6">
-      <h1 className="font-display text-xl font-extrabold">Lead</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="font-display text-xl font-extrabold">Lead</h1>
+        <button
+          type="button"
+          onClick={() => navigate('/leads/new')}
+          className="inline-flex items-center gap-2 rounded-[8px] bg-[#1D4ED8] px-[17px] py-[9px] text-[13.5px] font-semibold text-white shadow-[0_1px_2px_rgba(29,78,216,0.3)] hover:bg-[#1A45BE]"
+        >
+          <Plus className="size-4" />
+          Lead Baru
+        </button>
+      </div>
       <FilterBar
         q={q}
         onQChange={setQ}
