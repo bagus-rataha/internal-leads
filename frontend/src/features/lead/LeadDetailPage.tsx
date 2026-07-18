@@ -1,11 +1,13 @@
 // Detail Lead screen: header (code/status/owner), 5 left-column data cards,
 // and a sticky right-column follow-up timeline + composer.
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, ExternalLink, Building2, MapPin, User, Wifi, Tag } from 'lucide-react'
-import { useLeadDetail, useFollowUps, useCreateFollowUp } from './queries'
+import { ArrowLeft, ExternalLink, Building2, MapPin, User, Wifi, Tag, AlertTriangle, Check, X as XIcon } from 'lucide-react'
+import { useLeadDetail, useFollowUps, useCreateFollowUp, useUpdateLeadStatus } from './queries'
 import { StatusPill, formatRelativeTime } from './shared'
 import type { FollowUpResponse } from './api'
 import { useState } from 'react'
+import { Modal } from '@/components/ui/modal'
+import { showToast } from '@/hooks/useToast'
 
 const DT_ROW = 'flex items-start justify-between gap-4 border-b border-[#F5F8FC] py-[9px]'
 const DT_ROW_LAST = 'flex items-start justify-between gap-4 py-[9px]'
@@ -75,7 +77,10 @@ export default function LeadDetailPage() {
   const { data: lead, isLoading, error } = useLeadDetail(code!)
   const { data: followUps } = useFollowUps(code!)
   const createFollowUp = useCreateFollowUp(code!)
+  const updateStatus = useUpdateLeadStatus(code!)
   const [draft, setDraft] = useState('')
+  const [modal, setModal] = useState<'handoff' | 'lost' | null>(null)
+  const [lostReason, setLostReason] = useState('')
 
   if (isLoading) {
     return <div className="p-6 text-sm text-muted-foreground">Memuat…</div>
@@ -97,7 +102,39 @@ export default function LeadDetailPage() {
   function handleSubmitFollowUp() {
     const note = draft.trim()
     if (!note) return
-    createFollowUp.mutate(note, { onSuccess: () => setDraft('') })
+    createFollowUp.mutate(note, {
+      onSuccess: () => {
+        setDraft('')
+        showToast('Follow-up tercatat')
+      },
+    })
+  }
+
+  function handleHandoffConfirm() {
+    updateStatus.mutate(
+      { status: 'HANDOFF_ODOO' },
+      {
+        onSuccess: () => {
+          setModal(null)
+          showToast('Lead di-handoff ke Odoo')
+        },
+      }
+    )
+  }
+
+  function handleLostConfirm() {
+    const reason = lostReason.trim()
+    if (!reason) return
+    updateStatus.mutate(
+      { status: 'LOST', lost_reason: reason },
+      {
+        onSuccess: () => {
+          setModal(null)
+          setLostReason('')
+          showToast('Lead ditandai Lost')
+        },
+      }
+    )
   }
 
   return (
@@ -137,6 +174,29 @@ export default function LeadDetailPage() {
                 </span>
               )}
             </div>
+          </div>
+
+          <div className="flex shrink-0 gap-[9px]">
+            {canAct && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setModal('lost')}
+                  className="inline-flex items-center gap-[7px] rounded-[8px] bg-[#FEE2E2] px-[14px] py-2 text-[13px] font-semibold text-[#B91C1C] hover:bg-[#FECACA]"
+                >
+                  <XIcon className="size-[15px]" />
+                  Tandai Lost
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModal('handoff')}
+                  className="inline-flex items-center gap-[7px] rounded-[8px] bg-[#1D4ED8] px-[15px] py-2 text-[13px] font-semibold text-white shadow-[0_1px_2px_rgba(29,78,216,0.3)] hover:bg-[#1A45BE]"
+                >
+                  <Check className="size-[15px]" />
+                  Handoff ke Odoo
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -304,6 +364,82 @@ export default function LeadDetailPage() {
           </div>
         </div>
       </div>
+
+      <Modal open={modal === 'handoff'} onClose={() => setModal(null)}>
+        <div className="flex items-start gap-[14px]">
+          <span className="flex size-[44px] shrink-0 items-center justify-center rounded-[11px] bg-[#EEF3FC] text-[#1D4ED8]">
+            <Check className="size-[22px]" />
+          </span>
+          <div>
+            <div className="font-display text-[19px] font-extrabold text-[#0F172A]">Handoff ke Odoo</div>
+            <div className="mt-1 text-[13px] leading-[1.55] text-[#64748B]">
+              Lead <strong className="text-[#334155]">{lead.company_name}</strong> masuk ke tahap{' '}
+              <strong className="text-[#334155]">Permintaan Survey</strong> di Odoo. Status ini{' '}
+              <strong className="text-[#334155]">terminal</strong> — lead tidak lagi bisa di-follow-up di sini.
+            </div>
+          </div>
+        </div>
+        <div className="mt-4 flex gap-3 rounded-[11px] border border-[#FCE39A] bg-[#FEF9EC] p-[12px_14px]">
+          <AlertTriangle className="mt-px size-[17px] shrink-0 text-[#D97706]" />
+          <span className="text-[12.5px] leading-[1.5] text-[#78350F]">
+            Pastikan data perusahaan, PIC, dan alamat sudah lengkap sebelum diteruskan ke tim survey.
+          </span>
+        </div>
+        <div className="mt-5 flex justify-end gap-[10px]">
+          <button type="button" onClick={() => setModal(null)} className="rounded-[8px] border border-[#CBD5E1] bg-white px-[18px] py-[9px] text-[14px] font-semibold text-[#334155] hover:bg-[#F7F9FC]">
+            Batal
+          </button>
+          <button
+            type="button"
+            onClick={handleHandoffConfirm}
+            disabled={updateStatus.isPending}
+            className="inline-flex items-center gap-[7px] rounded-[8px] bg-[#1D4ED8] px-[18px] py-[9px] text-[14px] font-semibold text-white shadow-[0_1px_2px_rgba(29,78,216,0.3)] hover:bg-[#1A45BE] disabled:opacity-60"
+          >
+            <Check className="size-[15px]" />
+            Konfirmasi Handoff
+          </button>
+        </div>
+      </Modal>
+
+      <Modal open={modal === 'lost'} onClose={() => setModal(null)}>
+        <div className="flex items-start gap-[14px]">
+          <span className="flex size-[44px] shrink-0 items-center justify-center rounded-[11px] bg-[#FEE2E2] text-[#DC2626]">
+            <XIcon className="size-[22px]" />
+          </span>
+          <div>
+            <div className="font-display text-[19px] font-extrabold text-[#0F172A]">Tandai Lost</div>
+            <div className="mt-1 text-[13px] leading-[1.55] text-[#64748B]">
+              Lead <strong className="text-[#334155]">{lead.company_name}</strong> dinyatakan hilang. Status{' '}
+              <strong className="text-[#334155]">terminal</strong>. Wajib mencatat alasan.
+            </div>
+          </div>
+        </div>
+        <label className="mt-[14px] mb-[7px] block text-[12px] font-semibold text-[#334155]">
+          Alasan lost <span className="text-[#DC2626]">*</span>
+        </label>
+        <textarea
+          value={lostReason}
+          onChange={(e) => setLostReason(e.target.value)}
+          placeholder="mis. Sudah kontrak dengan ISP lain / budget tidak tersedia"
+          rows={3}
+          className="w-full resize-y rounded-[9px] border border-[#CBD5E1] px-3 py-2.5 text-[13px] leading-[1.5] text-[#0F172A] outline-none focus:border-[#DC2626] focus:ring-[3px] focus:ring-[#FEE2E2]"
+        />
+        <div className="mt-[18px] flex justify-end gap-[10px]">
+          <button type="button" onClick={() => setModal(null)} className="rounded-[8px] border border-[#CBD5E1] bg-white px-[18px] py-[9px] text-[14px] font-semibold text-[#334155] hover:bg-[#F7F9FC]">
+            Batal
+          </button>
+          <button
+            type="button"
+            onClick={handleLostConfirm}
+            disabled={!lostReason.trim() || updateStatus.isPending}
+            className="inline-flex items-center gap-[7px] rounded-[8px] px-[18px] py-[9px] text-[14px] font-semibold text-white disabled:cursor-not-allowed"
+            style={{ background: lostReason.trim() ? '#DC2626' : '#E7A9A9' }}
+          >
+            <XIcon className="size-[15px]" />
+            Tandai Lost
+          </button>
+        </div>
+      </Modal>
     </div>
   )
 }

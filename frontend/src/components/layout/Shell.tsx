@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
+import { Toast } from '@/components/ui/toast'
 
 export function Shell() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -18,6 +19,7 @@ export function Shell() {
           <Outlet />
         </main>
       </div>
+      <Toast />
     </div>
   )
 }
