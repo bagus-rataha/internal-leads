@@ -6,6 +6,7 @@ import type { components } from '@/api/types'
 
 export type PaginatedLeadResponse = components['schemas']['dto.PaginatedLeadResponse']
 export type LeadSourceResponse = components['schemas']['dto.LeadSourceResponse']
+export type LeadResponse = components['schemas']['dto.LeadResponse']
 
 // The list endpoint's swagger annotation never declared query params, so
 // there's no generated type for them — hand-written here from the
@@ -73,6 +74,140 @@ export async function fetchLeadSources(): Promise<LeadSourceResponse[]> {
     body = await res.json()
   } catch {
     throw new Error('Failed to load lead sources')
+  }
+  return body?.data ?? []
+}
+
+export type LeadDetailResponse = components['schemas']['dto.LeadDetailResponse']
+export type FollowUpResponse = components['schemas']['dto.FollowUpResponse']
+export type TeamResponse = components['schemas']['dto.TeamResponse']
+export type UserResponse = components['schemas']['dto.UserResponse']
+
+export async function fetchLeadDetail(code: string): Promise<LeadDetailResponse> {
+  const res = await apiFetch(`/api/v1/leads/${code}`)
+  if (!res.ok) {
+    throw new Error('Failed to load lead')
+  }
+  let body: { data?: LeadDetailResponse }
+  try {
+    body = await res.json()
+  } catch {
+    throw new Error('Failed to load lead')
+  }
+  if (!body?.data) {
+    throw new Error('Failed to load lead')
+  }
+  return body.data
+}
+
+export async function fetchFollowUps(code: string): Promise<FollowUpResponse[]> {
+  const res = await apiFetch(`/api/v1/leads/${code}/followups`)
+  if (!res.ok) {
+    throw new Error('Failed to load follow-ups')
+  }
+  let body: { data?: FollowUpResponse[] }
+  try {
+    body = await res.json()
+  } catch {
+    throw new Error('Failed to load follow-ups')
+  }
+  return body?.data ?? []
+}
+
+export async function createFollowUp(code: string, note: string): Promise<FollowUpResponse> {
+  const res = await apiFetch(`/api/v1/leads/${code}/followups`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ note }),
+  })
+  if (!res.ok) {
+    throw new Error('Failed to save follow-up')
+  }
+  let body: { data?: FollowUpResponse }
+  try {
+    body = await res.json()
+  } catch {
+    throw new Error('Failed to save follow-up')
+  }
+  if (!body?.data) {
+    throw new Error('Failed to save follow-up')
+  }
+  return body.data
+}
+
+export interface UpdateLeadStatusInput {
+  status: 'HANDOFF_ODOO' | 'LOST'
+  lost_reason?: string
+}
+
+export async function updateLeadStatus(code: string, input: UpdateLeadStatusInput): Promise<LeadResponse> {
+  const res = await apiFetch(`/api/v1/leads/${code}/status`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  if (!res.ok) {
+    throw new Error('Failed to update lead status')
+  }
+  let body: { data?: LeadResponse }
+  try {
+    body = await res.json()
+  } catch {
+    throw new Error('Failed to update lead status')
+  }
+  if (!body?.data) {
+    throw new Error('Failed to update lead status')
+  }
+  return body.data
+}
+
+export async function reassignOwner(code: string, ownerId: string): Promise<LeadResponse> {
+  const res = await apiFetch(`/api/v1/leads/${code}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ owner_id: ownerId }),
+  })
+  if (!res.ok) {
+    throw new Error('Failed to reassign owner')
+  }
+  let body: { data?: LeadResponse }
+  try {
+    body = await res.json()
+  } catch {
+    throw new Error('Failed to reassign owner')
+  }
+  if (!body?.data) {
+    throw new Error('Failed to reassign owner')
+  }
+  return body.data
+}
+
+// Moved from LeadListPage.tsx so the Reassign dropdown and the existing
+// Tim/Sales filters share one implementation instead of two.
+export async function fetchTeams(): Promise<TeamResponse[]> {
+  const res = await apiFetch('/api/v1/teams')
+  if (!res.ok) {
+    throw new Error('Failed to load teams')
+  }
+  let body: { data?: TeamResponse[] }
+  try {
+    body = await res.json()
+  } catch {
+    throw new Error('Failed to load teams')
+  }
+  return body?.data ?? []
+}
+
+export async function fetchSalesUsers(): Promise<UserResponse[]> {
+  const res = await apiFetch('/api/v1/users?role=SALES')
+  if (!res.ok) {
+    throw new Error('Failed to load sales users')
+  }
+  let body: { data?: UserResponse[] }
+  try {
+    body = await res.json()
+  } catch {
+    throw new Error('Failed to load sales users')
   }
   return body?.data ?? []
 }

@@ -5,74 +5,16 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Clock, Search, CalendarIcon, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import type { DateRange } from 'react-day-picker'
 import { useAuth } from '@/auth/AuthContext'
-import { apiFetch } from '@/api/client'
 import { useLeads } from './useLeads'
 import { getLeadSources } from './refCache'
-import type { LeadListParams, LeadSourceResponse, LeadStatus } from './api'
-import type { components } from '@/api/types'
+import { fetchTeams, fetchSalesUsers, type LeadListParams, type LeadSourceResponse, type LeadStatus, type LeadResponse, type TeamResponse, type UserResponse } from './api'
+import { STATUS_CONFIG, StatusPill, SalesBadge, formatRelativeTime } from './shared'
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
-
-type LeadResponse = components['schemas']['dto.LeadResponse']
-type TeamResponse = components['schemas']['dto.TeamResponse']
-type UserResponse = components['schemas']['dto.UserResponse']
-
-// Team/sales dropdown data: a one-off reference fetch each, not reused
-// elsewhere yet. Same envelope-unwrap pattern as fetchLeadSources in
-// ./api.ts (check res.ok, guard res.json(), return body?.data ?? []) —
-// ponytail: no session-cache wrapper like refCache.ts here, this is a
-// single fetch-on-mount; add a cache if these end up reused elsewhere.
-async function fetchTeams(): Promise<TeamResponse[]> {
-  const res = await apiFetch('/api/v1/teams')
-  if (!res.ok) {
-    throw new Error('Failed to load teams')
-  }
-  let body: { data?: TeamResponse[] }
-  try {
-    body = await res.json()
-  } catch {
-    throw new Error('Failed to load teams')
-  }
-  return body?.data ?? []
-}
-
-async function fetchSalesUsers(): Promise<UserResponse[]> {
-  const res = await apiFetch('/api/v1/users?role=SALES')
-  if (!res.ok) {
-    throw new Error('Failed to load sales users')
-  }
-  let body: { data?: UserResponse[] }
-  try {
-    body = await res.json()
-  } catch {
-    throw new Error('Failed to load sales users')
-  }
-  return body?.data ?? []
-}
-
-const RELATIVE_TIME = new Intl.RelativeTimeFormat('id', { numeric: 'auto' })
-
-// One function covers minute/hour/day granularity — good enough for a
-// "last follow-up" timestamp, no need for a full date library.
-function formatRelativeTime(iso: string): string {
-  const diffMs = new Date(iso).getTime() - Date.now()
-  const diffMinutes = Math.round(diffMs / (1000 * 60))
-  if (Math.abs(diffMinutes) < 60) return RELATIVE_TIME.format(diffMinutes, 'minute')
-  const diffHours = Math.round(diffMinutes / 60)
-  if (Math.abs(diffHours) < 24) return RELATIVE_TIME.format(diffHours, 'hour')
-  return RELATIVE_TIME.format(Math.round(diffHours / 24), 'day')
-}
-
-const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
-  BARU: { label: 'Baru', className: 'bg-[#E0F2FE] text-[#0369A1]' },
-  FOLLOW_UP: { label: 'Follow-up', className: 'bg-[#EEF3FC] text-[#1E3A8A]' },
-  HANDOFF_ODOO: { label: 'Handoff Odoo', className: 'bg-[#DCFCE7] text-[#166534]' },
-  LOST: { label: 'Hilang', className: 'bg-[#FEE2E2] text-[#B91C1C]' },
-}
 
 const FILTER_LABEL_CLASSNAME = 'text-[10.5px] font-bold tracking-[.05em] text-[#94A3B8] uppercase'
 
@@ -98,36 +40,6 @@ function formatDateRangeLabel(range?: DateRange): string {
     return `${DATE_RANGE_LABEL_FORMAT.format(range.from)} – ${DATE_RANGE_LABEL_FORMAT.format(range.to)}`
   }
   return DATE_RANGE_LABEL_FORMAT.format((range.from ?? range.to)!)
-}
-
-function StatusPill({ status }: { status?: string }) {
-  const config = (status && STATUS_CONFIG[status]) || {
-    label: status ?? '—',
-    className: 'bg-muted text-muted-foreground',
-  }
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium',
-        config.className
-      )}
-    >
-      <span className="size-1.5 rounded-full bg-current" />
-      {config.label}
-    </span>
-  )
-}
-
-function SalesBadge({ ownerName }: { ownerName?: string }) {
-  const initial = ownerName ? ownerName.charAt(0).toUpperCase() : '?'
-  return (
-    <div className="flex items-center gap-2">
-      <div className="flex size-[26px] shrink-0 items-center justify-center rounded-[7px] bg-[#EEF2F7] text-[10.5px] font-bold text-[#475569]">
-        {initial}
-      </div>
-      {ownerName && <span className="text-sm">{ownerName}</span>}
-    </div>
-  )
 }
 
 function FollowUpInfo({ lead }: { lead: LeadResponse }) {
