@@ -2253,6 +2253,10 @@ const docTemplate = `{
         "dto.UpdateUserInput": {
             "type": "object",
             "properties": {
+                "is_active": {
+                    "description": "IsActive, when true, reactivates a previously deactivated user. false\nis rejected by the service — deactivation only happens through\nPOST /users/:id/deactivate, which carries the active-lead-reassignment\nand last-active-administrator safety checks this endpoint doesn't.",
+                    "type": "boolean"
+                },
                 "name": {
                     "type": "string",
                     "maxLength": 100,
@@ -2294,6 +2298,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "team_id": {
+                    "type": "string"
+                },
+                "team_name": {
                     "type": "string"
                 }
             }

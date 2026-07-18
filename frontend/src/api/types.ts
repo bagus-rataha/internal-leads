@@ -1562,6 +1562,13 @@ export interface components {
             name?: string;
         };
         "dto.UpdateUserInput": {
+            /**
+             * @description IsActive, when true, reactivates a previously deactivated user. false
+             *     is rejected by the service — deactivation only happens through
+             *     POST /users/:id/deactivate, which carries the active-lead-reassignment
+             *     and last-active-administrator safety checks this endpoint doesn't.
+             */
+            is_active?: boolean;
             name?: string;
             /** @enum {string} */
             role?: "SALES" | "LEADER" | "ADMIN_SALES" | "SU";
@@ -1575,6 +1582,7 @@ export interface components {
             name?: string;
             role?: string;
             team_id?: string;
+            team_name?: string;
         };
         "dto.VillageResponse": {
             id?: number;
