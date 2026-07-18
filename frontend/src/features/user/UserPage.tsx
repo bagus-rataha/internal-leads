@@ -100,10 +100,12 @@ export default function UserPage() {
       setModal(null)
     } catch (err) {
       if (err instanceof EmailTakenError) {
-        if (err.existingUserActive) {
+        if (err.existingUserId && !err.existingUserActive) {
+          setEmailTakenError(err)
+        } else if (err.existingUserActive) {
           showToast(`Email sudah terdaftar atas nama ${err.existingUserName}`)
         } else {
-          setEmailTakenError(err)
+          showToast('Email sudah terdaftar')
         }
       } else {
         showToast(err instanceof Error ? err.message : 'Gagal menyimpan user. Coba lagi.')

@@ -596,7 +596,7 @@ export default function LeadListPage() {
     page,
   }
 
-  const activeFilterCount = [status, sourceId, teamId, ownerId, staleOnly, dateRange?.from].filter(
+  const activeFilterCount = [q, status, sourceId, teamId, ownerId, staleOnly, dateRange?.from].filter(
     Boolean
   ).length
 
