@@ -9,7 +9,11 @@ import {
   updateLeadStatus,
   reassignOwner,
   fetchSalesUsers,
+  createLead,
+  updateLead,
   type UpdateLeadStatusInput,
+  type CreateLeadInput,
+  type UpdateLeadInput,
 } from './api'
 
 export function useLeadDetail(code: string) {
@@ -51,6 +55,22 @@ export function useReassignOwner(code: string) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (ownerId: string) => reassignOwner(code, ownerId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lead', code] })
+    },
+  })
+}
+
+export function useCreateLead() {
+  return useMutation({
+    mutationFn: (input: CreateLeadInput) => createLead(input),
+  })
+}
+
+export function useUpdateLead(code: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: UpdateLeadInput) => updateLead(code, input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lead', code] })
     },

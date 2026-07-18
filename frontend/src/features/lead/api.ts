@@ -211,3 +211,48 @@ export async function fetchSalesUsers(): Promise<UserResponse[]> {
   }
   return body?.data ?? []
 }
+
+export type CreateLeadInput = components['schemas']['dto.CreateLeadInput']
+export type UpdateLeadInput = components['schemas']['dto.UpdateLeadInput']
+
+export async function createLead(input: CreateLeadInput): Promise<LeadResponse> {
+  const res = await apiFetch('/api/v1/leads', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  if (!res.ok) {
+    throw new Error('Failed to save lead')
+  }
+  let body: { data?: LeadResponse }
+  try {
+    body = await res.json()
+  } catch {
+    throw new Error('Failed to save lead')
+  }
+  if (!body?.data) {
+    throw new Error('Failed to save lead')
+  }
+  return body.data
+}
+
+export async function updateLead(code: string, input: UpdateLeadInput): Promise<LeadResponse> {
+  const res = await apiFetch(`/api/v1/leads/${code}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  if (!res.ok) {
+    throw new Error('Failed to save changes')
+  }
+  let body: { data?: LeadResponse }
+  try {
+    body = await res.json()
+  } catch {
+    throw new Error('Failed to save changes')
+  }
+  if (!body?.data) {
+    throw new Error('Failed to save changes')
+  }
+  return body.data
+}
