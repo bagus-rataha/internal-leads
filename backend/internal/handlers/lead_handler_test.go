@@ -87,7 +87,7 @@ func TestLeadHandler_GetLead_Success(t *testing.T) {
 	handler := NewLeadHandler(mockSvc)
 	app := newTestLeadApp(handler, userID, "ADMIN_SALES")
 
-	leadResponse := &dto.LeadResponse{Code: "LD-2607-0002", CompanyName: "Acme"}
+	leadResponse := &dto.LeadDetailResponse{LeadResponse: dto.LeadResponse{Code: "LD-2607-0002", CompanyName: "Acme"}}
 	mockSvc.On("FindByCode", userID, "ADMIN_SALES", "LD-2607-0002").Return(leadResponse, nil)
 
 	req := httptest.NewRequest("GET", "/leads/LD-2607-0002", nil)

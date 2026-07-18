@@ -33,10 +33,11 @@ func applyLeadScope(tx *gorm.DB, scope LeadScope) *gorm.DB {
 	return tx
 }
 
-// staleLeadThresholdDays is the one definition of "terlantar" (stale) per
-// ARCHITECTURE.md §10 - reused verbatim wherever this concept appears
-// (dashboard, in a later PR, must import and reuse this same constant).
-const staleLeadThresholdDays = 7
+// StaleLeadThresholdDays is the one definition of "terlantar" (stale) per
+// ARCHITECTURE.md §10 - exported so it's reused verbatim wherever this
+// concept appears (dashboard, in a later PR, must import and reuse this same
+// constant).
+const StaleLeadThresholdDays = 7
 
 // LeadFilter holds every GET /leads query param except pagination cursor
 // state, which List takes via Page/Limit directly.
@@ -91,6 +92,31 @@ func (r *LeadRepository) Create(lead *models.Lead) error {
 func (r *LeadRepository) FindByCode(scope LeadScope, code string) (*models.Lead, error) {
 	var lead models.Lead
 	err := applyLeadScope(r.db.Model(&models.Lead{}), scope).
+		Preload("Owner.Team").
+		Preload("City").
+		Where("leads.code = ?", code).First(&lead).Error
+	if err != nil {
+		return nil, err
+	}
+	return &lead, nil
+}
+
+// FindDetailByCode is FindByCode plus every reference-name association
+// GET /leads/:code's response needs and List/write-path FindByCode don't -
+// kept as a separate method (not a shared helper) so List's and the write
+// paths' Preload chains stay exactly as lean as they were.
+func (r *LeadRepository) FindDetailByCode(scope LeadScope, code string) (*models.Lead, error) {
+	var lead models.Lead
+	err := applyLeadScope(r.db.Model(&models.Lead{}), scope).
+		Preload("Owner.Team").
+		Preload("City").
+		Preload("Province").
+		Preload("District").
+		Preload("Village").
+		Preload("Zip").
+		Preload("ServiceType").
+		Preload("LeadSource").
+		Preload("CreatedBy").
 		Where("leads.code = ?", code).First(&lead).Error
 	if err != nil {
 		return nil, err
@@ -116,7 +142,7 @@ func (r *LeadRepository) List(scope LeadScope, filter LeadFilter) ([]models.Lead
 
 	var leads []models.Lead
 	offset := (filter.Page - 1) * filter.Limit
-	err := applyLeadSort(tx, filter.Sort).Offset(offset).Limit(filter.Limit).Find(&leads).Error
+	err := applyLeadSort(tx, filter.Sort).Preload("Owner.Team").Preload("City").Offset(offset).Limit(filter.Limit).Find(&leads).Error
 	return leads, total, err
 }
 
@@ -161,7 +187,7 @@ func applyLeadFilter(tx *gorm.DB, filter LeadFilter) *gorm.DB {
 	}
 	if filter.Stale {
 		tx = tx.Where("leads.status IN ('BARU','FOLLOW_UP') AND COALESCE(leads.last_follow_up_at, leads.created_at) < ?",
-			time.Now().AddDate(0, 0, -staleLeadThresholdDays))
+			time.Now().AddDate(0, 0, -StaleLeadThresholdDays))
 	}
 	return tx
 }

@@ -39,6 +39,14 @@ func (m *MockLeadRepository) FindByCode(scope repository.LeadScope, code string)
 	return args.Get(0).(*models.Lead), args.Error(1)
 }
 
+func (m *MockLeadRepository) FindDetailByCode(scope repository.LeadScope, code string) (*models.Lead, error) {
+	args := m.Called(scope, code)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.Lead), args.Error(1)
+}
+
 func (m *MockLeadRepository) Update(lead *models.Lead) error {
 	args := m.Called(lead)
 	return args.Error(0)
@@ -46,3 +54,16 @@ func (m *MockLeadRepository) Update(lead *models.Lead) error {
 
 // userRepositoryForLead is satisfied by the existing MockUserRepository
 // (mock_repository_test.go) - no new mock needed for it.
+
+// MockCityRepository is a manual testify mock satisfying cityRepositoryForLead.
+type MockCityRepository struct {
+	mock.Mock
+}
+
+func (m *MockCityRepository) FindCityByID(id int) (*models.City, error) {
+	args := m.Called(id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.City), args.Error(1)
+}

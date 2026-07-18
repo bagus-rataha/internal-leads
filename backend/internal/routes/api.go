@@ -37,7 +37,9 @@ func setupAuthRoutes(api fiber.Router, c *container.Container, cfg *config.Confi
 }
 
 // setupUserRoutes configures user routes. /me is open to every authenticated
-// role; the admin endpoints below it require ADMIN_SALES or SU.
+// role. Listing is open to LEADER as well as ADMIN_SALES/SU (the service
+// scopes a LEADER's results to their own team); the remaining user-management
+// endpoints below stay ADMIN_SALES/SU-only.
 func setupUserRoutes(api fiber.Router, c *container.Container, cfg *config.Config) {
 	users := api.Group("/users")
 	users.Use(middleware.JWTProtected(cfg.JWTAccessSecret))
@@ -45,8 +47,9 @@ func setupUserRoutes(api fiber.Router, c *container.Container, cfg *config.Confi
 	users.Get("/me", c.UserHandler.GetProfile)
 	users.Put("/me", c.UserHandler.UpdateProfile)
 
+	users.Get("/", middleware.RequireRole("LEADER", "ADMIN_SALES", "SU"), c.UserHandler.ListUsers)
+
 	admin := users.Group("", middleware.RequireRole("ADMIN_SALES", "SU"))
-	admin.Get("/", c.UserHandler.ListUsers)
 	admin.Post("/", c.UserHandler.CreateUser)
 	admin.Get("/:id", c.UserHandler.GetUser)
 	admin.Patch("/:id", c.UserHandler.UpdateUser)

@@ -45,6 +45,18 @@ func (r *ReferenceRepository) ListCitiesByProvince(provinceID int) ([]models.Cit
 	return cities, err
 }
 
+// FindCityByID returns a single city by id - used by LeadService to
+// populate city_name on a lead that was just created in memory (not yet
+// covered by List/FindByCode's Preload).
+func (r *ReferenceRepository) FindCityByID(id int) (*models.City, error) {
+	var city models.City
+	err := r.db.First(&city, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &city, nil
+}
+
 // ListDistrictsByCity returns districts belonging to the given city.
 func (r *ReferenceRepository) ListDistrictsByCity(cityID int) ([]models.District, error) {
 	var districts []models.District

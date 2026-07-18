@@ -27,6 +27,6 @@ func (r *FollowUpRepository) Create(f *models.FollowUp) error {
 // ListByLeadID returns every follow-up for a lead, oldest first.
 func (r *FollowUpRepository) ListByLeadID(leadID uuid.UUID) ([]models.FollowUp, error) {
 	var followUps []models.FollowUp
-	err := r.db.Where("lead_id = ?", leadID).Order("created_at ASC").Find(&followUps).Error
+	err := r.db.Where("lead_id = ?", leadID).Preload("CreatedBy").Order("created_at ASC").Find(&followUps).Error
 	return followUps, err
 }

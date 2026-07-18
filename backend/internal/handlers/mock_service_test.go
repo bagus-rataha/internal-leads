@@ -59,8 +59,8 @@ func (m *MockUserService) UpdateProfile(userID uuid.UUID, input dto.UpdateProfil
 	return args.Get(0).(*dto.UserResponse), args.Error(1)
 }
 
-func (m *MockUserService) ListUsers(role, teamID string) ([]dto.UserResponse, error) {
-	args := m.Called(role, teamID)
+func (m *MockUserService) ListUsers(callerID uuid.UUID, callerRole, role, teamID string) ([]dto.UserResponse, error) {
+	args := m.Called(callerID, callerRole, role, teamID)
 	return args.Get(0).([]dto.UserResponse), args.Error(1)
 }
 

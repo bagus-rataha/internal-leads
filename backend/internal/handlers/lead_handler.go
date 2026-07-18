@@ -18,7 +18,7 @@ import (
 type leadService interface {
 	Create(callerID uuid.UUID, role string, input dto.CreateLeadInput) (*dto.LeadResponse, error)
 	List(callerID uuid.UUID, role string, query dto.LeadListQuery) (*dto.PaginatedLeadResponse, error)
-	FindByCode(callerID uuid.UUID, role, code string) (*dto.LeadResponse, error)
+	FindByCode(callerID uuid.UUID, role, code string) (*dto.LeadDetailResponse, error)
 	Update(callerID uuid.UUID, role, code string, input dto.UpdateLeadInput) (*dto.LeadResponse, error)
 	UpdateStatus(callerID uuid.UUID, role, code string, input dto.UpdateLeadStatusInput) (*dto.LeadResponse, error)
 }
@@ -218,7 +218,7 @@ func parseOptionalDate(v string) (*time.Time, error) {
 // @Tags leads
 // @Security BearerAuth
 // @Param code path string true "Lead code"
-// @Success 200 {object} utils.Response{data=dto.LeadResponse}
+// @Success 200 {object} utils.Response{data=dto.LeadDetailResponse}
 // @Router /leads/{code} [get]
 func (h *LeadHandler) GetLead(c *fiber.Ctx) error {
 	userID, ok := utils.GetUserID(c)

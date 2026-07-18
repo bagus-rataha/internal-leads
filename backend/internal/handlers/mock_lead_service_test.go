@@ -28,12 +28,12 @@ func (m *MockLeadService) List(callerID uuid.UUID, role string, query dto.LeadLi
 	return args.Get(0).(*dto.PaginatedLeadResponse), args.Error(1)
 }
 
-func (m *MockLeadService) FindByCode(callerID uuid.UUID, role, code string) (*dto.LeadResponse, error) {
+func (m *MockLeadService) FindByCode(callerID uuid.UUID, role, code string) (*dto.LeadDetailResponse, error) {
 	args := m.Called(callerID, role, code)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*dto.LeadResponse), args.Error(1)
+	return args.Get(0).(*dto.LeadDetailResponse), args.Error(1)
 }
 
 func (m *MockLeadService) Update(callerID uuid.UUID, role, code string, input dto.UpdateLeadInput) (*dto.LeadResponse, error) {

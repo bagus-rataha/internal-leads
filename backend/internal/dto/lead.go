@@ -99,7 +99,7 @@ type LeadListQuery struct {
 }
 
 // LeadResponse mirrors models.Lead's field set exactly (see
-// ToLeadResponse), plus FollowUpCount.
+// ToLeadResponse), plus FollowUpCount, OwnerName, CityName, and IsStale.
 type LeadResponse struct {
 	ID             uuid.UUID  `json:"id"`
 	Code           string     `json:"code"`
@@ -132,6 +132,10 @@ type LeadResponse struct {
 	LastFollowUpAt *time.Time `json:"last_follow_up_at"`
 	FollowUpCount  int        `json:"follow_up_count"`
 	CreatedAt      time.Time  `json:"created_at"`
+	OwnerName      string     `json:"owner_name"`
+	OwnerTeamName  *string    `json:"owner_team_name"`
+	CityName       *string    `json:"city_name"`
+	IsStale        bool       `json:"is_stale"`
 }
 
 // PaginatedLeadResponse is GET /leads's Data payload - an object, not a bare
@@ -141,6 +145,39 @@ type PaginatedLeadResponse struct {
 	Total int64          `json:"total"`
 	Page  int            `json:"page"`
 	Limit int            `json:"limit"`
+}
+
+// ownerName reads lead.Owner.Name, defensively falling back to "" if the
+// Owner association wasn't preloaded rather than panicking on a nil pointer.
+// This depends only on models, unlike is_stale - which needs
+// repository.StaleLeadThresholdDays, so that computation lives in the
+// service instead and is set on the response after ToLeadResponse returns.
+func ownerName(lead *models.Lead) string {
+	if lead.Owner == nil {
+		return ""
+	}
+	return lead.Owner.Name
+}
+
+// ownerTeamName reads lead.Owner.Team.Name, nil when Owner or its Team
+// wasn't preloaded, or the owner legitimately has no team (ADMIN_SALES/SU
+// owners can be teamless; SALES/LEADER can't per the DB CHECK constraint).
+func ownerTeamName(lead *models.Lead) *string {
+	if lead.Owner == nil || lead.Owner.Team == nil {
+		return nil
+	}
+	return &lead.Owner.Team.Name
+}
+
+// cityName reads lead.City.Name, returning nil when City wasn't preloaded or
+// the lead simply has no city_id (unlike Owner, City is legitimately absent
+// for a lead whose address hasn't been filled in yet). Pointer, not "", so
+// the frontend can distinguish "no city" from an empty name.
+func cityName(lead *models.Lead) *string {
+	if lead.City == nil {
+		return nil
+	}
+	return &lead.City.Name
 }
 
 // ToLeadResponse converts model to DTO
@@ -177,6 +214,12 @@ func ToLeadResponse(lead *models.Lead) LeadResponse {
 		LastFollowUpAt: lead.LastFollowUpAt,
 		FollowUpCount:  lead.FollowUpCount,
 		CreatedAt:      lead.CreatedAt,
+		OwnerName:      ownerName(lead),
+		OwnerTeamName:  ownerTeamName(lead),
+		CityName:       cityName(lead),
+		// IsStale is intentionally left at its zero value (false) here -
+		// computing it needs repository.StaleLeadThresholdDays, and dto must
+		// not import repository. The service sets it after calling this.
 	}
 }
 
@@ -187,4 +230,87 @@ func ToLeadResponseList(leads []models.Lead) []LeadResponse {
 		responses[i] = ToLeadResponse(&lead)
 	}
 	return responses
+}
+
+// LeadDetailResponse is GET /leads/:code's response - LeadResponse plus
+// every resolved reference name List never renders, kept as a separate
+// type (not merged into LeadResponse) so List's Preload chain doesn't grow
+// for fields the List UI never shows. See LeadRepository.FindDetailByCode.
+type LeadDetailResponse struct {
+	LeadResponse
+	ProvinceName    *string `json:"province_name"`
+	DistrictName    *string `json:"district_name"`
+	VillageName     *string `json:"village_name"`
+	ZipCode         *string `json:"zip_code"`
+	ServiceTypeName *string `json:"service_type_name"`
+	LeadSourceName  *string `json:"lead_source_name"`
+	CreatedByName   string  `json:"created_by_name"`
+}
+
+func provinceName(lead *models.Lead) *string {
+	if lead.Province == nil {
+		return nil
+	}
+	return &lead.Province.Name
+}
+
+func districtName(lead *models.Lead) *string {
+	if lead.District == nil {
+		return nil
+	}
+	return &lead.District.Name
+}
+
+func villageName(lead *models.Lead) *string {
+	if lead.Village == nil {
+		return nil
+	}
+	return &lead.Village.Name
+}
+
+// zipCode reads lead.Zip (the lead's own zip_id, which can be overridden
+// independently of village_id) - not lead.Village.Zip, which is a
+// different, merely-suggested value.
+func zipCode(lead *models.Lead) *string {
+	if lead.Zip == nil {
+		return nil
+	}
+	return &lead.Zip.Code
+}
+
+func serviceTypeName(lead *models.Lead) *string {
+	if lead.ServiceType == nil {
+		return nil
+	}
+	return &lead.ServiceType.Name
+}
+
+func leadSourceName(lead *models.Lead) *string {
+	if lead.LeadSource == nil {
+		return nil
+	}
+	return &lead.LeadSource.Name
+}
+
+func leadCreatedByName(lead *models.Lead) string {
+	if lead.CreatedBy == nil {
+		return ""
+	}
+	return lead.CreatedBy.Name
+}
+
+// ToLeadDetailResponse converts a model to the Detail-only DTO. lead must
+// have gone through LeadRepository.FindDetailByCode, not the plain
+// FindByCode, or every *Name field below comes back nil/empty.
+func ToLeadDetailResponse(lead *models.Lead) LeadDetailResponse {
+	return LeadDetailResponse{
+		LeadResponse:    ToLeadResponse(lead),
+		ProvinceName:    provinceName(lead),
+		DistrictName:    districtName(lead),
+		VillageName:     villageName(lead),
+		ZipCode:         zipCode(lead),
+		ServiceTypeName: serviceTypeName(lead),
+		LeadSourceName:  leadSourceName(lead),
+		CreatedByName:   leadCreatedByName(lead),
+	}
 }

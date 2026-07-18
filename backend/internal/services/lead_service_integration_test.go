@@ -22,7 +22,8 @@ func TestLeadCreate_ConcurrentCreates_NoDuplicateCodes(t *testing.T) {
 	db := setupServiceTestDB(t)
 	leadRepo := repository.NewLeadRepository(db)
 	userRepo := repository.NewUserRepository(db)
-	svc := NewLeadService(db, leadRepo, userRepo)
+	referenceRepo := repository.NewReferenceRepository(db)
+	svc := NewLeadService(db, leadRepo, userRepo, referenceRepo)
 
 	ownerID := uuid.Must(uuid.NewV7())
 	require.NoError(t, db.Create(&models.User{BaseModel: models.BaseModel{ID: ownerID}, Email: "owner@test.local", Password: "h", Name: "Owner", Role: "ADMIN_SALES", IsActive: true}).Error)

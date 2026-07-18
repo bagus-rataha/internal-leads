@@ -236,7 +236,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/dto.LeadResponse"
+                                            "$ref": "#/definitions/dto.LeadDetailResponse"
                                         }
                                     }
                                 }
@@ -868,7 +868,7 @@ const docTemplate = `{
                 "tags": [
                     "users"
                 ],
-                "summary": "List users",
+                "summary": "List users (LEADER: own team roster; ADMIN_SALES/SU: unrestricted)",
                 "parameters": [
                     {
                         "type": "string",
@@ -878,7 +878,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Filter by team id",
+                        "description": "Filter by team id (ignored for LEADER callers, who are always scoped to their own team)",
                         "name": "team_id",
                         "in": "query"
                     }
@@ -1394,6 +1394,9 @@ const docTemplate = `{
                 "created_by_id": {
                     "type": "string"
                 },
+                "created_by_name": {
+                    "type": "string"
+                },
                 "id": {
                     "type": "string"
                 },
@@ -1402,6 +1405,137 @@ const docTemplate = `{
                 },
                 "note": {
                     "type": "string"
+                }
+            }
+        },
+        "dto.LeadDetailResponse": {
+            "type": "object",
+            "properties": {
+                "business_field": {
+                    "type": "string"
+                },
+                "capacity_mbps": {
+                    "type": "integer"
+                },
+                "city_id": {
+                    "type": "integer"
+                },
+                "city_name": {
+                    "type": "string"
+                },
+                "code": {
+                    "type": "string"
+                },
+                "company_name": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "created_by_id": {
+                    "type": "string"
+                },
+                "created_by_name": {
+                    "type": "string"
+                },
+                "district_id": {
+                    "type": "integer"
+                },
+                "district_name": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "existing_isp": {
+                    "type": "string"
+                },
+                "follow_up_count": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_stale": {
+                    "type": "boolean"
+                },
+                "last_follow_up_at": {
+                    "type": "string"
+                },
+                "lead_source_id": {
+                    "type": "string"
+                },
+                "lead_source_name": {
+                    "type": "string"
+                },
+                "lost_reason": {
+                    "type": "string"
+                },
+                "mobile_phone": {
+                    "type": "string"
+                },
+                "office_phone": {
+                    "type": "string"
+                },
+                "other_services": {
+                    "type": "string"
+                },
+                "owner_id": {
+                    "type": "string"
+                },
+                "owner_name": {
+                    "type": "string"
+                },
+                "owner_team_name": {
+                    "type": "string"
+                },
+                "pic_name": {
+                    "type": "string"
+                },
+                "pic_position": {
+                    "type": "string"
+                },
+                "price": {
+                    "type": "number"
+                },
+                "province_id": {
+                    "type": "integer"
+                },
+                "province_name": {
+                    "type": "string"
+                },
+                "rt": {
+                    "type": "string"
+                },
+                "rw": {
+                    "type": "string"
+                },
+                "service_type_id": {
+                    "type": "string"
+                },
+                "service_type_name": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "street": {
+                    "type": "string"
+                },
+                "village_id": {
+                    "type": "integer"
+                },
+                "village_name": {
+                    "type": "string"
+                },
+                "website": {
+                    "type": "string"
+                },
+                "zip_code": {
+                    "type": "string"
+                },
+                "zip_id": {
+                    "type": "integer"
                 }
             }
         },
@@ -1416,6 +1550,9 @@ const docTemplate = `{
                 },
                 "city_id": {
                     "type": "integer"
+                },
+                "city_name": {
+                    "type": "string"
                 },
                 "code": {
                     "type": "string"
@@ -1444,6 +1581,9 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "is_stale": {
+                    "type": "boolean"
+                },
                 "last_follow_up_at": {
                     "type": "string"
                 },
@@ -1463,6 +1603,12 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "owner_id": {
+                    "type": "string"
+                },
+                "owner_name": {
+                    "type": "string"
+                },
+                "owner_team_name": {
                     "type": "string"
                 },
                 "pic_name": {

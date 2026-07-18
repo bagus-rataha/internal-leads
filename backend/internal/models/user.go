@@ -11,4 +11,8 @@ type User struct {
 	Role     string     `gorm:"default:SALES"`
 	TeamID   *uuid.UUID `gorm:"type:uuid;index"`
 	IsActive bool       `gorm:"not null;default:true"`
+
+	// Team is read-only, populated via Preload for display purposes (e.g.
+	// owner_team_name in lead API responses). Never written to by this model.
+	Team *SalesTeam `gorm:"foreignKey:TeamID"`
 }
