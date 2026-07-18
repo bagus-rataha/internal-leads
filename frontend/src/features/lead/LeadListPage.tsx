@@ -2,6 +2,7 @@
 // — no filters/pagination controls here, those come later). Table at
 // lg: and up, stacked cards below it — same data, no horizontal scroll.
 import { useEffect, useState, type ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Clock, Search, CalendarIcon, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import type { DateRange } from 'react-day-picker'
 import { useAuth } from '@/auth/AuthContext'
@@ -103,6 +104,7 @@ function LeadTable({
   showSales: boolean
   pagination: ReactNode
 }) {
+  const navigate = useNavigate()
   return (
     <div className="hidden overflow-hidden rounded-[14px] border border-[#E7EDF3] bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] lg:block">
       <div className="overflow-x-auto">
@@ -120,7 +122,11 @@ function LeadTable({
           </thead>
           <tbody className="divide-y divide-[#F1F5F9]">
             {items.map((lead) => (
-              <tr key={lead.code}>
+              <tr
+                key={lead.code}
+                className="cursor-pointer hover:bg-[#F7F9FC]"
+                onClick={() => navigate(`/leads/${lead.code}`)}
+              >
                 <td className="relative px-4 py-3">
                   {lead.is_stale && (
                     <span className="absolute top-2 bottom-2 left-0 w-[3px] rounded bg-amber-600" />
@@ -170,10 +176,15 @@ function LeadCards({
   showSales: boolean
   pagination: ReactNode
 }) {
+  const navigate = useNavigate()
   return (
     <div className="flex flex-col gap-3 lg:hidden">
       {items.map((lead) => (
-        <Card key={lead.code} className="relative">
+        <Card
+          key={lead.code}
+          className="relative cursor-pointer"
+          onClick={() => navigate(`/leads/${lead.code}`)}
+        >
           {lead.is_stale && (
             <span className="absolute top-3 bottom-3 left-0 w-[3px] rounded bg-amber-600" />
           )}
