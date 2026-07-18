@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { showToast } from '@/hooks/useToast'
+import { useAuth } from '@/auth/AuthContext'
 import { useTeams } from '@/features/team/queries'
 import { useUsers, useCreateUser, useUpdateUser, useResetPassword, useDeactivateUser } from './queries'
 import { ActiveLeadsError, type UserResponse } from './api'
@@ -17,6 +18,7 @@ function needsTeam(role: string) {
 }
 
 export default function UserPage() {
+  const { user: currentUser } = useAuth()
   const [roleFilter, setRoleFilter] = useState('')
   const { data: users, isLoading } = useUsers(roleFilter || undefined)
   // Unfiltered, independent of roleFilter - the reassign dropdown must offer
@@ -31,6 +33,7 @@ export default function UserPage() {
 
   const [modal, setModal] = useState<{ mode: 'create' } | { mode: 'edit'; user: UserResponse } | null>(null)
   const [resetTarget, setResetTarget] = useState<UserResponse | null>(null)
+  const [confirmDeactivateTarget, setConfirmDeactivateTarget] = useState<UserResponse | null>(null)
   const [deactivateTarget, setDeactivateTarget] = useState<UserResponse | null>(null)
   const [reassignCount, setReassignCount] = useState<number | null>(null)
   const [reassignToId, setReassignToId] = useState('')
@@ -133,6 +136,15 @@ export default function UserPage() {
     }
   }
 
+  async function handleReactivate(id: string, name?: string) {
+    try {
+      await updateUser.mutateAsync({ id, input: { is_active: true } })
+      showToast(name ? `${name} diaktifkan kembali` : 'User diaktifkan kembali')
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Gagal mengaktifkan user. Coba lagi.')
+    }
+  }
+
   async function handleReassignAndDeactivate() {
     if (!deactivateTarget || !reassignToId) {
       showToast('Pilih sales pengganti')
@@ -190,7 +202,11 @@ export default function UserPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F1F5F9]">
-              {users.map((u) => (
+              {users.map((u) => {
+                // Backend rejects Edit/Reset Password/Deactivate for ADMIN_SALES acting on an SU
+                // target - hiding here is convenience only, the real boundary is server-side.
+                const isForbiddenTarget = currentUser?.role === 'ADMIN_SALES' && u.role === 'SU'
+                return (
                 <tr key={u.id}>
                   <td className="px-4 py-2.5">{u.name}</td>
                   <td className="px-4 py-2.5">{u.email}</td>
@@ -211,21 +227,41 @@ export default function UserPage() {
                   </td>
                   <td className="px-4 py-2.5 text-right">
                     <div className="flex justify-end gap-2">
-                      <Button variant="outline" size="sm" onClick={() => openEdit(u)}>
-                        Edit
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => setResetTarget(u)}>
-                        Reset Password
-                      </Button>
-                      {u.is_active && (
-                        <Button variant="destructive" size="sm" onClick={() => handleDeactivate(u)}>
-                          Nonaktifkan
-                        </Button>
+                      {isForbiddenTarget ? (
+                        <span className="text-xs text-muted-foreground">Tidak dapat dikelola</span>
+                      ) : (
+                        <>
+                          <Button variant="outline" size="sm" onClick={() => openEdit(u)}>
+                            Edit
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => setResetTarget(u)}>
+                            Reset Password
+                          </Button>
+                          {u.is_active ? (
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => setConfirmDeactivateTarget(u)}
+                            >
+                              Nonaktifkan
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleReactivate(u.id ?? '', u.name)}
+                              disabled={updateUser.isPending}
+                            >
+                              Aktifkan
+                            </Button>
+                          )}
+                        </>
                       )}
                     </div>
                   </td>
                 </tr>
-              ))}
+                )
+              })}
             </tbody>
           </table>
         )}
@@ -321,6 +357,33 @@ export default function UserPage() {
           </Button>
           <Button onClick={handleResetPassword} disabled={resetPassword.isPending}>
             Reset
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={confirmDeactivateTarget !== null}
+        onClose={() => setConfirmDeactivateTarget(null)}
+        maxWidth={380}
+      >
+        <h2 className="mb-2 text-lg font-semibold text-destructive">Nonaktifkan User</h2>
+        <p className="mb-4 text-sm text-muted-foreground">
+          {confirmDeactivateTarget?.name} tidak akan bisa login setelah dinonaktifkan. Tindakan ini
+          bisa dibatalkan lewat tombol Aktifkan.
+        </p>
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={() => setConfirmDeactivateTarget(null)}>
+            Batal
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={() => {
+              const target = confirmDeactivateTarget
+              setConfirmDeactivateTarget(null)
+              if (target) handleDeactivate(target)
+            }}
+          >
+            Ya, Nonaktifkan
           </Button>
         </div>
       </Modal>
