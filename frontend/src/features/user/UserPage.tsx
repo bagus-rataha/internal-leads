@@ -8,7 +8,7 @@ import { showToast } from '@/hooks/useToast'
 import { useAuth } from '@/auth/AuthContext'
 import { useTeams } from '@/features/team/queries'
 import { useUsers, useCreateUser, useUpdateUser, useResetPassword, useDeactivateUser } from './queries'
-import { ActiveLeadsError, type UserResponse } from './api'
+import { ActiveLeadsError, EmailTakenError, type UserResponse } from './api'
 
 const ROLES = ['SALES', 'LEADER', 'ADMIN_SALES', 'SU'] as const
 type Role = (typeof ROLES)[number]
@@ -34,6 +34,7 @@ export default function UserPage() {
   const [modal, setModal] = useState<{ mode: 'create' } | { mode: 'edit'; user: UserResponse } | null>(null)
   const [resetTarget, setResetTarget] = useState<UserResponse | null>(null)
   const [confirmDeactivateTarget, setConfirmDeactivateTarget] = useState<UserResponse | null>(null)
+  const [emailTakenError, setEmailTakenError] = useState<EmailTakenError | null>(null)
   const [deactivateTarget, setDeactivateTarget] = useState<UserResponse | null>(null)
   const [reassignCount, setReassignCount] = useState<number | null>(null)
   const [reassignToId, setReassignToId] = useState('')
@@ -98,7 +99,15 @@ export default function UserPage() {
       }
       setModal(null)
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Gagal menyimpan user. Coba lagi.')
+      if (err instanceof EmailTakenError) {
+        if (err.existingUserActive) {
+          showToast(`Email sudah terdaftar atas nama ${err.existingUserName}`)
+        } else {
+          setEmailTakenError(err)
+        }
+      } else {
+        showToast(err instanceof Error ? err.message : 'Gagal menyimpan user. Coba lagi.')
+      }
     }
   }
 
@@ -384,6 +393,29 @@ export default function UserPage() {
             }}
           >
             Ya, Nonaktifkan
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal open={emailTakenError !== null} onClose={() => setEmailTakenError(null)} maxWidth={380}>
+        <h2 className="mb-2 text-lg font-semibold">Email Sudah Terdaftar</h2>
+        <p className="mb-4 text-sm text-muted-foreground">
+          Email ini sudah dipakai oleh {emailTakenError?.existingUserName}, yang saat ini nonaktif.
+          Aktifkan kembali akun tersebut daripada membuat user baru?
+        </p>
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={() => setEmailTakenError(null)}>
+            Batal
+          </Button>
+          <Button
+            onClick={async () => {
+              if (!emailTakenError) return
+              await handleReactivate(emailTakenError.existingUserId, emailTakenError.existingUserName)
+              setEmailTakenError(null)
+              setModal(null)
+            }}
+          >
+            Aktifkan {emailTakenError?.existingUserName}
           </Button>
         </div>
       </Modal>
