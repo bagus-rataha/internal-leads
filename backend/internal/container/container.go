@@ -19,6 +19,7 @@ type Container struct {
 	ReferenceHandler   *handlers.ReferenceHandler
 	LeadHandler        *handlers.LeadHandler
 	FollowUpHandler    *handlers.FollowUpHandler
+	DashboardHandler   *handlers.DashboardHandler
 	// Add more handlers here as you build features
 }
 
@@ -43,6 +44,7 @@ func NewContainer(db *gorm.DB, cfg *config.Config) *Container {
 	referenceService := services.NewReferenceService(referenceRepo)
 	leadService := services.NewLeadService(db, leadRepo, userRepo, referenceRepo)
 	followUpService := services.NewFollowUpService(db, followUpRepo, leadRepo, userRepo)
+	dashboardService := services.NewDashboardService(db, userRepo)
 
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(authService, cfg)
@@ -53,6 +55,7 @@ func NewContainer(db *gorm.DB, cfg *config.Config) *Container {
 	referenceHandler := handlers.NewReferenceHandler(referenceService)
 	leadHandler := handlers.NewLeadHandler(leadService)
 	followUpHandler := handlers.NewFollowUpHandler(followUpService)
+	dashboardHandler := handlers.NewDashboardHandler(dashboardService)
 
 	return &Container{
 		AuthHandler:        authHandler,
@@ -63,5 +66,6 @@ func NewContainer(db *gorm.DB, cfg *config.Config) *Container {
 		ReferenceHandler:   referenceHandler,
 		LeadHandler:        leadHandler,
 		FollowUpHandler:    followUpHandler,
+		DashboardHandler:   dashboardHandler,
 	}
 }

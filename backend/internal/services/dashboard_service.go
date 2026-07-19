@@ -1,0 +1,182 @@
+package services
+
+import (
+	"fiber-api-boilerplate/internal/dto"
+	"fiber-api-boilerplate/internal/models"
+	"fiber-api-boilerplate/internal/repository"
+	"math"
+	"time"
+
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+)
+
+// DashboardService has no repository - ARCHITECTURE.md/CLAUDE.md's explicit
+// exception for dashboard/export (read-only, aggregate-only queries, a
+// repository layer here would be an empty abstraction). userRepo is kept
+// only because buildLeadScope needs it for a LEADER's team lookup.
+type DashboardService struct {
+	db       *gorm.DB
+	userRepo userRepositoryForLead
+}
+
+func NewDashboardService(db *gorm.DB, userRepo userRepositoryForLead) *DashboardService {
+	return &DashboardService{db: db, userRepo: userRepo}
+}
+
+// scopedLeads is every dashboard query's starting point: the caller's scope
+// (CLAUDE.md rule 1), narrowed by the query's own team_id/owner_id params
+// (CLAUDE.md rule 2 - applied after scope, identical narrowing SQL to
+// LeadRepository.applyLeadFilter's TeamID/OwnerID clauses).
+func (s *DashboardService) scopedLeads(scope repository.LeadScope, teamID, ownerID *uuid.UUID) *gorm.DB {
+	tx := repository.ApplyLeadScope(s.db.Model(&models.Lead{}), scope)
+	if teamID != nil {
+		tx = tx.Where("leads.owner_id IN (SELECT id FROM users WHERE team_id = ?)", *teamID)
+	}
+	if ownerID != nil {
+		tx = tx.Where("leads.owner_id = ?", *ownerID)
+	}
+	return tx
+}
+
+// followUpsInScope mirrors scopedLeads for follow_ups: joins to leads so the
+// same ApplyLeadScope/team/owner clauses (which reference leads.owner_id)
+// apply unchanged.
+func (s *DashboardService) followUpsInScope(scope repository.LeadScope, teamID, ownerID *uuid.UUID) *gorm.DB {
+	tx := s.db.Model(&models.FollowUp{}).Joins("JOIN leads ON leads.id = follow_ups.lead_id")
+	tx = repository.ApplyLeadScope(tx, scope)
+	if teamID != nil {
+		tx = tx.Where("leads.owner_id IN (SELECT id FROM users WHERE team_id = ?)", *teamID)
+	}
+	if ownerID != nil {
+		tx = tx.Where("leads.owner_id = ?", *ownerID)
+	}
+	return tx
+}
+
+// changePct implements MetricCard's zero-state contract: nil when the
+// comparison period was 0. A caller distinguishes "—" from "baru" using
+// Value alongside a nil ChangePct (see dto.MetricCard's doc comment) -
+// this function never needs to know which of the two cases it is.
+func changePct(cur, prev int64) *int {
+	if prev == 0 {
+		return nil
+	}
+	pct := int(math.Round(float64(cur-prev) / float64(prev) * 100))
+	return &pct
+}
+
+// percentOf is the same zero-state rule applied to a part/total ratio
+// (funnel stages, segment conversion rates): nil when total is 0.
+func percentOf(part, total int64) *int {
+	if total == 0 {
+		return nil
+	}
+	pct := int(math.Round(float64(part) / float64(total) * 100))
+	return &pct
+}
+
+// comparisonPeriod returns the same-length period immediately preceding
+// [from, to] (inclusive both ends, calendar days) - ARCHITECTURE.md §9's
+// "pembanding: rentang yang sama sebelumnya".
+func comparisonPeriod(from, to time.Time) (prevFrom, prevTo time.Time) {
+	days := int(to.Sub(from).Hours()/24) + 1
+	prevTo = from.AddDate(0, 0, -1)
+	prevFrom = prevTo.AddDate(0, 0, -(days - 1))
+	return prevFrom, prevTo
+}
+
+// Summary answers GET /dashboard/summary: widgets A (metric cards) and B
+// (funnel). The funnel is a scope snapshot (team_id/owner_id narrowed, but
+// NOT date_from/date_to-bound) - see FunnelResponse's doc comment.
+func (s *DashboardService) Summary(callerID uuid.UUID, role string, q dto.DashboardQuery) (*dto.DashboardSummaryResponse, error) {
+	scope, err := buildLeadScope(s.userRepo, callerID, role)
+	if err != nil {
+		return nil, err
+	}
+	base := func() *gorm.DB { return s.scopedLeads(scope, q.TeamID, q.OwnerID) }
+	prevFrom, prevTo := comparisonPeriod(q.DateFrom, q.DateTo)
+
+	var leadBaruCur, leadBaruPrev int64
+	if err := base().Where("leads.created_at >= ? AND leads.created_at < ?", q.DateFrom, q.DateTo.AddDate(0, 0, 1)).Count(&leadBaruCur).Error; err != nil {
+		return nil, err
+	}
+	if err := base().Where("leads.created_at >= ? AND leads.created_at < ?", prevFrom, prevTo.AddDate(0, 0, 1)).Count(&leadBaruPrev).Error; err != nil {
+		return nil, err
+	}
+
+	var fuCur, fuPrev int64
+	if err := s.followUpsInScope(scope, q.TeamID, q.OwnerID).
+		Where("follow_ups.created_at >= ? AND follow_ups.created_at < ?", q.DateFrom, q.DateTo.AddDate(0, 0, 1)).
+		Count(&fuCur).Error; err != nil {
+		return nil, err
+	}
+	if err := s.followUpsInScope(scope, q.TeamID, q.OwnerID).
+		Where("follow_ups.created_at >= ? AND follow_ups.created_at < ?", prevFrom, prevTo.AddDate(0, 0, 1)).
+		Count(&fuPrev).Error; err != nil {
+		return nil, err
+	}
+
+	// Handoff period-window uses updated_at as the transition-timestamp
+	// proxy: HANDOFF_ODOO is terminal (no legal further mutation per
+	// CLAUDE.md's state machine), so updated_at on a HANDOFF_ODOO lead is
+	// reliably "when it got there". No dedicated column exists - documented
+	// approximation, not silently assumed.
+	var handCur, handPrev int64
+	if err := base().Where("leads.status = 'HANDOFF_ODOO' AND leads.updated_at >= ? AND leads.updated_at < ?", q.DateFrom, q.DateTo.AddDate(0, 0, 1)).Count(&handCur).Error; err != nil {
+		return nil, err
+	}
+	if err := base().Where("leads.status = 'HANDOFF_ODOO' AND leads.updated_at >= ? AND leads.updated_at < ?", prevFrom, prevTo.AddDate(0, 0, 1)).Count(&handPrev).Error; err != nil {
+		return nil, err
+	}
+
+	// Stale is a snapshot metric (not period-bound). stalePrev mirrors the
+	// mockup's own approximation: leads that were ALREADY stale twice-over
+	// as of today - there's no historical snapshot to compare against, so
+	// this proxies "was this already stale in the prior window" using a
+	// doubled threshold against current data.
+	now := time.Now()
+	var staleNow, stalePrev int64
+	if err := base().Where("leads.status IN ('BARU','FOLLOW_UP') AND COALESCE(leads.last_follow_up_at, leads.created_at) < ?",
+		now.AddDate(0, 0, -repository.StaleLeadThresholdDays)).Count(&staleNow).Error; err != nil {
+		return nil, err
+	}
+	if err := base().Where("leads.status IN ('BARU','FOLLOW_UP') AND COALESCE(leads.last_follow_up_at, leads.created_at) < ?",
+		now.AddDate(0, 0, -2*repository.StaleLeadThresholdDays)).Count(&stalePrev).Error; err != nil {
+		return nil, err
+	}
+
+	var total, reachedFu, reachedHand, lost int64
+	if err := base().Count(&total).Error; err != nil {
+		return nil, err
+	}
+	if err := base().Where("leads.follow_up_count > 0").Count(&reachedFu).Error; err != nil {
+		return nil, err
+	}
+	if err := base().Where("leads.status = 'HANDOFF_ODOO'").Count(&reachedHand).Error; err != nil {
+		return nil, err
+	}
+	if err := base().Where("leads.status = 'LOST'").Count(&lost).Error; err != nil {
+		return nil, err
+	}
+
+	funnel := dto.FunnelResponse{
+		Stages: []dto.FunnelStage{
+			{Name: "Lead Baru (masuk)", Count: total, Pct: percentOf(total, total)},
+			{Name: "Sudah di-follow-up", Count: reachedFu, Pct: percentOf(reachedFu, total)},
+			{Name: "Handoff ke Odoo", Count: reachedHand, Pct: percentOf(reachedHand, total)},
+		},
+		BaruToFuPct:    percentOf(reachedFu, total),
+		FuToHandoffPct: percentOf(reachedHand, reachedFu),
+		LostCount:      lost,
+		LostPct:        percentOf(lost, total),
+	}
+
+	return &dto.DashboardSummaryResponse{
+		LeadBaru:  dto.MetricCard{Value: leadBaruCur, ChangePct: changePct(leadBaruCur, leadBaruPrev)},
+		FollowUp:  dto.MetricCard{Value: fuCur, ChangePct: changePct(fuCur, fuPrev)},
+		Handoff:   dto.MetricCard{Value: handCur, ChangePct: changePct(handCur, handPrev)},
+		Terlantar: dto.MetricCard{Value: staleNow, ChangePct: changePct(staleNow, stalePrev)},
+		Funnel:    funnel,
+	}, nil
+}

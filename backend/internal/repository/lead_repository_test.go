@@ -41,7 +41,7 @@ func TestApplyLeadScope_OwnerScope_OnlyOwnLeads(t *testing.T) {
 	_, _, salesA, _, leadA, _ := seedScopeFixture(t, db)
 
 	var results []models.Lead
-	err := applyLeadScope(db.Model(&models.Lead{}), LeadScope{OwnerID: &salesA.ID}).Find(&results).Error
+	err := ApplyLeadScope(db.Model(&models.Lead{}), LeadScope{OwnerID: &salesA.ID}).Find(&results).Error
 
 	require.NoError(t, err)
 	require.Len(t, results, 1)
@@ -53,7 +53,7 @@ func TestApplyLeadScope_TeamScope_OnlyTeamLeads(t *testing.T) {
 	teamA, _, _, _, leadA, _ := seedScopeFixture(t, db)
 
 	var results []models.Lead
-	err := applyLeadScope(db.Model(&models.Lead{}), LeadScope{TeamID: &teamA.ID}).Find(&results).Error
+	err := ApplyLeadScope(db.Model(&models.Lead{}), LeadScope{TeamID: &teamA.ID}).Find(&results).Error
 
 	require.NoError(t, err)
 	require.Len(t, results, 1)
@@ -65,7 +65,7 @@ func TestApplyLeadScope_EmptyScope_AllLeads(t *testing.T) {
 	seedScopeFixture(t, db)
 
 	var results []models.Lead
-	err := applyLeadScope(db.Model(&models.Lead{}), LeadScope{}).Find(&results).Error
+	err := ApplyLeadScope(db.Model(&models.Lead{}), LeadScope{}).Find(&results).Error
 
 	require.NoError(t, err)
 	assert.Len(t, results, 2)
