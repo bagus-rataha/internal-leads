@@ -11,10 +11,10 @@ import (
 	"gorm.io/gorm"
 )
 
-// DashboardService has no repository - ARCHITECTURE.md/CLAUDE.md's explicit
-// exception for dashboard/export (read-only, aggregate-only queries, a
-// repository layer here would be an empty abstraction). userRepo is kept
-// only because buildLeadScope needs it for a LEADER's team lookup.
+// DashboardService has no repository - ARCHITECTURE.md's explicit exception
+// for dashboard/export (read-only, aggregate-only queries, a repository
+// layer here would be an empty abstraction). userRepo is kept only because
+// buildLeadScope needs it for a LEADER's team lookup.
 type DashboardService struct {
 	db       *gorm.DB
 	userRepo userRepositoryForLead
@@ -24,10 +24,10 @@ func NewDashboardService(db *gorm.DB, userRepo userRepositoryForLead) *Dashboard
 	return &DashboardService{db: db, userRepo: userRepo}
 }
 
-// scopedLeads is every dashboard query's starting point: the caller's scope
-// (CLAUDE.md rule 1), narrowed by the query's own team_id/owner_id params
-// (CLAUDE.md rule 2 - applied after scope, identical narrowing SQL to
-// LeadRepository.applyLeadFilter's TeamID/OwnerID clauses).
+// scopedLeads is every dashboard query's starting point: the caller's scope,
+// narrowed by the query's own team_id/owner_id params (applied after scope,
+// never replacing it - identical narrowing SQL to LeadRepository.
+// applyLeadFilter's TeamID/OwnerID clauses).
 func (s *DashboardService) scopedLeads(scope repository.LeadScope, teamID, ownerID *uuid.UUID) *gorm.DB {
 	tx := repository.ApplyLeadScope(s.db.Model(&models.Lead{}), scope)
 	if teamID != nil {
@@ -118,8 +118,8 @@ func (s *DashboardService) Summary(callerID uuid.UUID, role string, q dto.Dashbo
 	}
 
 	// Handoff period-window uses updated_at as the transition-timestamp
-	// proxy: HANDOFF_ODOO is terminal (no legal further mutation per
-	// CLAUDE.md's state machine), so updated_at on a HANDOFF_ODOO lead is
+	// proxy: HANDOFF_ODOO is a terminal status (no legal further mutation
+	// once a lead reaches it), so updated_at on a HANDOFF_ODOO lead is
 	// reliably "when it got there". No dedicated column exists - documented
 	// approximation, not silently assumed.
 	var handCur, handPrev int64
