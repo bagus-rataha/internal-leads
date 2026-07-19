@@ -22,9 +22,9 @@ type LeadScope struct {
 // through - list, detail, dashboard, export. Uses a subquery rather than a
 // JOIN so it composes safely with the team_id query-param narrowing filter,
 // which also needs to restrict by team membership without colliding on a
-// shared "users" join alias. Exported so the dashboard module (which has no
-// repository per ARCHITECTURE.md's explicit exception) can reuse it instead
-// of duplicating the scoping rule.
+// shared "users" join alias. Exported so the dashboard and export modules
+// (which has no repository per ARCHITECTURE.md's explicit exception) can
+// reuse it instead of duplicating the scoping rule.
 func ApplyLeadScope(tx *gorm.DB, scope LeadScope) *gorm.DB {
 	if scope.OwnerID != nil {
 		return tx.Where("leads.owner_id = ?", *scope.OwnerID)
@@ -135,7 +135,7 @@ func (r *LeadRepository) Update(lead *models.Lead) error {
 // pagination, for GET /leads.
 func (r *LeadRepository) List(scope LeadScope, filter LeadFilter) ([]models.Lead, int64, error) {
 	tx := ApplyLeadScope(r.db.Model(&models.Lead{}), scope)
-	tx = applyLeadFilter(tx, filter)
+	tx = ApplyLeadFilter(tx, filter)
 
 	var total int64
 	if err := tx.Count(&total).Error; err != nil {
@@ -148,8 +148,8 @@ func (r *LeadRepository) List(scope LeadScope, filter LeadFilter) ([]models.Lead
 	return leads, total, err
 }
 
-// applyLeadFilter narrows a scoped query by every GET /leads filter param.
-func applyLeadFilter(tx *gorm.DB, filter LeadFilter) *gorm.DB {
+// ApplyLeadFilter narrows a scoped query by every GET /leads filter param.
+func ApplyLeadFilter(tx *gorm.DB, filter LeadFilter) *gorm.DB {
 	if filter.Q != "" {
 		like := "%" + filter.Q + "%"
 		tx = tx.Where("leads.code ILIKE ? OR leads.company_name ILIKE ? OR leads.pic_name ILIKE ?", like, like, like)

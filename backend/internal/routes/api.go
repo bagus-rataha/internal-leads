@@ -116,12 +116,15 @@ func setupReferenceRoutes(api fiber.Router, c *container.Container, cfg *config.
 // setupLeadRoutes configures lead and follow-up routes. No RequireRole -
 // access is scope-based (every authenticated role may call these; the
 // service decides what each caller can see), per ARCHITECTURE.md §9.
+// /export is registered before /:code so a literal "export" path segment
+// is never captured by the :code param.
 func setupLeadRoutes(api fiber.Router, c *container.Container, cfg *config.Config) {
 	leads := api.Group("/leads")
 	leads.Use(middleware.JWTProtected(cfg.JWTAccessSecret))
 
 	leads.Post("/", c.LeadHandler.CreateLead)
 	leads.Get("/", c.LeadHandler.ListLeads)
+	leads.Get("/export", c.ExportHandler.ExportLeads)
 	leads.Get("/:code", c.LeadHandler.GetLead)
 	leads.Patch("/:code", c.LeadHandler.UpdateLead)
 	leads.Patch("/:code/status", c.LeadHandler.UpdateLeadStatus)

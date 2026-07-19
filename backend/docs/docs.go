@@ -498,6 +498,36 @@ const docTemplate = `{
                 }
             }
         },
+        "/leads/export": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "leads"
+                ],
+                "summary": "Export leads to Excel",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Caller's own account password",
+                        "name": "X-Export-Password",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "file"
+                        }
+                    }
+                }
+            }
+        },
         "/leads/{code}": {
             "get": {
                 "security": [
