@@ -920,6 +920,24 @@ paths:
       summary: Update lead status
       tags:
       - leads
+  /leads/export:
+    get:
+      parameters:
+      - description: Caller's own account password
+        in: header
+        name: X-Export-Password
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+      security:
+      - BearerAuth: []
+      summary: Export leads to Excel
+      tags:
+      - leads
   /refs/cities:
     get:
       parameters:
