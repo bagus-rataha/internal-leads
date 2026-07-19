@@ -1,6 +1,7 @@
 // Daily lead-baru vs follow-up counts per day across the selected
 // range. Recharts chart - no hand-rolled SVG.
 import { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import type { TooltipContentProps } from 'recharts/types/component/Tooltip'
 import { Card, CardContent } from '@/components/ui/card'
 import type { DashboardActivityResponse } from './api'
 
@@ -10,6 +11,30 @@ function formatBucketLabel(isoDate: string): string {
   const date = new Date(isoDate + 'T00:00:00')
   if (Number.isNaN(date.getTime())) return '-'
   return DATE_LABEL_FORMAT.format(date)
+}
+
+// Recharts' default tooltip content has no per-item color swatch at all -
+// the mockup pairs each row with a small colored square instead of coloring
+// the text itself, so a custom content renderer is needed to match it.
+function ChartTooltip({ active, payload, label }: TooltipContentProps) {
+  if (!active || !payload?.length) return null
+  // tooltipType="none" (used on the decorative Area layer) only suppresses
+  // an entry inside Recharts' own default content renderer - a custom
+  // content function gets the raw payload and must filter it itself.
+  const visible = payload.filter((entry) => entry.type !== 'none')
+  return (
+    <div style={{ background: '#0F172A', borderRadius: 9, padding: 10, color: '#fff', fontSize: 12, whiteSpace: 'nowrap' }}>
+      <p style={{ margin: '0 0 4px', color: '#94A3B8', fontSize: 10.5 }}>{label}</p>
+      {visible.map((entry) => (
+        <div key={String(entry.name ?? entry.dataKey)} style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 3 }}>
+          <span style={{ width: 9, height: 9, borderRadius: 2, background: entry.color, flexShrink: 0 }} />
+          <span>
+            {entry.name} : {entry.value}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
 }
 
 export function TrendChart({ activity, loading }: { activity?: DashboardActivityResponse; loading: boolean }) {
@@ -49,11 +74,7 @@ export function TrendChart({ activity, loading }: { activity?: DashboardActivity
                   tickLine={false}
                 />
                 <YAxis tick={{ fontSize: 10, fill: '#B4C0CE' }} axisLine={false} tickLine={false} allowDecimals={false} />
-                <Tooltip
-                  contentStyle={{ background: '#0F172A', border: 'none', borderRadius: 9, color: '#fff', fontSize: 12 }}
-                  labelStyle={{ color: '#94A3B8', fontSize: 10.5 }}
-                  itemStyle={{ color: '#fff' }}
-                />
+                <Tooltip content={ChartTooltip} />
                 <Area type="monotone" dataKey="lead_baru" stroke="none" fill="rgba(29,78,216,.08)" isAnimationActive={false} tooltipType="none" />
                 <Line
                   type="monotone"
