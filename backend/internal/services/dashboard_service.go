@@ -459,3 +459,159 @@ func (s *DashboardService) SalesActivity(callerID uuid.UUID, role string, q dto.
 
 	return &dto.DashboardSalesActivityResponse{Items: items}, nil
 }
+
+// nilIfNoHandoff enforces the segments zero-state rule: when the caller's
+// entire scope has zero handoffs anywhere, every row's conversion is null -
+// not just rows with their own zero denominator, which never happens here
+// (a row only exists for a category with >=1 lead). Extends the same
+// null-not-zero contract ARCHITECTURE.md already defines for change_pct,
+// applied at the scope level instead of the per-row level.
+func nilIfNoHandoff(pct *int, anyHandoff bool) *int {
+	if !anyHandoff {
+		return nil
+	}
+	return pct
+}
+
+// avgPricePerMbps computes one competitor-pricing stat tile. serviceType
+// empty means "all service types"; otherwise it joins service_types by
+// name. Returns nil (SQL NULL, via the pointer scan target) when no lead
+// qualifies - never a fake 0.
+func (s *DashboardService) avgPricePerMbps(base func() *gorm.DB, serviceType string) *float64 {
+	tx := base().Where("leads.price IS NOT NULL AND leads.price > 0 AND leads.capacity_mbps IS NOT NULL AND leads.capacity_mbps > 0")
+	if serviceType != "" {
+		tx = tx.Joins("JOIN service_types ON service_types.id = leads.service_type_id").Where("service_types.name = ?", serviceType)
+	}
+	var row struct{ Avg *float64 }
+	tx.Select("AVG(leads.price / leads.capacity_mbps) AS avg").Scan(&row)
+	return row.Avg
+}
+
+// Segments answers GET /dashboard/segments: the lead-source,
+// region-penetration, competitor-intel, and business-field breakdowns - all
+// snapshots of the caller's scope (team_id/owner_id narrowed, not
+// date_from/date_to-bound), bundled into one response since they're all
+// cheap "current portfolio state" breakdowns over the same scoped set.
+func (s *DashboardService) Segments(callerID uuid.UUID, role string, q dto.DashboardQuery) (*dto.DashboardSegmentsResponse, error) {
+	scope, err := buildLeadScope(s.userRepo, callerID, role)
+	if err != nil {
+		return nil, err
+	}
+	base := func() *gorm.DB { return s.scopedLeads(scope, q.TeamID, q.OwnerID) }
+
+	var reachedHand int64
+	if err := base().Where("leads.status = 'HANDOFF_ODOO'").Count(&reachedHand).Error; err != nil {
+		return nil, err
+	}
+	anyHandoff := reachedHand > 0
+
+	type nameAgg struct {
+		Name    string
+		Count   int64
+		Handoff int64
+	}
+
+	// Sumber Lead
+	var sourceRows []nameAgg
+	if err := base().
+		Joins("JOIN lead_sources ON lead_sources.id = leads.lead_source_id").
+		Select("lead_sources.name AS name, COUNT(*) AS count, COUNT(*) FILTER (WHERE leads.status = 'HANDOFF_ODOO') AS handoff").
+		Group("lead_sources.name").
+		Order("count DESC").
+		Scan(&sourceRows).Error; err != nil {
+		return nil, err
+	}
+	sources := make([]dto.SegmentRow, len(sourceRows))
+	for i, r := range sourceRows {
+		convPct := percentOf(r.Handoff, r.Count)
+		warn := anyHandoff && r.Count >= 3 && *convPct < 20
+		sources[i] = dto.SegmentRow{Name: r.Name, Count: r.Count, ConversionPct: nilIfNoHandoff(convPct, anyHandoff), Warn: warn}
+	}
+
+	// Bidang Usaha (leads.business_field is a plain nullable text column, no join)
+	var fieldRows []nameAgg
+	if err := base().
+		Where("leads.business_field IS NOT NULL").
+		Select("leads.business_field AS name, COUNT(*) AS count, COUNT(*) FILTER (WHERE leads.status = 'HANDOFF_ODOO') AS handoff").
+		Group("leads.business_field").
+		Order("count DESC").
+		Scan(&fieldRows).Error; err != nil {
+		return nil, err
+	}
+	businessFields := make([]dto.SegmentRow, len(fieldRows))
+	for i, r := range fieldRows {
+		businessFields[i] = dto.SegmentRow{Name: r.Name, Count: r.Count, ConversionPct: nilIfNoHandoff(percentOf(r.Handoff, r.Count), anyHandoff)}
+	}
+
+	// Penetrasi Wilayah: province rollup + city rollup, merged into one
+	// flat, frontend-groupable list.
+	type regionAgg struct {
+		ProvinceName string
+		CityName     string
+		Count        int64
+		Handoff      int64
+	}
+	var provRows []regionAgg
+	if err := base().
+		Joins("JOIN provinces ON provinces.id = leads.province_id").
+		Select("provinces.name AS province_name, COUNT(*) AS count, COUNT(*) FILTER (WHERE leads.status = 'HANDOFF_ODOO') AS handoff").
+		Group("provinces.name").
+		Order("count DESC").
+		Scan(&provRows).Error; err != nil {
+		return nil, err
+	}
+	var cityRows []regionAgg
+	if err := base().
+		Joins("JOIN cities ON cities.id = leads.city_id").
+		Joins("JOIN provinces ON provinces.id = cities.province_id").
+		Select("provinces.name AS province_name, cities.name AS city_name, COUNT(*) AS count, COUNT(*) FILTER (WHERE leads.status = 'HANDOFF_ODOO') AS handoff").
+		Group("provinces.name, cities.name").
+		Scan(&cityRows).Error; err != nil {
+		return nil, err
+	}
+	citiesByProvince := make(map[string][]regionAgg, len(cityRows))
+	for _, c := range cityRows {
+		citiesByProvince[c.ProvinceName] = append(citiesByProvince[c.ProvinceName], c)
+	}
+	var regions []dto.RegionRow
+	for _, p := range provRows {
+		regions = append(regions, dto.RegionRow{Level: "province", Name: p.ProvinceName, LeadCount: p.Count, HandoffCount: p.Handoff})
+		cities := citiesByProvince[p.ProvinceName]
+		sort.SliceStable(cities, func(a, b int) bool { return cities[a].Count > cities[b].Count })
+		for _, c := range cities {
+			regions = append(regions, dto.RegionRow{Level: "city", Name: c.CityName, Parent: p.ProvinceName, LeadCount: c.Count, HandoffCount: c.Handoff})
+		}
+	}
+
+	// Intel Kompetitor
+	stats := dto.CompetitorStats{
+		AvgPricePerMbps:          s.avgPricePerMbps(base, ""),
+		AvgPricePerMbpsDedicated: s.avgPricePerMbps(base, "Dedicated"),
+		AvgPricePerMbpsBroadband: s.avgPricePerMbps(base, "Broadband"),
+	}
+	var ispRows []struct {
+		Name  string
+		Count int64
+	}
+	if err := base().
+		Where("leads.existing_isp IS NOT NULL AND leads.existing_isp <> ''").
+		Select("leads.existing_isp AS name, COUNT(*) AS count").
+		Group("leads.existing_isp").
+		Order("count DESC").
+		Scan(&ispRows).Error; err != nil {
+		return nil, err
+	}
+	isps := make([]dto.IspRow, len(ispRows))
+	for i, r := range ispRows {
+		isps[i] = dto.IspRow{Name: r.Name, Count: r.Count}
+	}
+
+	return &dto.DashboardSegmentsResponse{
+		AnyHandoff:     anyHandoff,
+		Sources:        sources,
+		Regions:        regions,
+		Competitor:     stats,
+		Isps:           isps,
+		BusinessFields: businessFields,
+	}, nil
+}

@@ -18,6 +18,7 @@ type dashboardService interface {
 	Activity(callerID uuid.UUID, role string, q dto.DashboardQuery) (*dto.DashboardActivityResponse, error)
 	StaleLeads(callerID uuid.UUID, role string, q dto.DashboardQuery) (*dto.DashboardStaleLeadsResponse, error)
 	SalesActivity(callerID uuid.UUID, role string, q dto.DashboardQuery) (*dto.DashboardSalesActivityResponse, error)
+	Segments(callerID uuid.UUID, role string, q dto.DashboardQuery) (*dto.DashboardSegmentsResponse, error)
 }
 
 type DashboardHandler struct {
@@ -174,4 +175,29 @@ func (h *DashboardHandler) SalesActivity(c *fiber.Ctx) error {
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
 	}
 	return utils.SuccessResponse(c, fiber.StatusOK, "Sales activity retrieved successfully", result)
+}
+
+// Segments godoc
+// @Summary Dashboard segments (sumber, wilayah, kompetitor, bidang usaha)
+// @Tags dashboard
+// @Security BearerAuth
+// @Success 200 {object} utils.Response{data=dto.DashboardSegmentsResponse}
+// @Router /dashboard/segments [get]
+func (h *DashboardHandler) Segments(c *fiber.Ctx) error {
+	userID, ok := utils.GetUserID(c)
+	if !ok {
+		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Invalid session")
+	}
+	role, _ := c.Locals("role").(string)
+
+	q, err := parseDashboardQuery(c)
+	if err != nil {
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
+	}
+
+	result, err := h.dashboardService.Segments(userID, role, q)
+	if err != nil {
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
+	}
+	return utils.SuccessResponse(c, fiber.StatusOK, "Dashboard segments retrieved successfully", result)
 }

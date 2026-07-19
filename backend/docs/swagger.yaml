@@ -1,11 +1,30 @@
 basePath: /api/v1
 definitions:
+  dto.ActivityBucket:
+    properties:
+      date:
+        description: YYYY-MM-DD
+        type: string
+      follow_up:
+        type: integer
+      lead_baru:
+        type: integer
+    type: object
   dto.CityResponse:
     properties:
       id:
         type: integer
       name:
         type: string
+    type: object
+  dto.CompetitorStats:
+    properties:
+      avg_price_per_mbps:
+        type: number
+      avg_price_per_mbps_broadband:
+        type: number
+      avg_price_per_mbps_dedicated:
+        type: number
     type: object
   dto.CreateFollowUpInput:
     properties:
@@ -135,6 +154,63 @@ definitions:
     - password
     - role
     type: object
+  dto.DashboardActivityResponse:
+    properties:
+      buckets:
+        items:
+          $ref: '#/definitions/dto.ActivityBucket'
+        type: array
+    type: object
+  dto.DashboardSalesActivityResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/dto.SalesActivityRow'
+        type: array
+    type: object
+  dto.DashboardSegmentsResponse:
+    properties:
+      any_handoff:
+        type: boolean
+      business_fields:
+        items:
+          $ref: '#/definitions/dto.SegmentRow'
+        type: array
+      competitor:
+        $ref: '#/definitions/dto.CompetitorStats'
+      isps:
+        items:
+          $ref: '#/definitions/dto.IspRow'
+        type: array
+      regions:
+        items:
+          $ref: '#/definitions/dto.RegionRow'
+        type: array
+      sources:
+        items:
+          $ref: '#/definitions/dto.SegmentRow'
+        type: array
+    type: object
+  dto.DashboardStaleLeadsResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/dto.StaleLeadRow'
+        type: array
+    type: object
+  dto.DashboardSummaryResponse:
+    properties:
+      follow_up:
+        $ref: '#/definitions/dto.MetricCard'
+      funnel:
+        $ref: '#/definitions/dto.FunnelResponse'
+      handoff:
+        $ref: '#/definitions/dto.MetricCard'
+      lead_baru:
+        $ref: '#/definitions/dto.MetricCard'
+      terlantar:
+        $ref: '#/definitions/dto.MetricCard'
+    type: object
   dto.DeactivateUserInput:
     properties:
       reassign_to_user_id:
@@ -160,6 +236,37 @@ definitions:
       lead_id:
         type: string
       note:
+        type: string
+    type: object
+  dto.FunnelResponse:
+    properties:
+      baru_to_fu_pct:
+        type: integer
+      fu_to_handoff_pct:
+        type: integer
+      lost_count:
+        type: integer
+      lost_pct:
+        type: integer
+      stages:
+        items:
+          $ref: '#/definitions/dto.FunnelStage'
+        type: array
+    type: object
+  dto.FunnelStage:
+    properties:
+      count:
+        type: integer
+      name:
+        type: string
+      pct:
+        type: integer
+    type: object
+  dto.IspRow:
+    properties:
+      count:
+        type: integer
+      name:
         type: string
     type: object
   dto.LeadDetailResponse:
@@ -350,6 +457,13 @@ definitions:
     - email
     - password
     type: object
+  dto.MetricCard:
+    properties:
+      change_pct:
+        type: integer
+      value:
+        type: integer
+    type: object
   dto.PaginatedLeadResponse:
     properties:
       items:
@@ -377,6 +491,20 @@ definitions:
       refresh_token:
         type: string
     type: object
+  dto.RegionRow:
+    properties:
+      handoff_count:
+        type: integer
+      lead_count:
+        type: integer
+      level:
+        description: '"province" | "city"'
+        type: string
+      name:
+        type: string
+      parent:
+        type: string
+    type: object
   dto.ResetPasswordInput:
     properties:
       new_password:
@@ -385,6 +513,42 @@ definitions:
         type: string
     required:
     - new_password
+    type: object
+  dto.SalesActivityRow:
+    properties:
+      attention_tag:
+        type: string
+      avg_fu_per_lead:
+        type: number
+      conv_pct:
+        type: integer
+      follow_up:
+        type: integer
+      handoff:
+        type: integer
+      last_activity:
+        type: string
+      lead_baru:
+        type: integer
+      name:
+        type: string
+      team_name:
+        type: string
+      terlantar:
+        type: integer
+      user_id:
+        type: string
+    type: object
+  dto.SegmentRow:
+    properties:
+      conversion_pct:
+        type: integer
+      count:
+        type: integer
+      name:
+        type: string
+      warn:
+        type: boolean
     type: object
   dto.ServiceTypeAdminResponse:
     properties:
@@ -402,6 +566,17 @@ definitions:
       id:
         type: string
       name:
+        type: string
+    type: object
+  dto.StaleLeadRow:
+    properties:
+      code:
+        type: string
+      company_name:
+        type: string
+      days_since:
+        type: integer
+      owner_name:
         type: string
     type: object
   dto.TeamResponse:
@@ -676,6 +851,92 @@ paths:
       summary: Refresh token
       tags:
       - auth
+  /dashboard/activity:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.DashboardActivityResponse'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Dashboard activity trend (lead baru vs follow-up per day)
+      tags:
+      - dashboard
+  /dashboard/sales-activity:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.DashboardSalesActivityResponse'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Dashboard sales activity ("Keaktifan Sales") - LEADER/ADMIN_SALES/SU
+        only
+      tags:
+      - dashboard
+  /dashboard/segments:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.DashboardSegmentsResponse'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Dashboard segments (sumber, wilayah, kompetitor, bidang usaha)
+      tags:
+      - dashboard
+  /dashboard/stale-leads:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.DashboardStaleLeadsResponse'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Dashboard stale (terlantar) leads
+      tags:
+      - dashboard
+  /dashboard/summary:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.DashboardSummaryResponse'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Dashboard summary (metric cards + funnel)
+      tags:
+      - dashboard
   /lead-sources:
     get:
       responses:

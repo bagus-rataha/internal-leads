@@ -140,4 +140,5 @@ func setupDashboardRoutes(api fiber.Router, c *container.Container, cfg *config.
 	dash.Get("/activity", c.DashboardHandler.Activity)
 	dash.Get("/stale-leads", c.DashboardHandler.StaleLeads)
 	dash.Get("/sales-activity", middleware.RequireRole("LEADER", "ADMIN_SALES", "SU"), c.DashboardHandler.SalesActivity)
+	dash.Get("/segments", c.DashboardHandler.Segments)
 }

@@ -43,3 +43,11 @@ func (m *MockDashboardService) SalesActivity(callerID uuid.UUID, role string, q 
 	}
 	return args.Get(0).(*dto.DashboardSalesActivityResponse), args.Error(1)
 }
+
+func (m *MockDashboardService) Segments(callerID uuid.UUID, role string, q dto.DashboardQuery) (*dto.DashboardSegmentsResponse, error) {
+	args := m.Called(callerID, role, q)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*dto.DashboardSegmentsResponse), args.Error(1)
+}

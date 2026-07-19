@@ -6,6 +6,7 @@ import (
 	"fiber-api-boilerplate/internal/dto"
 	"fiber-api-boilerplate/internal/models"
 	"fiber-api-boilerplate/internal/repository"
+	"fmt"
 	"testing"
 	"time"
 
@@ -147,4 +148,60 @@ func TestDashboardSalesActivity_ZeroOwnedLeads_ConvPctNil(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, result.Items, 1)
 	assert.Nil(t, result.Items[0].ConvPct, "0 owned leads -> nil, not a divide-by-zero 0%")
+}
+
+func TestDashboardSegments_NoHandoffAnywhere_AllConversionsNil(t *testing.T) {
+	db := setupServiceTestDB(t)
+	userRepo := repository.NewUserRepository(db)
+	svc := NewDashboardService(db, userRepo)
+
+	adminID := uuid.Must(uuid.NewV7())
+	require.NoError(t, db.Create(&models.User{BaseModel: models.BaseModel{ID: adminID}, Email: "admin4@test.local", Password: "h", Name: "Admin", Role: "SU", IsActive: true}).Error)
+	source := &models.LeadSource{Name: "Google", IsActive: true}
+	require.NoError(t, db.Create(source).Error)
+	require.NoError(t, db.Create(&models.Lead{Code: "LD-2607-0009", OwnerID: adminID, CreatedByID: adminID, CompanyName: "No handoff yet", LeadSourceID: &source.ID, Status: "BARU"}).Error)
+
+	q := dto.DashboardQuery{DateFrom: time.Now().AddDate(0, 0, -30), DateTo: time.Now()}
+	result, err := svc.Segments(adminID, "SU", q)
+
+	require.NoError(t, err)
+	assert.False(t, result.AnyHandoff)
+	require.Len(t, result.Sources, 1)
+	assert.Nil(t, result.Sources[0].ConversionPct, "zero handoffs anywhere in scope -> null, not 0%")
+}
+
+func TestDashboardSegments_HighVolumeLowConversion_WarnFlagSet(t *testing.T) {
+	db := setupServiceTestDB(t)
+	userRepo := repository.NewUserRepository(db)
+	svc := NewDashboardService(db, userRepo)
+
+	adminID := uuid.Must(uuid.NewV7())
+	require.NoError(t, db.Create(&models.User{BaseModel: models.BaseModel{ID: adminID}, Email: "admin5@test.local", Password: "h", Name: "Admin", Role: "SU", IsActive: true}).Error)
+	source := &models.LeadSource{Name: "Cold Call", IsActive: true}
+	require.NoError(t, db.Create(source).Error)
+	otherSource := &models.LeadSource{Name: "Referral", IsActive: true}
+	require.NoError(t, db.Create(otherSource).Error)
+
+	// One handoff elsewhere so anyHandoff is true, then 4 low-converting
+	// Cold Call leads (1/4 = 25%... use 5 leads/0 handoff = 0% to force <20%).
+	require.NoError(t, db.Create(&models.Lead{Code: "LD-2607-0010", OwnerID: adminID, CreatedByID: adminID, CompanyName: "Converts", LeadSourceID: &otherSource.ID, Status: "HANDOFF_ODOO"}).Error)
+	for i := 0; i < 4; i++ {
+		require.NoError(t, db.Create(&models.Lead{Code: fmt.Sprintf("LD-2607-%04d", 11+i), OwnerID: adminID, CreatedByID: adminID, CompanyName: "Cold call lead", LeadSourceID: &source.ID, Status: "BARU"}).Error)
+	}
+
+	q := dto.DashboardQuery{DateFrom: time.Now().AddDate(0, 0, -30), DateTo: time.Now()}
+	result, err := svc.Segments(adminID, "SU", q)
+
+	require.NoError(t, err)
+	assert.True(t, result.AnyHandoff)
+	var coldCall dto.SegmentRow
+	for _, s := range result.Sources {
+		if s.Name == "Cold Call" {
+			coldCall = s
+		}
+	}
+	assert.True(t, coldCall.Warn, "4 leads (>=3), 0% conversion (<20%) -> warn")
+	if assert.NotNil(t, coldCall.ConversionPct) {
+		assert.Equal(t, 0, *coldCall.ConversionPct)
+	}
 }
