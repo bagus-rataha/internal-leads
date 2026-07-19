@@ -8,6 +8,7 @@ import { LayoutDashboard, FileText, Users, Tag, Wrench, UserCog, Lock } from 'lu
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '@/auth/AuthContext'
 import { Button } from '@/components/ui/button'
+import { roleLabel } from '@/lib/roles'
 import { cn } from '@/lib/utils'
 
 interface SidebarProps {
@@ -122,7 +123,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
         <nav className="flex flex-col gap-4 overflow-y-auto px-3 py-4">
           <NavGroup label="Kerja Harian">
-            <NavItem icon={LayoutDashboard} label="Dashboard" locked />
+            <NavItem icon={LayoutDashboard} label="Dashboard" to="/" onClick={onClose} />
             <NavItem icon={FileText} label="Lead" to="/leads" onClick={onClose} />
           </NavGroup>
 
@@ -149,7 +150,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">{user?.name}</p>
               <p className="truncate text-xs text-muted-foreground">
-                {user?.role}
+                {roleLabel(user?.role)}
                 {user?.team_name ? ` · ${user.team_name}` : ''}
               </p>
             </div>
