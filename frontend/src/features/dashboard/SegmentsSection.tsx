@@ -89,10 +89,12 @@ function ExpandableTable({
   return (
     <Card className="overflow-hidden rounded-[16px] border-[#E7EDF3] shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
       <CardContent className="p-0">
-        <div className="px-[18px] pt-[15px] pb-1.5">
-          <p className="font-display text-[15px] font-bold">{title}</p>
-          <p className="mt-0.5 text-[11.5px] text-[#94A3B8]">{subtitle}</p>
-        </div>
+        {title && (
+          <div className="px-[18px] pt-[15px] pb-1.5">
+            <p className="font-display text-[15px] font-bold">{title}</p>
+            <p className="mt-0.5 text-[11.5px] text-[#94A3B8]">{subtitle}</p>
+          </div>
+        )}
         <table className="mt-1.5 w-full border-collapse">
           <tbody>
             {visible.map((row) => (
