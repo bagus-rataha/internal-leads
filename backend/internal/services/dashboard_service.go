@@ -86,9 +86,9 @@ func comparisonPeriod(from, to time.Time) (prevFrom, prevTo time.Time) {
 	return prevFrom, prevTo
 }
 
-// Summary answers GET /dashboard/summary: widgets A (metric cards) and B
-// (funnel). The funnel is a scope snapshot (team_id/owner_id narrowed, but
-// NOT date_from/date_to-bound) - see FunnelResponse's doc comment.
+// Summary answers GET /dashboard/summary: the metric cards and the
+// conversion funnel. The funnel is a scope snapshot (team_id/owner_id
+// narrowed, but NOT date_from/date_to-bound) - see FunnelResponse's doc comment.
 func (s *DashboardService) Summary(callerID uuid.UUID, role string, q dto.DashboardQuery) (*dto.DashboardSummaryResponse, error) {
 	scope, err := buildLeadScope(s.userRepo, callerID, role)
 	if err != nil {
@@ -181,7 +181,7 @@ func (s *DashboardService) Summary(callerID uuid.UUID, role string, q dto.Dashbo
 	}, nil
 }
 
-// Activity answers GET /dashboard/activity: widget C's daily lead-baru vs
+// Activity answers GET /dashboard/activity: daily lead-baru vs
 // follow-up counts. Two GROUP BY aggregate queries total, regardless of the
 // requested range length - never a query-per-day loop (ARCHITECTURE.md §10's
 // "dilarang N+1" applies to this per-day breakdown too, not just per-entity).
@@ -233,7 +233,7 @@ func (s *DashboardService) Activity(callerID uuid.UUID, role string, q dto.Dashb
 	return &dto.DashboardActivityResponse{Buckets: buckets}, nil
 }
 
-// StaleLeads answers GET /dashboard/stale-leads: widget E's top-7
+// StaleLeads answers GET /dashboard/stale-leads: the top-7
 // longest-overdue table. Snapshot (not date_from/date_to-bound, matching
 // the "terlantar" concept elsewhere in this app), team_id/owner_id still
 // narrow.
