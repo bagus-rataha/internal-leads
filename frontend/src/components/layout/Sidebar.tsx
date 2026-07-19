@@ -8,17 +8,8 @@ import { LayoutDashboard, FileText, Users, Tag, Wrench, UserCog, Lock } from 'lu
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '@/auth/AuthContext'
 import { Button } from '@/components/ui/button'
+import { roleLabel } from '@/lib/roles'
 import { cn } from '@/lib/utils'
-
-// Role values come back from the API as raw enum strings (e.g.
-// ADMIN_SALES) - this maps each to the human-readable label the mockup
-// actually shows next to a user's name.
-const ROLE_LABELS: Record<string, string> = {
-  SALES: 'Sales',
-  LEADER: 'Leader',
-  ADMIN_SALES: 'Admin Sales',
-  SU: 'Super User',
-}
 
 interface SidebarProps {
   isOpen: boolean
@@ -159,7 +150,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">{user?.name}</p>
               <p className="truncate text-xs text-muted-foreground">
-                {(user?.role && ROLE_LABELS[user.role]) ?? user?.role}
+                {roleLabel(user?.role)}
                 {user?.team_name ? ` · ${user.team_name}` : ''}
               </p>
             </div>

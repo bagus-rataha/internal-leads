@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { showToast } from '@/hooks/useToast'
 import { useAuth } from '@/auth/AuthContext'
+import { roleLabel } from '@/lib/roles'
 import { useTeams } from '@/features/team/queries'
 import type { TeamResponse } from '@/features/team/api'
 import { useUsers, useCreateUser, useUpdateUser, useResetPassword, useDeactivateUser } from './queries'
@@ -131,7 +132,7 @@ function UserCards({
             </div>
             <p className="truncate text-sm text-muted-foreground">{u.email}</p>
             <p className="text-xs text-muted-foreground">
-              {u.role}
+              {roleLabel(u.role)}
               {teamName ? ` · ${teamName}` : ''}
             </p>
             {isForbiddenTarget && (
@@ -353,7 +354,7 @@ export default function UserPage() {
                   <tr key={u.id}>
                     <td className="px-4 py-2.5">{u.name}</td>
                     <td className="px-4 py-2.5">{u.email}</td>
-                    <td className="px-4 py-2.5">{u.role}</td>
+                    <td className="px-4 py-2.5">{roleLabel(u.role)}</td>
                     <td className="px-4 py-2.5">
                       {teams?.find((t) => t.id === u.team_id)?.name ?? '—'}
                     </td>
@@ -444,7 +445,7 @@ export default function UserPage() {
             >
               {ROLES.map((r) => (
                 <option key={r} value={r}>
-                  {r}
+                  {roleLabel(r)}
                 </option>
               ))}
             </select>
@@ -572,7 +573,7 @@ export default function UserPage() {
             ?.filter((u) => u.id !== deactivateTarget?.id && u.is_active)
             .map((u) => (
               <option key={u.id} value={u.id}>
-                {u.name} ({u.role})
+                {u.name} ({roleLabel(u.role)})
               </option>
             ))}
         </select>
