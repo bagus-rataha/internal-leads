@@ -706,8 +706,14 @@ export default function LeadListPage() {
         <label className="mt-4 mb-[7px] block text-[12px] font-semibold text-[#334155]">Password</label>
         <Input
           type="password"
+          autoFocus
           value={exportPassword}
           onChange={(e) => setExportPassword(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && exportPassword && !exportMutation.isPending) {
+              handleExportConfirm()
+            }
+          }}
           placeholder="Password akun Anda"
         />
         <div className="mt-5 flex justify-end gap-[10px]">
