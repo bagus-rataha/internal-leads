@@ -37,7 +37,7 @@ migrations/          SQL migrations
 
 ## Getting started
 
-Prerequisites: Go 1.24+, PostgreSQL, the `migrate` CLI (golang-migrate), and
+Prerequisites: Go 1.25+, PostgreSQL, the `migrate` CLI (golang-migrate), and
 optionally `air` for hot reload.
 
 ```bash
