@@ -52,8 +52,9 @@ export function TrendChart({ activity, loading }: { activity?: DashboardActivity
                 <Tooltip
                   contentStyle={{ background: '#0F172A', border: 'none', borderRadius: 9, color: '#fff', fontSize: 12 }}
                   labelStyle={{ color: '#94A3B8', fontSize: 10.5 }}
+                  itemStyle={{ color: '#fff' }}
                 />
-                <Area type="monotone" dataKey="lead_baru" stroke="none" fill="rgba(29,78,216,.08)" isAnimationActive={false} />
+                <Area type="monotone" dataKey="lead_baru" stroke="none" fill="rgba(29,78,216,.08)" isAnimationActive={false} tooltipType="none" />
                 <Line
                   type="monotone"
                   dataKey="lead_baru"
