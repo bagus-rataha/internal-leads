@@ -122,7 +122,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
         <nav className="flex flex-col gap-4 overflow-y-auto px-3 py-4">
           <NavGroup label="Kerja Harian">
-            <NavItem icon={LayoutDashboard} label="Dashboard" locked />
+            <NavItem icon={LayoutDashboard} label="Dashboard" to="/" onClick={onClose} />
             <NavItem icon={FileText} label="Lead" to="/leads" onClick={onClose} />
           </NavGroup>
 

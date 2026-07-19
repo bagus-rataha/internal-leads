@@ -3,7 +3,7 @@ import { RouteGuard } from '@/auth/RouteGuard'
 import { AdminRouteGuard } from '@/auth/AdminRouteGuard'
 import { LoginPage } from '@/features/auth/LoginPage'
 import { Shell } from '@/components/layout/Shell'
-import { WelcomeHome } from '@/components/layout/WelcomeHome'
+import DashboardPage from '@/features/dashboard/DashboardPage'
 import LeadListPage from '@/features/lead/LeadListPage'
 import LeadDetailPage from '@/features/lead/LeadDetailPage'
 import LeadFormPage from '@/features/lead/LeadFormPage'
@@ -17,7 +17,7 @@ function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route element={<RouteGuard><Shell /></RouteGuard>}>
-        <Route index element={<WelcomeHome />} />
+        <Route index element={<DashboardPage />} />
         <Route path="leads" element={<LeadListPage />} />
         <Route path="leads/new" element={<LeadFormPage />} />
         <Route path="leads/:code" element={<LeadDetailPage />} />
