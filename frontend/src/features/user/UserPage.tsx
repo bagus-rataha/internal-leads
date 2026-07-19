@@ -315,7 +315,7 @@ export default function UserPage() {
             <option value="">Semua Role</option>
             {ROLES.map((r) => (
               <option key={r} value={r}>
-                {r}
+                {roleLabel(r)}
               </option>
             ))}
           </select>
