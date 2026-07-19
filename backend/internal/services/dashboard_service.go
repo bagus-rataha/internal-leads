@@ -477,14 +477,16 @@ func nilIfNoHandoff(pct *int, anyHandoff bool) *int {
 // empty means "all service types"; otherwise it joins service_types by
 // name. Returns nil (SQL NULL, via the pointer scan target) when no lead
 // qualifies - never a fake 0.
-func (s *DashboardService) avgPricePerMbps(base func() *gorm.DB, serviceType string) *float64 {
+func (s *DashboardService) avgPricePerMbps(base func() *gorm.DB, serviceType string) (*float64, error) {
 	tx := base().Where("leads.price IS NOT NULL AND leads.price > 0 AND leads.capacity_mbps IS NOT NULL AND leads.capacity_mbps > 0")
 	if serviceType != "" {
 		tx = tx.Joins("JOIN service_types ON service_types.id = leads.service_type_id").Where("service_types.name = ?", serviceType)
 	}
 	var row struct{ Avg *float64 }
-	tx.Select("AVG(leads.price / leads.capacity_mbps) AS avg").Scan(&row)
-	return row.Avg
+	if err := tx.Select("AVG(leads.price / leads.capacity_mbps) AS avg").Scan(&row).Error; err != nil {
+		return nil, err
+	}
+	return row.Avg, nil
 }
 
 // Segments answers GET /dashboard/segments: the lead-source,
@@ -531,7 +533,7 @@ func (s *DashboardService) Segments(callerID uuid.UUID, role string, q dto.Dashb
 	// Bidang Usaha (leads.business_field is a plain nullable text column, no join)
 	var fieldRows []nameAgg
 	if err := base().
-		Where("leads.business_field IS NOT NULL").
+		Where("leads.business_field IS NOT NULL AND leads.business_field <> ''").
 		Select("leads.business_field AS name, COUNT(*) AS count, COUNT(*) FILTER (WHERE leads.status = 'HANDOFF_ODOO') AS handoff").
 		Group("leads.business_field").
 		Order("count DESC").
@@ -584,10 +586,22 @@ func (s *DashboardService) Segments(callerID uuid.UUID, role string, q dto.Dashb
 	}
 
 	// Intel Kompetitor
+	avgAll, err := s.avgPricePerMbps(base, "")
+	if err != nil {
+		return nil, err
+	}
+	avgDedicated, err := s.avgPricePerMbps(base, "Dedicated")
+	if err != nil {
+		return nil, err
+	}
+	avgBroadband, err := s.avgPricePerMbps(base, "Broadband")
+	if err != nil {
+		return nil, err
+	}
 	stats := dto.CompetitorStats{
-		AvgPricePerMbps:          s.avgPricePerMbps(base, ""),
-		AvgPricePerMbpsDedicated: s.avgPricePerMbps(base, "Dedicated"),
-		AvgPricePerMbpsBroadband: s.avgPricePerMbps(base, "Broadband"),
+		AvgPricePerMbps:          avgAll,
+		AvgPricePerMbpsDedicated: avgDedicated,
+		AvgPricePerMbpsBroadband: avgBroadband,
 	}
 	var ispRows []struct {
 		Name  string
