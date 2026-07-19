@@ -7,7 +7,9 @@ import type { DashboardActivityResponse } from './api'
 const DATE_LABEL_FORMAT = new Intl.DateTimeFormat('id', { day: 'numeric', month: 'short' })
 
 function formatBucketLabel(isoDate: string): string {
-  return DATE_LABEL_FORMAT.format(new Date(isoDate + 'T00:00:00'))
+  const date = new Date(isoDate + 'T00:00:00')
+  if (Number.isNaN(date.getTime())) return '-'
+  return DATE_LABEL_FORMAT.format(date)
 }
 
 export function TrendChart({ activity, loading }: { activity?: DashboardActivityResponse; loading: boolean }) {
