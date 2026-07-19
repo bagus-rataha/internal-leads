@@ -3,12 +3,15 @@
 // lg: and up, stacked cards below it — same data, no horizontal scroll.
 import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Clock, Search, CalendarIcon, X, ChevronLeft, ChevronRight, Plus, SlidersHorizontal } from 'lucide-react'
+import { Clock, Search, CalendarIcon, X, ChevronLeft, ChevronRight, Plus, SlidersHorizontal, Download } from 'lucide-react'
 import type { DateRange } from 'react-day-picker'
 import { useAuth } from '@/auth/AuthContext'
 import { useLeads } from './useLeads'
 import { getLeadSources } from './refCache'
-import { fetchTeams, fetchSalesUsers, type LeadListParams, type LeadSourceResponse, type LeadStatus, type LeadResponse, type TeamResponse, type UserResponse } from './api'
+import { fetchTeams, fetchSalesUsers, downloadBlob, ExportTooManyRowsError, type LeadListParams, type LeadSourceResponse, type LeadStatus, type LeadResponse, type TeamResponse, type UserResponse } from './api'
+import { useExportLeads } from './queries'
+import { Modal } from '@/components/ui/modal'
+import { showToast } from '@/hooks/useToast'
 import { STATUS_CONFIG, StatusPill, SalesBadge, formatRelativeTime } from './shared'
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
@@ -513,6 +516,9 @@ export default function LeadListPage() {
 
   const [retryNonce, setRetryNonce] = useState(0)
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
+  const [exportPassword, setExportPassword] = useState('')
+  const exportMutation = useExportLeads()
 
   const [q, setQ] = useState('')
   const [debouncedQ, setDebouncedQ] = useState('')
@@ -605,6 +611,30 @@ export default function LeadListPage() {
     applied.dateRange?.from,
   ].filter(Boolean).length
 
+  function handleExportConfirm() {
+    exportMutation.mutate(
+      { params, password: exportPassword },
+      {
+        onSuccess: ({ blob, filename }) => {
+          downloadBlob(blob, filename)
+          setExportOpen(false)
+          setExportPassword('')
+        },
+        onError: (err: unknown) => {
+          if (err instanceof ExportTooManyRowsError) {
+            showToast(`Hasil melebihi ${err.rowCount} baris, persempit filter`)
+            return
+          }
+          if (err instanceof Error && err.message === 'invalid credentials') {
+            showToast('Password salah')
+            return
+          }
+          showToast('Gagal export data')
+        },
+      }
+    )
+  }
+
   return (
     <div className="flex w-full max-w-full flex-col gap-4 p-4 lg:p-6">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
@@ -624,6 +654,10 @@ export default function LeadListPage() {
                   {activeFilterCount}
                 </span>
               )}
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setExportOpen(true)} className="gap-1.5">
+              <Download className="size-4" />
+              Export
             </Button>
             <Button
               size="sm"
@@ -664,6 +698,27 @@ export default function LeadListPage() {
         onRetry={() => setRetryNonce((n) => n + 1)}
         onPageChange={setPage}
       />
+      <Modal open={exportOpen} onClose={() => setExportOpen(false)} maxWidth={400}>
+        <div className="font-display text-[19px] font-extrabold text-[#0F172A]">Export ke Excel</div>
+        <div className="mt-1 text-[13px] leading-[1.55] text-[#64748B]">
+          Masukkan password akun Anda untuk mengunduh data lead sesuai filter yang sedang aktif.
+        </div>
+        <label className="mt-4 mb-[7px] block text-[12px] font-semibold text-[#334155]">Password</label>
+        <Input
+          type="password"
+          value={exportPassword}
+          onChange={(e) => setExportPassword(e.target.value)}
+          placeholder="Password akun Anda"
+        />
+        <div className="mt-5 flex justify-end gap-[10px]">
+          <Button variant="outline" size="sm" onClick={() => setExportOpen(false)}>
+            Batal
+          </Button>
+          <Button size="sm" disabled={!exportPassword || exportMutation.isPending} onClick={handleExportConfirm}>
+            {exportMutation.isPending ? 'Mengunduh...' : 'Export'}
+          </Button>
+        </div>
+      </Modal>
     </div>
   )
 }
