@@ -11,9 +11,11 @@ import {
   fetchSalesUsers,
   createLead,
   updateLead,
+  exportLeads,
   type UpdateLeadStatusInput,
   type CreateLeadInput,
   type UpdateLeadInput,
+  type LeadListParams,
 } from './api'
 
 // `enabled: !!code` guards LeadFormPage's create mode, which calls this hook
@@ -83,5 +85,11 @@ export function useUpdateLead(code: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lead', code] })
     },
+  })
+}
+
+export function useExportLeads() {
+  return useMutation({
+    mutationFn: ({ params, password }: { params: LeadListParams; password: string }) => exportLeads(params, password),
   })
 }

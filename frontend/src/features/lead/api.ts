@@ -1,7 +1,7 @@
 // Data-fetching for the lead list: query building + envelope handling.
 // Mirrors the fetch/envelope pattern already used in the auth context
 // (check res.ok before parsing, guard res.json() in try/catch).
-import { apiFetch } from '@/api/client'
+import { apiFetch, getAccessToken } from '@/api/client'
 import type { components } from '@/api/types'
 
 export type { TeamResponse } from '@/features/team/api'
@@ -228,4 +228,60 @@ export async function updateLead(code: string, input: UpdateLeadInput): Promise<
     throw new Error('Failed to save changes')
   }
   return body.data
+}
+
+export class ExportTooManyRowsError extends Error {
+  rowCount: number
+  constructor(rowCount: number) {
+    super('too many rows')
+    this.rowCount = rowCount
+  }
+}
+
+// Uses a raw fetch, not apiFetch: a wrong export password also returns 401,
+// and apiFetch treats any 401 as an expired session - on retry-after-refresh
+// it would still be 401 (the password is still wrong) and apiFetch force-
+// logs-out the whole app. This endpoint's 401 must stay a plain request
+// failure, never a session event.
+export async function exportLeads(params: LeadListParams, password: string): Promise<{ blob: Blob; filename: string }> {
+  const qs = buildLeadQuery(params)
+  const res = await fetch('/api/v1/leads/export?' + qs, {
+    headers: {
+      Authorization: `Bearer ${getAccessToken() ?? ''}`,
+      'X-Export-Password': password,
+    },
+  })
+
+  if (res.status === 401) {
+    throw new Error('invalid credentials')
+  }
+  if (res.status === 422) {
+    let rowCount = 0
+    try {
+      const body = await res.json()
+      rowCount = body?.data?.row_count ?? 0
+    } catch {
+      // rowCount stays 0 - the toast still explains to narrow filters
+    }
+    throw new ExportTooManyRowsError(rowCount)
+  }
+  if (!res.ok) {
+    throw new Error('Failed to export leads')
+  }
+
+  const disposition = res.headers.get('Content-Disposition') ?? ''
+  const filename = disposition.match(/filename="([^"]+)"/)?.[1] ?? 'leads-export.xlsx'
+  const blob = await res.blob()
+  return { blob, filename }
+}
+
+export function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
 }
