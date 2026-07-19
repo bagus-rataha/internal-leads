@@ -22,10 +22,12 @@ func (r *UserRepository) Create(user *models.User) error {
 	return r.db.Create(user).Error
 }
 
-// FindByEmail finds user by email
+// FindByEmail finds user by email, with Team preloaded so callers that
+// build a UserResponse (e.g. login) get a populated team name instead of
+// silently nil-ing it — see models.User.Team's comment.
 func (r *UserRepository) FindByEmail(email string) (*models.User, error) {
 	var user models.User
-	err := r.db.Where("email = ?", email).First(&user).Error
+	err := r.db.Preload("Team").Where("email = ?", email).First(&user).Error
 	if err != nil {
 		return nil, err
 	}
