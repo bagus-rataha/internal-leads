@@ -32,7 +32,7 @@ export function StaleLeadsCard({
 
         {loading ? (
           <div className="mx-[18px] mb-4 h-24 animate-pulse rounded-lg bg-muted" />
-        ) : !data || data.items?.length === 0 ? (
+        ) : !data || !data.items || data.items.length === 0 ? (
           <div className="flex items-center gap-2 px-[18px] pt-1 pb-6 text-[13px] text-[#94A3B8]">
             <CheckCircle2 className="size-[17px] text-[#16A34A]" />
             Tidak ada lead terlantar dalam cakupan ini. Kerja bagus.
@@ -49,7 +49,7 @@ export function StaleLeadsCard({
                 </tr>
               </thead>
               <tbody>
-                {data.items!.map((row) => (
+                {data.items.map((row) => (
                   <tr
                     key={row.code}
                     className="cursor-pointer hover:bg-[#FFFCF5]"
