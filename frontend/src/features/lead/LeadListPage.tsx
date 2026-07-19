@@ -228,8 +228,6 @@ const EMPTY_FILTERS: FilterValues = {
 }
 
 function FilterBar({
-  q,
-  onQChange,
   draft,
   onDraftChange,
   sources,
@@ -240,8 +238,6 @@ function FilterBar({
   onApply,
   onReset,
 }: {
-  q: string
-  onQChange: (value: string) => void
   draft: FilterValues
   onDraftChange: (patch: Partial<FilterValues>) => void
   sources: LeadSourceResponse[]
@@ -255,19 +251,6 @@ function FilterBar({
   return (
     <Card className="rounded-[14px] shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
       <CardContent className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end">
-        <div className="flex flex-col gap-1 lg:min-w-[240px] lg:flex-1">
-          <label className={FILTER_LABEL_CLASSNAME}>Cari</label>
-          <div className="relative">
-            <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={q}
-              onChange={(e) => onQChange(e.target.value)}
-              placeholder="Cari kode lead atau nama perusahaan..."
-              className="pl-8"
-            />
-          </div>
-        </div>
-
         <div className="flex flex-col gap-1">
           <label className={FILTER_LABEL_CLASSNAME}>Status</label>
           <select
@@ -624,37 +607,46 @@ export default function LeadListPage() {
 
   return (
     <div className="flex w-full max-w-full flex-col gap-4 p-4 lg:p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="font-display text-xl font-extrabold">Lead</h1>
-        <div className="flex items-center gap-2">
-          <Button
-            variant={filtersOpen ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setFiltersOpen((v) => !v)}
-            className="gap-1.5"
-          >
-            <SlidersHorizontal className="size-4" />
-            Filter
-            {activeFilterCount > 0 && (
-              <span className="ml-0.5 flex size-4 items-center justify-center rounded-full bg-white/20 text-[10px] font-bold">
-                {activeFilterCount}
-              </span>
-            )}
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => navigate('/leads/new')}
-            className="gap-1.5 bg-[#1D4ED8] text-white shadow-[0_1px_2px_rgba(29,78,216,0.3)] hover:bg-[#1A45BE]"
-          >
-            <Plus className="size-4" />
-            Lead Baru
-          </Button>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+        <div className="flex items-center justify-between gap-2 lg:contents">
+          <h1 className="font-display text-xl font-extrabold lg:order-1">Lead</h1>
+          <div className="flex items-center gap-2 lg:order-3">
+            <Button
+              variant={filtersOpen ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setFiltersOpen((v) => !v)}
+              className="gap-1.5"
+            >
+              <SlidersHorizontal className="size-4" />
+              Filter
+              {activeFilterCount > 0 && (
+                <span className="ml-0.5 flex size-4 items-center justify-center rounded-full bg-white/20 text-[10px] font-bold">
+                  {activeFilterCount}
+                </span>
+              )}
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => navigate('/leads/new')}
+              className="gap-1.5 bg-[#1D4ED8] text-white shadow-[0_1px_2px_rgba(29,78,216,0.3)] hover:bg-[#1A45BE]"
+            >
+              <Plus className="size-4" />
+              Lead Baru
+            </Button>
+          </div>
+        </div>
+        <div className="relative lg:order-2 lg:ml-auto lg:w-72">
+          <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Cari kode lead atau nama perusahaan..."
+            className="pl-8"
+          />
         </div>
       </div>
       {filtersOpen && (
         <FilterBar
-          q={q}
-          onQChange={setQ}
           draft={draft}
           onDraftChange={updateDraft}
           sources={sources}
