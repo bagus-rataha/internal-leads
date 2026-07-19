@@ -19,12 +19,12 @@ type LeadScope struct {
 }
 
 // ApplyLeadScope is the single function every lead-touching query goes
-// through - list, detail, and export. Uses a subquery rather than a JOIN so
-// it composes safely with the team_id query-param narrowing filter, which
-// also needs to restrict by team membership without colliding on a shared
-// "users" join alias. Exported so the export module (which has no
-// repository per ARCHITECTURE.md's explicit exception) can reuse it instead
-// of duplicating the scoping rule.
+// through - list, detail, dashboard, export. Uses a subquery rather than a
+// JOIN so it composes safely with the team_id query-param narrowing filter,
+// which also needs to restrict by team membership without colliding on a
+// shared "users" join alias. Exported so the dashboard and export modules
+// (which has no repository per ARCHITECTURE.md's explicit exception) can
+// reuse it instead of duplicating the scoping rule.
 func ApplyLeadScope(tx *gorm.DB, scope LeadScope) *gorm.DB {
 	if scope.OwnerID != nil {
 		return tx.Where("leads.owner_id = ?", *scope.OwnerID)

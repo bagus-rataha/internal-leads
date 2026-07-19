@@ -162,6 +162,196 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/dashboard/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard activity trend (lead baru vs follow-up per day) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["utils.Response"] & {
+                            data?: components["schemas"]["dto.DashboardActivityResponse"];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/dashboard/sales-activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard sales activity ("Keaktifan Sales") - LEADER/ADMIN_SALES/SU only */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["utils.Response"] & {
+                            data?: components["schemas"]["dto.DashboardSalesActivityResponse"];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/dashboard/segments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard segments (sumber, wilayah, kompetitor, bidang usaha) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["utils.Response"] & {
+                            data?: components["schemas"]["dto.DashboardSegmentsResponse"];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/dashboard/stale-leads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard stale (terlantar) leads */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["utils.Response"] & {
+                            data?: components["schemas"]["dto.DashboardStaleLeadsResponse"];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/dashboard/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard summary (metric cards + funnel) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["utils.Response"] & {
+                            data?: components["schemas"]["dto.DashboardSummaryResponse"];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/lead-sources": {
         parameters: {
             query?: never;
@@ -1319,9 +1509,20 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        "dto.ActivityBucket": {
+            /** @description YYYY-MM-DD */
+            date?: string;
+            follow_up?: number;
+            lead_baru?: number;
+        };
         "dto.CityResponse": {
             id?: number;
             name?: string;
+        };
+        "dto.CompetitorStats": {
+            avg_price_per_mbps?: number;
+            avg_price_per_mbps_broadband?: number;
+            avg_price_per_mbps_dedicated?: number;
         };
         "dto.CreateFollowUpInput": {
             note: string;
@@ -1368,6 +1569,30 @@ export interface components {
             role: "SALES" | "LEADER" | "ADMIN_SALES" | "SU";
             team_id?: string;
         };
+        "dto.DashboardActivityResponse": {
+            buckets?: components["schemas"]["dto.ActivityBucket"][];
+        };
+        "dto.DashboardSalesActivityResponse": {
+            items?: components["schemas"]["dto.SalesActivityRow"][];
+        };
+        "dto.DashboardSegmentsResponse": {
+            any_handoff?: boolean;
+            business_fields?: components["schemas"]["dto.SegmentRow"][];
+            competitor?: components["schemas"]["dto.CompetitorStats"];
+            isps?: components["schemas"]["dto.IspRow"][];
+            regions?: components["schemas"]["dto.RegionRow"][];
+            sources?: components["schemas"]["dto.SegmentRow"][];
+        };
+        "dto.DashboardStaleLeadsResponse": {
+            items?: components["schemas"]["dto.StaleLeadRow"][];
+        };
+        "dto.DashboardSummaryResponse": {
+            follow_up?: components["schemas"]["dto.MetricCard"];
+            funnel?: components["schemas"]["dto.FunnelResponse"];
+            handoff?: components["schemas"]["dto.MetricCard"];
+            lead_baru?: components["schemas"]["dto.MetricCard"];
+            terlantar?: components["schemas"]["dto.MetricCard"];
+        };
         "dto.DeactivateUserInput": {
             reassign_to_user_id?: string;
         };
@@ -1382,6 +1607,22 @@ export interface components {
             id?: string;
             lead_id?: string;
             note?: string;
+        };
+        "dto.FunnelResponse": {
+            baru_to_fu_pct?: number;
+            fu_to_handoff_pct?: number;
+            lost_count?: number;
+            lost_pct?: number;
+            stages?: components["schemas"]["dto.FunnelStage"][];
+        };
+        "dto.FunnelStage": {
+            count?: number;
+            name?: string;
+            pct?: number;
+        };
+        "dto.IspRow": {
+            count?: number;
+            name?: string;
         };
         "dto.LeadDetailResponse": {
             business_field?: string;
@@ -1478,6 +1719,10 @@ export interface components {
             email: string;
             password: string;
         };
+        "dto.MetricCard": {
+            change_pct?: number;
+            value?: number;
+        };
         "dto.PaginatedLeadResponse": {
             items?: components["schemas"]["dto.LeadResponse"][];
             limit?: number;
@@ -1492,8 +1737,35 @@ export interface components {
         "dto.RefreshTokenInput": {
             refresh_token?: string;
         };
+        "dto.RegionRow": {
+            handoff_count?: number;
+            lead_count?: number;
+            /** @description "province" | "city" */
+            level?: string;
+            name?: string;
+            parent?: string;
+        };
         "dto.ResetPasswordInput": {
             new_password: string;
+        };
+        "dto.SalesActivityRow": {
+            attention_tag?: string;
+            avg_fu_per_lead?: number;
+            conv_pct?: number;
+            follow_up?: number;
+            handoff?: number;
+            last_activity?: string;
+            lead_baru?: number;
+            name?: string;
+            team_name?: string;
+            terlantar?: number;
+            user_id?: string;
+        };
+        "dto.SegmentRow": {
+            conversion_pct?: number;
+            count?: number;
+            name?: string;
+            warn?: boolean;
         };
         "dto.ServiceTypeAdminResponse": {
             created_at?: string;
@@ -1504,6 +1776,12 @@ export interface components {
         "dto.ServiceTypeResponse": {
             id?: string;
             name?: string;
+        };
+        "dto.StaleLeadRow": {
+            code?: string;
+            company_name?: string;
+            days_since?: number;
+            owner_name?: string;
         };
         "dto.TeamResponse": {
             created_at?: string;

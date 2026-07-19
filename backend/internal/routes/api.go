@@ -27,6 +27,7 @@ func SetupAPIRoutes(app *fiber.App, cnt interface{}, cfg *config.Config) {
 	setupServiceTypeRoutes(api, c, cfg)
 	setupReferenceRoutes(api, c, cfg)
 	setupLeadRoutes(api, c, cfg)
+	setupDashboardRoutes(api, c, cfg)
 }
 
 // setupAuthRoutes configures authentication routes
@@ -129,4 +130,18 @@ func setupLeadRoutes(api fiber.Router, c *container.Container, cfg *config.Confi
 	leads.Patch("/:code/status", c.LeadHandler.UpdateLeadStatus)
 	leads.Post("/:code/followups", c.FollowUpHandler.CreateFollowUp)
 	leads.Get("/:code/followups", c.FollowUpHandler.ListFollowUps)
+}
+
+// setupDashboardRoutes configures dashboard routes. No blanket RequireRole -
+// every endpoint here is scope-based like /leads, except sales-activity,
+// which adds its own role gate below per ARCHITECTURE.md §9.
+func setupDashboardRoutes(api fiber.Router, c *container.Container, cfg *config.Config) {
+	dash := api.Group("/dashboard")
+	dash.Use(middleware.JWTProtected(cfg.JWTAccessSecret))
+
+	dash.Get("/summary", c.DashboardHandler.Summary)
+	dash.Get("/activity", c.DashboardHandler.Activity)
+	dash.Get("/stale-leads", c.DashboardHandler.StaleLeads)
+	dash.Get("/sales-activity", middleware.RequireRole("LEADER", "ADMIN_SALES", "SU"), c.DashboardHandler.SalesActivity)
+	dash.Get("/segments", c.DashboardHandler.Segments)
 }

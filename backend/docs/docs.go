@@ -129,6 +129,171 @@ const docTemplate = `{
                 }
             }
         },
+        "/dashboard/activity": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "dashboard"
+                ],
+                "summary": "Dashboard activity trend (lead baru vs follow-up per day)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/dto.DashboardActivityResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/dashboard/sales-activity": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "dashboard"
+                ],
+                "summary": "Dashboard sales activity (\"Keaktifan Sales\") - LEADER/ADMIN_SALES/SU only",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/dto.DashboardSalesActivityResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/dashboard/segments": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "dashboard"
+                ],
+                "summary": "Dashboard segments (sumber, wilayah, kompetitor, bidang usaha)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/dto.DashboardSegmentsResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/dashboard/stale-leads": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "dashboard"
+                ],
+                "summary": "Dashboard stale (terlantar) leads",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/dto.DashboardStaleLeadsResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/dashboard/summary": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "dashboard"
+                ],
+                "summary": "Dashboard summary (metric cards + funnel)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/dto.DashboardSummaryResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/lead-sources": {
             "get": {
                 "security": [
@@ -1490,6 +1655,21 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "dto.ActivityBucket": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "description": "YYYY-MM-DD",
+                    "type": "string"
+                },
+                "follow_up": {
+                    "type": "integer"
+                },
+                "lead_baru": {
+                    "type": "integer"
+                }
+            }
+        },
         "dto.CityResponse": {
             "type": "object",
             "properties": {
@@ -1498,6 +1678,20 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                }
+            }
+        },
+        "dto.CompetitorStats": {
+            "type": "object",
+            "properties": {
+                "avg_price_per_mbps": {
+                    "type": "number"
+                },
+                "avg_price_per_mbps_broadband": {
+                    "type": "number"
+                },
+                "avg_price_per_mbps_dedicated": {
+                    "type": "number"
                 }
             }
         },
@@ -1680,6 +1874,94 @@ const docTemplate = `{
                 }
             }
         },
+        "dto.DashboardActivityResponse": {
+            "type": "object",
+            "properties": {
+                "buckets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.ActivityBucket"
+                    }
+                }
+            }
+        },
+        "dto.DashboardSalesActivityResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.SalesActivityRow"
+                    }
+                }
+            }
+        },
+        "dto.DashboardSegmentsResponse": {
+            "type": "object",
+            "properties": {
+                "any_handoff": {
+                    "type": "boolean"
+                },
+                "business_fields": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.SegmentRow"
+                    }
+                },
+                "competitor": {
+                    "$ref": "#/definitions/dto.CompetitorStats"
+                },
+                "isps": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.IspRow"
+                    }
+                },
+                "regions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.RegionRow"
+                    }
+                },
+                "sources": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.SegmentRow"
+                    }
+                }
+            }
+        },
+        "dto.DashboardStaleLeadsResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.StaleLeadRow"
+                    }
+                }
+            }
+        },
+        "dto.DashboardSummaryResponse": {
+            "type": "object",
+            "properties": {
+                "follow_up": {
+                    "$ref": "#/definitions/dto.MetricCard"
+                },
+                "funnel": {
+                    "$ref": "#/definitions/dto.FunnelResponse"
+                },
+                "handoff": {
+                    "$ref": "#/definitions/dto.MetricCard"
+                },
+                "lead_baru": {
+                    "$ref": "#/definitions/dto.MetricCard"
+                },
+                "terlantar": {
+                    "$ref": "#/definitions/dto.MetricCard"
+                }
+            }
+        },
         "dto.DeactivateUserInput": {
             "type": "object",
             "properties": {
@@ -1718,6 +2000,54 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "note": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.FunnelResponse": {
+            "type": "object",
+            "properties": {
+                "baru_to_fu_pct": {
+                    "type": "integer"
+                },
+                "fu_to_handoff_pct": {
+                    "type": "integer"
+                },
+                "lost_count": {
+                    "type": "integer"
+                },
+                "lost_pct": {
+                    "type": "integer"
+                },
+                "stages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.FunnelStage"
+                    }
+                }
+            }
+        },
+        "dto.FunnelStage": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "pct": {
+                    "type": "integer"
+                }
+            }
+        },
+        "dto.IspRow": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "name": {
                     "type": "string"
                 }
             }
@@ -2006,6 +2336,17 @@ const docTemplate = `{
                 }
             }
         },
+        "dto.MetricCard": {
+            "type": "object",
+            "properties": {
+                "change_pct": {
+                    "type": "integer"
+                },
+                "value": {
+                    "type": "integer"
+                }
+            }
+        },
         "dto.PaginatedLeadResponse": {
             "type": "object",
             "properties": {
@@ -2048,6 +2389,27 @@ const docTemplate = `{
                 }
             }
         },
+        "dto.RegionRow": {
+            "type": "object",
+            "properties": {
+                "handoff_count": {
+                    "type": "integer"
+                },
+                "lead_count": {
+                    "type": "integer"
+                },
+                "level": {
+                    "description": "\"province\" | \"city\"",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "parent": {
+                    "type": "string"
+                }
+            }
+        },
         "dto.ResetPasswordInput": {
             "type": "object",
             "required": [
@@ -2058,6 +2420,61 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 100,
                     "minLength": 6
+                }
+            }
+        },
+        "dto.SalesActivityRow": {
+            "type": "object",
+            "properties": {
+                "attention_tag": {
+                    "type": "string"
+                },
+                "avg_fu_per_lead": {
+                    "type": "number"
+                },
+                "conv_pct": {
+                    "type": "integer"
+                },
+                "follow_up": {
+                    "type": "integer"
+                },
+                "handoff": {
+                    "type": "integer"
+                },
+                "last_activity": {
+                    "type": "string"
+                },
+                "lead_baru": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "team_name": {
+                    "type": "string"
+                },
+                "terlantar": {
+                    "type": "integer"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.SegmentRow": {
+            "type": "object",
+            "properties": {
+                "conversion_pct": {
+                    "type": "integer"
+                },
+                "count": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "warn": {
+                    "type": "boolean"
                 }
             }
         },
@@ -2085,6 +2502,23 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.StaleLeadRow": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "company_name": {
+                    "type": "string"
+                },
+                "days_since": {
+                    "type": "integer"
+                },
+                "owner_name": {
                     "type": "string"
                 }
             }
