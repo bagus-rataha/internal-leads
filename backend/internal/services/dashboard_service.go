@@ -5,6 +5,7 @@ import (
 	"fiber-api-boilerplate/internal/models"
 	"fiber-api-boilerplate/internal/repository"
 	"math"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -276,4 +277,185 @@ func (s *DashboardService) StaleLeads(callerID uuid.UUID, role string, q dto.Das
 	}
 
 	return &dto.DashboardStaleLeadsResponse{Items: items}, nil
+}
+
+// countByUUID runs one GROUP BY aggregate over `table`, keyed by `groupCol`,
+// narrowed to `ids` plus an optional extra WHERE clause - the shared helper
+// behind every per-user metric in SalesActivity, so adding a new metric
+// never means adding a query-per-user loop.
+func (s *DashboardService) countByUUID(table, groupCol string, ids []uuid.UUID, extraWhere string, args ...interface{}) (map[uuid.UUID]int64, error) {
+	type row struct {
+		ID    uuid.UUID
+		Count int64
+	}
+	q := s.db.Table(table).Select(groupCol+" AS id, COUNT(*) AS count").Where(groupCol+" IN ?", ids)
+	if extraWhere != "" {
+		q = q.Where(extraWhere, args...)
+	}
+	var rows []row
+	if err := q.Group(groupCol).Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	result := make(map[uuid.UUID]int64, len(rows))
+	for _, r := range rows {
+		result[r.ID] = r.Count
+	}
+	return result, nil
+}
+
+// SalesActivity answers GET /dashboard/sales-activity: the sales activity
+// roster table. Fixed small number of GROUP BY aggregate queries regardless
+// of roster size - never a query-per-sales-person loop (ARCHITECTURE.md §10).
+func (s *DashboardService) SalesActivity(callerID uuid.UUID, role string, q dto.DashboardQuery) (*dto.DashboardSalesActivityResponse, error) {
+	scope, err := buildLeadScope(s.userRepo, callerID, role)
+	if err != nil {
+		return nil, err
+	}
+
+	rosterQuery := s.db.Model(&models.User{}).Where("role = 'SALES' AND is_active = true")
+	if scope.TeamID != nil {
+		rosterQuery = rosterQuery.Where("team_id = ?", *scope.TeamID)
+	}
+	if q.TeamID != nil {
+		rosterQuery = rosterQuery.Where("team_id = ?", *q.TeamID)
+	}
+	if q.OwnerID != nil {
+		rosterQuery = rosterQuery.Where("id = ?", *q.OwnerID)
+	}
+	var roster []models.User
+	if err := rosterQuery.Preload("Team").Find(&roster).Error; err != nil {
+		return nil, err
+	}
+	if len(roster) == 0 {
+		return &dto.DashboardSalesActivityResponse{Items: []dto.SalesActivityRow{}}, nil
+	}
+	ids := make([]uuid.UUID, len(roster))
+	for i, u := range roster {
+		ids[i] = u.ID
+	}
+
+	leadBaruByOwner, err := s.countByUUID("leads", "owner_id", ids, "created_at >= ? AND created_at < ?", q.DateFrom, q.DateTo.AddDate(0, 0, 1))
+	if err != nil {
+		return nil, err
+	}
+	fuWrittenByAuthor, err := s.countByUUID("follow_ups", "created_by_id", ids, "created_at >= ? AND created_at < ?", q.DateFrom, q.DateTo.AddDate(0, 0, 1))
+	if err != nil {
+		return nil, err
+	}
+	terlantarByOwner, err := s.countByUUID("leads", "owner_id", ids, "status IN ('BARU','FOLLOW_UP') AND COALESCE(last_follow_up_at, created_at) < ?", time.Now().AddDate(0, 0, -repository.StaleLeadThresholdDays))
+	if err != nil {
+		return nil, err
+	}
+	handoffByOwner, err := s.countByUUID("leads", "owner_id", ids, "status = 'HANDOFF_ODOO'")
+	if err != nil {
+		return nil, err
+	}
+
+	type ownedAgg struct {
+		OwnerID uuid.UUID
+		Total   int64
+		AvgFu   float64
+	}
+	var ownedRows []ownedAgg
+	if err := s.db.Model(&models.Lead{}).
+		Select("owner_id, COUNT(*) AS total, AVG(follow_up_count) AS avg_fu").
+		Where("owner_id IN ?", ids).
+		Group("owner_id").
+		Scan(&ownedRows).Error; err != nil {
+		return nil, err
+	}
+	ownedByOwner := make(map[uuid.UUID]ownedAgg, len(ownedRows))
+	for _, r := range ownedRows {
+		ownedByOwner[r.OwnerID] = r
+	}
+
+	type lastActivityAgg struct {
+		CreatedByID uuid.UUID
+		Last        time.Time
+	}
+	var lastRows []lastActivityAgg
+	if err := s.db.Model(&models.FollowUp{}).
+		Select("created_by_id, MAX(created_at) AS last").
+		Where("created_by_id IN ?", ids).
+		Group("created_by_id").
+		Scan(&lastRows).Error; err != nil {
+		return nil, err
+	}
+	lastByAuthor := make(map[uuid.UUID]time.Time, len(lastRows))
+	for _, r := range lastRows {
+		lastByAuthor[r.CreatedByID] = r.Last
+	}
+
+	// sortableRow keeps each row's `inactive` flag traveling alongside the
+	// row itself through every swap. Sorting []dto.SalesActivityRow directly
+	// while indexing a separate inactiveFlags[] slice by comparator index
+	// breaks the moment the first swap happens: SliceStable's a/b are
+	// positions in the slice being reordered, not positions in the original
+	// roster, so a same-indexed side slice silently desyncs from the rows
+	// it was supposed to describe.
+	type sortableRow struct {
+		row      dto.SalesActivityRow
+		inactive bool
+	}
+
+	now := time.Now()
+	rows := make([]sortableRow, len(roster))
+	for i, u := range roster {
+		owned := ownedByOwner[u.ID]
+		terlantar := terlantarByOwner[u.ID]
+
+		var lastActivity *time.Time
+		inactive := true
+		if last, ok := lastByAuthor[u.ID]; ok {
+			l := last
+			lastActivity = &l
+			inactive = now.Sub(last).Hours()/24 > 7
+		}
+
+		var attentionTag *string
+		switch {
+		case inactive:
+			tag := "Tanpa aktivitas 7 hari"
+			attentionTag = &tag
+		case terlantar >= 3:
+			tag := "Banyak lead terlantar"
+			attentionTag = &tag
+		}
+
+		var teamName *string
+		if u.Team != nil {
+			teamName = &u.Team.Name
+		}
+
+		rows[i] = sortableRow{
+			row: dto.SalesActivityRow{
+				UserID:       u.ID,
+				Name:         u.Name,
+				TeamName:     teamName,
+				LeadBaru:     leadBaruByOwner[u.ID],
+				FollowUp:     fuWrittenByAuthor[u.ID],
+				AvgFuPerLead: owned.AvgFu,
+				Terlantar:    terlantar,
+				Handoff:      handoffByOwner[u.ID],
+				ConvPct:      percentOf(handoffByOwner[u.ID], owned.Total),
+				LastActivity: lastActivity,
+				AttentionTag: attentionTag,
+			},
+			inactive: inactive,
+		}
+	}
+
+	sort.SliceStable(rows, func(a, b int) bool {
+		if rows[a].inactive != rows[b].inactive {
+			return rows[a].inactive
+		}
+		return rows[a].row.Terlantar > rows[b].row.Terlantar
+	})
+
+	items := make([]dto.SalesActivityRow, len(rows))
+	for i, r := range rows {
+		items[i] = r.row
+	}
+
+	return &dto.DashboardSalesActivityResponse{Items: items}, nil
 }

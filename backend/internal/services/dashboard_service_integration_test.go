@@ -101,3 +101,50 @@ func TestDashboardStaleLeads_Top7MostOverdueFirst(t *testing.T) {
 	assert.Equal(t, "LD-2607-0005", result.Items[0].Code, "most-overdue (created 20d ago) sorts first")
 	assert.Equal(t, "LD-2607-0006", result.Items[1].Code)
 }
+
+func TestDashboardSalesActivity_InactiveRowsSortFirst(t *testing.T) {
+	db := setupServiceTestDB(t)
+	userRepo := repository.NewUserRepository(db)
+	svc := NewDashboardService(db, userRepo)
+
+	teamID := uuid.Must(uuid.NewV7())
+	require.NoError(t, db.Create(&models.SalesTeam{BaseModel: models.BaseModel{ID: teamID}, Name: "Team X", IsActive: true}).Error)
+
+	active := uuid.Must(uuid.NewV7())
+	inactive := uuid.Must(uuid.NewV7())
+	require.NoError(t, db.Create(&models.User{BaseModel: models.BaseModel{ID: active}, Email: "active@test.local", Password: "h", Name: "Active Sales", Role: "SALES", TeamID: &teamID, IsActive: true}).Error)
+	require.NoError(t, db.Create(&models.User{BaseModel: models.BaseModel{ID: inactive}, Email: "inactive@test.local", Password: "h", Name: "Inactive Sales", Role: "SALES", TeamID: &teamID, IsActive: true}).Error)
+
+	lead := &models.Lead{Code: "LD-2607-0008", OwnerID: active, CreatedByID: active, CompanyName: "Active's lead"}
+	require.NoError(t, db.Create(lead).Error)
+	require.NoError(t, db.Create(&models.FollowUp{LeadID: lead.ID, Note: "recent", CreatedByID: active}).Error)
+
+	q := dto.DashboardQuery{DateFrom: time.Now().AddDate(0, 0, -30), DateTo: time.Now()}
+	result, err := svc.SalesActivity(active, "SU", q)
+
+	require.NoError(t, err)
+	require.Len(t, result.Items, 2)
+	assert.Equal(t, "Inactive Sales", result.Items[0].Name, "no follow-up in 7 days sorts first (needs attention)")
+	if assert.NotNil(t, result.Items[0].AttentionTag) {
+		assert.Equal(t, "Tanpa aktivitas 7 hari", *result.Items[0].AttentionTag)
+	}
+	assert.Nil(t, result.Items[1].AttentionTag, "the active seller has a recent follow-up, no tag")
+}
+
+func TestDashboardSalesActivity_ZeroOwnedLeads_ConvPctNil(t *testing.T) {
+	db := setupServiceTestDB(t)
+	userRepo := repository.NewUserRepository(db)
+	svc := NewDashboardService(db, userRepo)
+
+	teamID := uuid.Must(uuid.NewV7())
+	require.NoError(t, db.Create(&models.SalesTeam{BaseModel: models.BaseModel{ID: teamID}, Name: "Team Y", IsActive: true}).Error)
+	salesID := uuid.Must(uuid.NewV7())
+	require.NoError(t, db.Create(&models.User{BaseModel: models.BaseModel{ID: salesID}, Email: "nolead@test.local", Password: "h", Name: "No Lead Sales", Role: "SALES", TeamID: &teamID, IsActive: true}).Error)
+
+	q := dto.DashboardQuery{DateFrom: time.Now().AddDate(0, 0, -30), DateTo: time.Now()}
+	result, err := svc.SalesActivity(salesID, "SU", q)
+
+	require.NoError(t, err)
+	require.Len(t, result.Items, 1)
+	assert.Nil(t, result.Items[0].ConvPct, "0 owned leads -> nil, not a divide-by-zero 0%")
+}
