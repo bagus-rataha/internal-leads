@@ -46,6 +46,27 @@ func TestUserRepository_FindByEmail_Found(t *testing.T) {
 	assert.Equal(t, "test@test.com", found.Email)
 }
 
+func TestUserRepository_FindByEmail_PreloadsTeam(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewUserRepository(db)
+	teamRepo := NewSalesTeamRepository(db)
+
+	team := &models.SalesTeam{Name: "Tim Utara"}
+	require.NoError(t, teamRepo.Create(team))
+
+	user := &models.User{
+		Name: "Test Sales", Email: "sales-team-preload-email@test.com", Password: "hashed",
+		Role: "SALES", TeamID: &team.ID, IsActive: true,
+	}
+	require.NoError(t, repo.Create(user))
+
+	found, err := repo.FindByEmail("sales-team-preload-email@test.com")
+	assert.NoError(t, err)
+	if assert.NotNil(t, found.Team) {
+		assert.Equal(t, "Tim Utara", found.Team.Name)
+	}
+}
+
 func TestUserRepository_FindByEmail_NotFound(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewUserRepository(db)
