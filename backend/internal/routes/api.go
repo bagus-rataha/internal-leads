@@ -138,4 +138,5 @@ func setupDashboardRoutes(api fiber.Router, c *container.Container, cfg *config.
 
 	dash.Get("/summary", c.DashboardHandler.Summary)
 	dash.Get("/activity", c.DashboardHandler.Activity)
+	dash.Get("/stale-leads", c.DashboardHandler.StaleLeads)
 }

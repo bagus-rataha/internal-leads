@@ -16,6 +16,7 @@ import (
 type dashboardService interface {
 	Summary(callerID uuid.UUID, role string, q dto.DashboardQuery) (*dto.DashboardSummaryResponse, error)
 	Activity(callerID uuid.UUID, role string, q dto.DashboardQuery) (*dto.DashboardActivityResponse, error)
+	StaleLeads(callerID uuid.UUID, role string, q dto.DashboardQuery) (*dto.DashboardStaleLeadsResponse, error)
 }
 
 type DashboardHandler struct {
@@ -122,4 +123,29 @@ func (h *DashboardHandler) Activity(c *fiber.Ctx) error {
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
 	}
 	return utils.SuccessResponse(c, fiber.StatusOK, "Dashboard activity retrieved successfully", result)
+}
+
+// StaleLeads godoc
+// @Summary Dashboard stale (terlantar) leads
+// @Tags dashboard
+// @Security BearerAuth
+// @Success 200 {object} utils.Response{data=dto.DashboardStaleLeadsResponse}
+// @Router /dashboard/stale-leads [get]
+func (h *DashboardHandler) StaleLeads(c *fiber.Ctx) error {
+	userID, ok := utils.GetUserID(c)
+	if !ok {
+		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Invalid session")
+	}
+	role, _ := c.Locals("role").(string)
+
+	q, err := parseDashboardQuery(c)
+	if err != nil {
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
+	}
+
+	result, err := h.dashboardService.StaleLeads(userID, role, q)
+	if err != nil {
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
+	}
+	return utils.SuccessResponse(c, fiber.StatusOK, "Stale leads retrieved successfully", result)
 }

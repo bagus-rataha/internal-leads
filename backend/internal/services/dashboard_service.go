@@ -232,3 +232,48 @@ func (s *DashboardService) Activity(callerID uuid.UUID, role string, q dto.Dashb
 
 	return &dto.DashboardActivityResponse{Buckets: buckets}, nil
 }
+
+// StaleLeads answers GET /dashboard/stale-leads: widget E's top-7
+// longest-overdue table. Snapshot (not date_from/date_to-bound, matching
+// the "terlantar" concept elsewhere in this app), team_id/owner_id still
+// narrow.
+func (s *DashboardService) StaleLeads(callerID uuid.UUID, role string, q dto.DashboardQuery) (*dto.DashboardStaleLeadsResponse, error) {
+	scope, err := buildLeadScope(s.userRepo, callerID, role)
+	if err != nil {
+		return nil, err
+	}
+
+	now := time.Now()
+	threshold := now.AddDate(0, 0, -repository.StaleLeadThresholdDays)
+
+	var leads []models.Lead
+	err = s.scopedLeads(scope, q.TeamID, q.OwnerID).
+		Preload("Owner").
+		Where("leads.status IN ('BARU','FOLLOW_UP') AND COALESCE(leads.last_follow_up_at, leads.created_at) < ?", threshold).
+		Order("COALESCE(leads.last_follow_up_at, leads.created_at) ASC").
+		Limit(7).
+		Find(&leads).Error
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]dto.StaleLeadRow, len(leads))
+	for i, lead := range leads {
+		lastActivity := lead.CreatedAt
+		if lead.LastFollowUpAt != nil {
+			lastActivity = *lead.LastFollowUpAt
+		}
+		ownerName := ""
+		if lead.Owner != nil {
+			ownerName = lead.Owner.Name
+		}
+		items[i] = dto.StaleLeadRow{
+			Code:        lead.Code,
+			CompanyName: lead.CompanyName,
+			OwnerName:   ownerName,
+			DaysSince:   int(now.Sub(lastActivity).Hours() / 24),
+		}
+	}
+
+	return &dto.DashboardStaleLeadsResponse{Items: items}, nil
+}
