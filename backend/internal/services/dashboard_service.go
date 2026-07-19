@@ -180,3 +180,55 @@ func (s *DashboardService) Summary(callerID uuid.UUID, role string, q dto.Dashbo
 		Funnel:    funnel,
 	}, nil
 }
+
+// Activity answers GET /dashboard/activity: widget C's daily lead-baru vs
+// follow-up counts. Two GROUP BY aggregate queries total, regardless of the
+// requested range length - never a query-per-day loop (ARCHITECTURE.md §10's
+// "dilarang N+1" applies to this per-day breakdown too, not just per-entity).
+func (s *DashboardService) Activity(callerID uuid.UUID, role string, q dto.DashboardQuery) (*dto.DashboardActivityResponse, error) {
+	scope, err := buildLeadScope(s.userRepo, callerID, role)
+	if err != nil {
+		return nil, err
+	}
+
+	type dayCount struct {
+		Day   time.Time
+		Count int64
+	}
+
+	var leadRows []dayCount
+	if err := s.scopedLeads(scope, q.TeamID, q.OwnerID).
+		Select("DATE(leads.created_at) AS day, COUNT(*) AS count").
+		Where("leads.created_at >= ? AND leads.created_at < ?", q.DateFrom, q.DateTo.AddDate(0, 0, 1)).
+		Group("DATE(leads.created_at)").
+		Scan(&leadRows).Error; err != nil {
+		return nil, err
+	}
+
+	var fuRows []dayCount
+	if err := s.followUpsInScope(scope, q.TeamID, q.OwnerID).
+		Select("DATE(follow_ups.created_at) AS day, COUNT(*) AS count").
+		Where("follow_ups.created_at >= ? AND follow_ups.created_at < ?", q.DateFrom, q.DateTo.AddDate(0, 0, 1)).
+		Group("DATE(follow_ups.created_at)").
+		Scan(&fuRows).Error; err != nil {
+		return nil, err
+	}
+
+	leadByDay := make(map[string]int64, len(leadRows))
+	for _, r := range leadRows {
+		leadByDay[r.Day.Format("2006-01-02")] = r.Count
+	}
+	fuByDay := make(map[string]int64, len(fuRows))
+	for _, r := range fuRows {
+		fuByDay[r.Day.Format("2006-01-02")] = r.Count
+	}
+
+	days := int(q.DateTo.Sub(q.DateFrom).Hours()/24) + 1
+	buckets := make([]dto.ActivityBucket, days)
+	for i := 0; i < days; i++ {
+		key := q.DateFrom.AddDate(0, 0, i).Format("2006-01-02")
+		buckets[i] = dto.ActivityBucket{Date: key, LeadBaru: leadByDay[key], FollowUp: fuByDay[key]}
+	}
+
+	return &dto.DashboardActivityResponse{Buckets: buckets}, nil
+}

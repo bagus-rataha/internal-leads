@@ -15,6 +15,7 @@ import (
 // mock. Grown one method per dashboard endpoint.
 type dashboardService interface {
 	Summary(callerID uuid.UUID, role string, q dto.DashboardQuery) (*dto.DashboardSummaryResponse, error)
+	Activity(callerID uuid.UUID, role string, q dto.DashboardQuery) (*dto.DashboardActivityResponse, error)
 }
 
 type DashboardHandler struct {
@@ -96,4 +97,29 @@ func (h *DashboardHandler) Summary(c *fiber.Ctx) error {
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
 	}
 	return utils.SuccessResponse(c, fiber.StatusOK, "Dashboard summary retrieved successfully", result)
+}
+
+// Activity godoc
+// @Summary Dashboard activity trend (lead baru vs follow-up per day)
+// @Tags dashboard
+// @Security BearerAuth
+// @Success 200 {object} utils.Response{data=dto.DashboardActivityResponse}
+// @Router /dashboard/activity [get]
+func (h *DashboardHandler) Activity(c *fiber.Ctx) error {
+	userID, ok := utils.GetUserID(c)
+	if !ok {
+		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Invalid session")
+	}
+	role, _ := c.Locals("role").(string)
+
+	q, err := parseDashboardQuery(c)
+	if err != nil {
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
+	}
+
+	result, err := h.dashboardService.Activity(userID, role, q)
+	if err != nil {
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
+	}
+	return utils.SuccessResponse(c, fiber.StatusOK, "Dashboard activity retrieved successfully", result)
 }

@@ -19,3 +19,11 @@ func (m *MockDashboardService) Summary(callerID uuid.UUID, role string, q dto.Da
 	}
 	return args.Get(0).(*dto.DashboardSummaryResponse), args.Error(1)
 }
+
+func (m *MockDashboardService) Activity(callerID uuid.UUID, role string, q dto.DashboardQuery) (*dto.DashboardActivityResponse, error) {
+	args := m.Called(callerID, role, q)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*dto.DashboardActivityResponse), args.Error(1)
+}

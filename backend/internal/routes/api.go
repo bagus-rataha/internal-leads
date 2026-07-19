@@ -137,4 +137,5 @@ func setupDashboardRoutes(api fiber.Router, c *container.Container, cfg *config.
 	dash.Use(middleware.JWTProtected(cfg.JWTAccessSecret))
 
 	dash.Get("/summary", c.DashboardHandler.Summary)
+	dash.Get("/activity", c.DashboardHandler.Activity)
 }

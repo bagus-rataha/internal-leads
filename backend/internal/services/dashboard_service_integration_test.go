@@ -55,3 +55,26 @@ func TestDashboardSummary_ZeroBaseline_ChangePctNilNotHundred(t *testing.T) {
 	assert.Equal(t, int64(1), result.LeadBaru.Value)
 	assert.Nil(t, result.LeadBaru.ChangePct, "comparison period has 0 leads -> nil, never a fake 100%")
 }
+
+func TestDashboardActivity_BucketsOneRowPerDay_ScopedCounts(t *testing.T) {
+	db := setupServiceTestDB(t)
+	userRepo := repository.NewUserRepository(db)
+	svc := NewDashboardService(db, userRepo)
+
+	adminID := uuid.Must(uuid.NewV7())
+	require.NoError(t, db.Create(&models.User{BaseModel: models.BaseModel{ID: adminID}, Email: "admin2@test.local", Password: "h", Name: "Admin", Role: "SU", IsActive: true}).Error)
+
+	today := time.Now().Truncate(24 * time.Hour)
+	lead := &models.Lead{Code: "LD-2607-0004", OwnerID: adminID, CreatedByID: adminID, CompanyName: "Today's lead"}
+	require.NoError(t, db.Create(lead).Error)
+
+	q := dto.DashboardQuery{DateFrom: today.AddDate(0, 0, -2), DateTo: today}
+	result, err := svc.Activity(adminID, "SU", q)
+
+	require.NoError(t, err)
+	assert.Len(t, result.Buckets, 3, "3-day range -> 3 daily buckets")
+	last := result.Buckets[len(result.Buckets)-1]
+	assert.Equal(t, today.Format("2006-01-02"), last.Date)
+	assert.Equal(t, int64(1), last.LeadBaru, "the lead created today lands in today's bucket")
+	assert.Equal(t, int64(0), result.Buckets[0].LeadBaru, "a day with no leads is a real zero, not an omitted bucket")
+}
