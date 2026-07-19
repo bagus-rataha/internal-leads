@@ -27,7 +27,7 @@ var ErrOwnerNotTeamMember = errors.New("owner is not a member of your team")
 // this to 422.
 var ErrInvalidStatusTransition = errors.New("invalid status transition")
 
-// isLeadStale mirrors the SQL stale predicate in repository.applyLeadFilter
+// isLeadStale mirrors the SQL stale predicate in repository.ApplyLeadFilter
 // exactly, so the query-param filter and this per-row flag can never
 // disagree: status still active (BARU/FOLLOW_UP) and the last activity
 // (last_follow_up_at, falling back to created_at) is older than
@@ -97,7 +97,7 @@ func buildLeadScope(userRepo userRepositoryForLead, callerID uuid.UUID, role str
 		if caller.TeamID == nil {
 			// Fail closed: a nil team_id must never produce an unrestricted
 			// scope (both OwnerID and TeamID nil reads as ADMIN_SALES/SU to
-			// applyLeadScope). A DB CHECK constraint keeps this unreachable
+			// ApplyLeadScope). A DB CHECK constraint keeps this unreachable
 			// today, but the scope-building logic shouldn't rely on that.
 			return repository.LeadScope{}, errors.New("leader has no team")
 		}

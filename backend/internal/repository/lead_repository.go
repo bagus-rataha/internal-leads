@@ -18,12 +18,14 @@ type LeadScope struct {
 	// both nil -> ADMIN_SALES/SU: unrestricted
 }
 
-// applyLeadScope is the single function every lead-touching query goes
-// through - list, detail, and later count (dashboard). Uses a subquery
-// rather than a JOIN so it composes safely with the team_id query-param
-// narrowing filter, which also needs to restrict by team membership without
-// colliding on a shared "users" join alias.
-func applyLeadScope(tx *gorm.DB, scope LeadScope) *gorm.DB {
+// ApplyLeadScope is the single function every lead-touching query goes
+// through - list, detail, and export. Uses a subquery rather than a JOIN so
+// it composes safely with the team_id query-param narrowing filter, which
+// also needs to restrict by team membership without colliding on a shared
+// "users" join alias. Exported so the export module (which has no
+// repository per ARCHITECTURE.md's explicit exception) can reuse it instead
+// of duplicating the scoping rule.
+func ApplyLeadScope(tx *gorm.DB, scope LeadScope) *gorm.DB {
 	if scope.OwnerID != nil {
 		return tx.Where("leads.owner_id = ?", *scope.OwnerID)
 	}
@@ -91,7 +93,7 @@ func (r *LeadRepository) Create(lead *models.Lead) error {
 // existence never leaks to a caller who can't see it.
 func (r *LeadRepository) FindByCode(scope LeadScope, code string) (*models.Lead, error) {
 	var lead models.Lead
-	err := applyLeadScope(r.db.Model(&models.Lead{}), scope).
+	err := ApplyLeadScope(r.db.Model(&models.Lead{}), scope).
 		Preload("Owner.Team").
 		Preload("City").
 		Where("leads.code = ?", code).First(&lead).Error
@@ -107,7 +109,7 @@ func (r *LeadRepository) FindByCode(scope LeadScope, code string) (*models.Lead,
 // paths' Preload chains stay exactly as lean as they were.
 func (r *LeadRepository) FindDetailByCode(scope LeadScope, code string) (*models.Lead, error) {
 	var lead models.Lead
-	err := applyLeadScope(r.db.Model(&models.Lead{}), scope).
+	err := ApplyLeadScope(r.db.Model(&models.Lead{}), scope).
 		Preload("Owner.Team").
 		Preload("City").
 		Preload("Province").
@@ -132,8 +134,8 @@ func (r *LeadRepository) Update(lead *models.Lead) error {
 // List returns leads matching scope and filter, plus the total count before
 // pagination, for GET /leads.
 func (r *LeadRepository) List(scope LeadScope, filter LeadFilter) ([]models.Lead, int64, error) {
-	tx := applyLeadScope(r.db.Model(&models.Lead{}), scope)
-	tx = applyLeadFilter(tx, filter)
+	tx := ApplyLeadScope(r.db.Model(&models.Lead{}), scope)
+	tx = ApplyLeadFilter(tx, filter)
 
 	var total int64
 	if err := tx.Count(&total).Error; err != nil {
@@ -146,8 +148,8 @@ func (r *LeadRepository) List(scope LeadScope, filter LeadFilter) ([]models.Lead
 	return leads, total, err
 }
 
-// applyLeadFilter narrows a scoped query by every GET /leads filter param.
-func applyLeadFilter(tx *gorm.DB, filter LeadFilter) *gorm.DB {
+// ApplyLeadFilter narrows a scoped query by every GET /leads filter param.
+func ApplyLeadFilter(tx *gorm.DB, filter LeadFilter) *gorm.DB {
 	if filter.Q != "" {
 		like := "%" + filter.Q + "%"
 		tx = tx.Where("leads.code ILIKE ? OR leads.company_name ILIKE ? OR leads.pic_name ILIKE ?", like, like, like)
