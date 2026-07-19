@@ -80,21 +80,21 @@ func (m *MockUserService) GetUser(userID uuid.UUID) (*dto.UserResponse, error) {
 	return args.Get(0).(*dto.UserResponse), args.Error(1)
 }
 
-func (m *MockUserService) UpdateUser(userID uuid.UUID, input dto.UpdateUserInput) (*dto.UserResponse, error) {
-	args := m.Called(userID, input)
+func (m *MockUserService) UpdateUser(callerRole string, userID uuid.UUID, input dto.UpdateUserInput) (*dto.UserResponse, error) {
+	args := m.Called(callerRole, userID, input)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*dto.UserResponse), args.Error(1)
 }
 
-func (m *MockUserService) ResetPassword(userID uuid.UUID, input dto.ResetPasswordInput) error {
-	args := m.Called(userID, input)
+func (m *MockUserService) ResetPassword(callerRole string, userID uuid.UUID, input dto.ResetPasswordInput) error {
+	args := m.Called(callerRole, userID, input)
 	return args.Error(0)
 }
 
-func (m *MockUserService) DeactivateUser(callerID, userID uuid.UUID, input dto.DeactivateUserInput) (int64, error) {
-	args := m.Called(callerID, userID, input)
+func (m *MockUserService) DeactivateUser(callerID uuid.UUID, callerRole string, userID uuid.UUID, input dto.DeactivateUserInput) (int64, error) {
+	args := m.Called(callerID, callerRole, userID, input)
 	return args.Get(0).(int64), args.Error(1)
 }
 

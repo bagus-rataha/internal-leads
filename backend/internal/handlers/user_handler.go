@@ -18,9 +18,9 @@ type userService interface {
 	ListUsers(callerID uuid.UUID, callerRole, role, teamID string) ([]dto.UserResponse, error)
 	CreateUser(input dto.CreateUserInput) (*dto.UserResponse, error)
 	GetUser(userID uuid.UUID) (*dto.UserResponse, error)
-	UpdateUser(userID uuid.UUID, input dto.UpdateUserInput) (*dto.UserResponse, error)
-	ResetPassword(userID uuid.UUID, input dto.ResetPasswordInput) error
-	DeactivateUser(callerID, userID uuid.UUID, input dto.DeactivateUserInput) (int64, error)
+	UpdateUser(callerRole string, userID uuid.UUID, input dto.UpdateUserInput) (*dto.UserResponse, error)
+	ResetPassword(callerRole string, userID uuid.UUID, input dto.ResetPasswordInput) error
+	DeactivateUser(callerID uuid.UUID, callerRole string, userID uuid.UUID, input dto.DeactivateUserInput) (int64, error)
 }
 
 type UserHandler struct {
@@ -118,6 +118,14 @@ func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
 
 	user, err := h.userService.CreateUser(input)
 	if err != nil {
+		var emailErr *services.EmailTakenError
+		if errors.As(err, &emailErr) {
+			return utils.ErrorResponseWithData(c, fiber.StatusConflict, "Email already registered", fiber.Map{
+				"existing_user_id":     emailErr.ExistingUserID,
+				"existing_user_name":   emailErr.ExistingName,
+				"existing_user_active": emailErr.ExistingActive,
+			})
+		}
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
 	}
 
@@ -158,14 +166,18 @@ func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 	if err != nil {
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid user id")
 	}
+	callerRole, _ := c.Locals("role").(string)
 
 	var input dto.UpdateUserInput
 	if err := utils.ParseAndValidate(c, &input); err != nil {
 		return err
 	}
 
-	user, err := h.userService.UpdateUser(id, input)
+	user, err := h.userService.UpdateUser(callerRole, id, input)
 	if err != nil {
+		if errors.Is(err, services.ErrForbiddenTarget) {
+			return utils.ErrorResponse(c, fiber.StatusForbidden, err.Error())
+		}
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
 	}
 
@@ -185,13 +197,17 @@ func (h *UserHandler) ResetPassword(c *fiber.Ctx) error {
 	if err != nil {
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid user id")
 	}
+	callerRole, _ := c.Locals("role").(string)
 
 	var input dto.ResetPasswordInput
 	if err := utils.ParseAndValidate(c, &input); err != nil {
 		return err
 	}
 
-	if err := h.userService.ResetPassword(id, input); err != nil {
+	if err := h.userService.ResetPassword(callerRole, id, input); err != nil {
+		if errors.Is(err, services.ErrForbiddenTarget) {
+			return utils.ErrorResponse(c, fiber.StatusForbidden, err.Error())
+		}
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
 	}
 
@@ -212,6 +228,7 @@ func (h *UserHandler) DeactivateUser(c *fiber.Ctx) error {
 	if !ok {
 		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Invalid session")
 	}
+	callerRole, _ := c.Locals("role").(string)
 
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
@@ -223,11 +240,14 @@ func (h *UserHandler) DeactivateUser(c *fiber.Ctx) error {
 		return err
 	}
 
-	activeCount, err := h.userService.DeactivateUser(callerID, id, input)
+	activeCount, err := h.userService.DeactivateUser(callerID, callerRole, id, input)
 	if err != nil {
 		if errors.Is(err, services.ErrActiveLeadsExist) {
 			return utils.ErrorResponseWithData(c, fiber.StatusUnprocessableEntity, err.Error(),
 				fiber.Map{"active_lead_count": activeCount})
+		}
+		if errors.Is(err, services.ErrForbiddenTarget) {
+			return utils.ErrorResponse(c, fiber.StatusForbidden, err.Error())
 		}
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
 	}

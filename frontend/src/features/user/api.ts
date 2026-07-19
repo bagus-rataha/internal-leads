@@ -38,12 +38,45 @@ export async function fetchUsers(role?: string): Promise<UserResponse[]> {
   return body?.data ?? []
 }
 
+// A 409 means the submitted email already belongs to another account.
+// existingUserActive tells the caller whether that account could be
+// reactivated instead of creating a duplicate.
+export class EmailTakenError extends Error {
+  existingUserId: string
+  existingUserName: string
+  existingUserActive: boolean
+  constructor(existingUserId: string, existingUserName: string, existingUserActive: boolean) {
+    super('Email already registered')
+    this.existingUserId = existingUserId
+    this.existingUserName = existingUserName
+    this.existingUserActive = existingUserActive
+  }
+}
+
 export async function createUser(input: CreateUserInput): Promise<UserResponse> {
   const res = await apiFetch('/api/v1/users', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   })
+  if (res.status === 409) {
+    let data: {
+      existing_user_id?: string
+      existing_user_name?: string
+      existing_user_active?: boolean
+    } = {}
+    try {
+      const body = await res.json()
+      data = body?.data ?? {}
+    } catch {
+      // fall through with empty data
+    }
+    throw new EmailTakenError(
+      data.existing_user_id ?? '',
+      data.existing_user_name ?? '',
+      data.existing_user_active ?? false
+    )
+  }
   if (!res.ok) {
     let message = 'Failed to save user'
     try {

@@ -235,7 +235,7 @@ func TestUserHandler_UpdateUser_Success(t *testing.T) {
 	input := dto.UpdateUserInput{Name: &newName}
 	userResponse := &dto.UserResponse{ID: userID, Name: "Renamed"}
 
-	mockSvc.On("UpdateUser", userID, input).Return(userResponse, nil)
+	mockSvc.On("UpdateUser", "SU", userID, input).Return(userResponse, nil)
 
 	body := `{"name":"Renamed"}`
 	req := httptest.NewRequest("PATCH", "/users/"+userID.String(), strings.NewReader(body))
@@ -253,7 +253,7 @@ func TestUserHandler_ResetPassword_Success(t *testing.T) {
 
 	userID := uuid.Must(uuid.NewV7())
 	input := dto.ResetPasswordInput{NewPassword: "newpass1"}
-	mockSvc.On("ResetPassword", userID, input).Return(nil)
+	mockSvc.On("ResetPassword", "SU", userID, input).Return(nil)
 
 	body := `{"new_password":"newpass1"}`
 	req := httptest.NewRequest("POST", "/users/"+userID.String()+"/reset-password", strings.NewReader(body))
@@ -270,7 +270,7 @@ func TestUserHandler_DeactivateUser_Success(t *testing.T) {
 	app := newTestUserAdminApp(handler, "SU")
 
 	userID := uuid.Must(uuid.NewV7())
-	mockSvc.On("DeactivateUser", testAdminCaller, userID, dto.DeactivateUserInput{}).Return(int64(0), nil)
+	mockSvc.On("DeactivateUser", testAdminCaller, "SU", userID, dto.DeactivateUserInput{}).Return(int64(0), nil)
 
 	req := httptest.NewRequest("POST", "/users/"+userID.String()+"/deactivate", strings.NewReader(`{}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -286,7 +286,7 @@ func TestUserHandler_DeactivateUser_ActiveLeadsNoReassign_422(t *testing.T) {
 	app := newTestUserAdminApp(handler, "SU")
 
 	userID := uuid.Must(uuid.NewV7())
-	mockSvc.On("DeactivateUser", testAdminCaller, userID, dto.DeactivateUserInput{}).Return(int64(5), services.ErrActiveLeadsExist)
+	mockSvc.On("DeactivateUser", testAdminCaller, "SU", userID, dto.DeactivateUserInput{}).Return(int64(5), services.ErrActiveLeadsExist)
 
 	req := httptest.NewRequest("POST", "/users/"+userID.String()+"/deactivate", strings.NewReader(`{}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -315,4 +315,90 @@ func TestUserHandler_DeactivateUser_WrongRole_403(t *testing.T) {
 	resp, _ := app.Test(req)
 
 	assert.Equal(t, fiber.StatusForbidden, resp.StatusCode)
+}
+
+// --- ADMIN_SALES cannot mutate an SU-role target ---
+
+func TestUserHandler_UpdateUser_AdminSalesTargetsSU_403(t *testing.T) {
+	mockSvc := new(MockUserService)
+	handler := NewUserHandler(mockSvc)
+	app := newTestUserAdminApp(handler, "ADMIN_SALES")
+
+	userID := uuid.Must(uuid.NewV7())
+	newName := "Renamed"
+	input := dto.UpdateUserInput{Name: &newName}
+	mockSvc.On("UpdateUser", "ADMIN_SALES", userID, input).Return(nil, services.ErrForbiddenTarget)
+
+	body := `{"name":"Renamed"}`
+	req := httptest.NewRequest("PATCH", "/users/"+userID.String(), strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, _ := app.Test(req)
+
+	assert.Equal(t, fiber.StatusForbidden, resp.StatusCode)
+}
+
+func TestUserHandler_ResetPassword_AdminSalesTargetsSU_403(t *testing.T) {
+	mockSvc := new(MockUserService)
+	handler := NewUserHandler(mockSvc)
+	app := newTestUserAdminApp(handler, "ADMIN_SALES")
+
+	userID := uuid.Must(uuid.NewV7())
+	input := dto.ResetPasswordInput{NewPassword: "newpass1"}
+	mockSvc.On("ResetPassword", "ADMIN_SALES", userID, input).Return(services.ErrForbiddenTarget)
+
+	body := `{"new_password":"newpass1"}`
+	req := httptest.NewRequest("POST", "/users/"+userID.String()+"/reset-password", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, _ := app.Test(req)
+
+	assert.Equal(t, fiber.StatusForbidden, resp.StatusCode)
+}
+
+func TestUserHandler_DeactivateUser_AdminSalesTargetsSU_403(t *testing.T) {
+	mockSvc := new(MockUserService)
+	handler := NewUserHandler(mockSvc)
+	app := newTestUserAdminApp(handler, "ADMIN_SALES")
+
+	userID := uuid.Must(uuid.NewV7())
+	mockSvc.On("DeactivateUser", testAdminCaller, "ADMIN_SALES", userID, dto.DeactivateUserInput{}).Return(int64(0), services.ErrForbiddenTarget)
+
+	req := httptest.NewRequest("POST", "/users/"+userID.String()+"/deactivate", strings.NewReader(`{}`))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, _ := app.Test(req)
+
+	assert.Equal(t, fiber.StatusForbidden, resp.StatusCode)
+}
+
+// --- CreateUser duplicate email ---
+
+func TestUserHandler_CreateUser_DuplicateEmail_409(t *testing.T) {
+	mockSvc := new(MockUserService)
+	handler := NewUserHandler(mockSvc)
+	app := newTestUserAdminApp(handler, "ADMIN_SALES")
+
+	existingID := uuid.Must(uuid.NewV7())
+	input := dto.CreateUserInput{Name: "New Sales", Email: "taken@test.com", Password: "secret1", Role: "SALES"}
+	mockSvc.On("CreateUser", input).Return(nil, &services.EmailTakenError{
+		ExistingUserID: existingID, ExistingName: "Old User", ExistingActive: false,
+	})
+
+	body := `{"name":"New Sales","email":"taken@test.com","password":"secret1","role":"SALES"}`
+	req := httptest.NewRequest("POST", "/users", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, _ := app.Test(req)
+
+	assert.Equal(t, fiber.StatusConflict, resp.StatusCode)
+
+	var result utils.Response
+	json.NewDecoder(resp.Body).Decode(&result)
+	assert.False(t, result.Success)
+	data, ok := result.Data.(map[string]interface{})
+	assert.True(t, ok)
+	assert.Equal(t, existingID.String(), data["existing_user_id"])
+	assert.Equal(t, "Old User", data["existing_user_name"])
+	assert.Equal(t, false, data["existing_user_active"])
 }

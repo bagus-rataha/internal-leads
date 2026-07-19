@@ -1,13 +1,17 @@
 import { useState } from 'react'
+import { MoreHorizontal } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Modal } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { showToast } from '@/hooks/useToast'
+import { useAuth } from '@/auth/AuthContext'
 import { useTeams } from '@/features/team/queries'
+import type { TeamResponse } from '@/features/team/api'
 import { useUsers, useCreateUser, useUpdateUser, useResetPassword, useDeactivateUser } from './queries'
-import { ActiveLeadsError, type UserResponse } from './api'
+import { ActiveLeadsError, EmailTakenError, type UserResponse } from './api'
 
 const ROLES = ['SALES', 'LEADER', 'ADMIN_SALES', 'SU'] as const
 type Role = (typeof ROLES)[number]
@@ -16,7 +20,132 @@ function needsTeam(role: string) {
   return role === 'SALES' || role === 'LEADER'
 }
 
+function UserActionsMenu({
+  user,
+  onEdit,
+  onResetPassword,
+  onDeactivate,
+  onReactivate,
+  reactivatePending,
+}: {
+  user: UserResponse
+  onEdit: () => void
+  onResetPassword: () => void
+  onDeactivate: () => void
+  onReactivate: () => void
+  reactivatePending: boolean
+}) {
+  return (
+    <Popover>
+      <PopoverTrigger
+        aria-label={`Aksi untuk ${user.name}`}
+        className="flex size-7 items-center justify-center rounded-lg border border-input bg-background hover:bg-muted"
+      >
+        <MoreHorizontal className="size-4" />
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-44 gap-0.5 p-1">
+        <PopoverClose
+          className="w-full rounded-md px-2.5 py-1.5 text-left text-sm hover:bg-muted"
+          onClick={onEdit}
+        >
+          Edit
+        </PopoverClose>
+        <PopoverClose
+          className="w-full rounded-md px-2.5 py-1.5 text-left text-sm hover:bg-muted"
+          onClick={onResetPassword}
+        >
+          Reset Password
+        </PopoverClose>
+        {user.is_active ? (
+          <PopoverClose
+            className="w-full rounded-md px-2.5 py-1.5 text-left text-sm text-destructive hover:bg-destructive/10"
+            onClick={onDeactivate}
+          >
+            Nonaktifkan
+          </PopoverClose>
+        ) : (
+          <PopoverClose
+            className="w-full rounded-md px-2.5 py-1.5 text-left text-sm hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
+            disabled={reactivatePending}
+            onClick={onReactivate}
+          >
+            Aktifkan
+          </PopoverClose>
+        )}
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+function UserCards({
+  users,
+  teams,
+  currentUser,
+  onEdit,
+  onResetPassword,
+  onDeactivate,
+  onReactivate,
+  reactivatePending,
+}: {
+  users: UserResponse[]
+  teams?: TeamResponse[]
+  currentUser: UserResponse | null
+  onEdit: (u: UserResponse) => void
+  onResetPassword: (u: UserResponse) => void
+  onDeactivate: (u: UserResponse) => void
+  onReactivate: (id: string, name?: string) => void
+  reactivatePending: boolean
+}) {
+  return (
+    <div className="flex flex-col divide-y divide-[#F1F5F9] rounded-[14px] border border-[#E7EDF3] bg-white lg:hidden">
+      {users.map((u) => {
+        // Backend rejects Edit/Reset Password/Deactivate for ADMIN_SALES acting on an SU
+        // target - hiding here is convenience only, the real boundary is server-side.
+        const isForbiddenTarget = currentUser?.role === 'ADMIN_SALES' && u.role === 'SU'
+        const teamName = teams?.find((t) => t.id === u.team_id)?.name
+        return (
+          <div key={u.id} className="flex flex-col gap-1 px-4 py-3">
+            <div className="flex items-start justify-between gap-2">
+              <p className="min-w-0 truncate font-semibold">{u.name}</p>
+              <div className="flex shrink-0 items-center gap-2">
+                <span
+                  className={
+                    u.is_active
+                      ? 'rounded-full bg-[#DCFCE7] px-2 py-0.5 text-xs font-medium text-[#166534]'
+                      : 'rounded-full bg-[#F1F5F9] px-2 py-0.5 text-xs font-medium text-[#64748B]'
+                  }
+                >
+                  {u.is_active ? 'Aktif' : 'Nonaktif'}
+                </span>
+                {!isForbiddenTarget && (
+                  <UserActionsMenu
+                    user={u}
+                    onEdit={() => onEdit(u)}
+                    onResetPassword={() => onResetPassword(u)}
+                    onDeactivate={() => onDeactivate(u)}
+                    onReactivate={() => onReactivate(u.id ?? '', u.name)}
+                    reactivatePending={reactivatePending}
+                  />
+                )}
+              </div>
+            </div>
+            <p className="truncate text-sm text-muted-foreground">{u.email}</p>
+            <p className="text-xs text-muted-foreground">
+              {u.role}
+              {teamName ? ` · ${teamName}` : ''}
+            </p>
+            {isForbiddenTarget && (
+              <p className="text-xs text-muted-foreground">Tidak dapat dikelola</p>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export default function UserPage() {
+  const { user: currentUser } = useAuth()
   const [roleFilter, setRoleFilter] = useState('')
   const { data: users, isLoading } = useUsers(roleFilter || undefined)
   // Unfiltered, independent of roleFilter - the reassign dropdown must offer
@@ -31,6 +160,8 @@ export default function UserPage() {
 
   const [modal, setModal] = useState<{ mode: 'create' } | { mode: 'edit'; user: UserResponse } | null>(null)
   const [resetTarget, setResetTarget] = useState<UserResponse | null>(null)
+  const [confirmDeactivateTarget, setConfirmDeactivateTarget] = useState<UserResponse | null>(null)
+  const [emailTakenError, setEmailTakenError] = useState<EmailTakenError | null>(null)
   const [deactivateTarget, setDeactivateTarget] = useState<UserResponse | null>(null)
   const [reassignCount, setReassignCount] = useState<number | null>(null)
   const [reassignToId, setReassignToId] = useState('')
@@ -95,7 +226,17 @@ export default function UserPage() {
       }
       setModal(null)
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Gagal menyimpan user. Coba lagi.')
+      if (err instanceof EmailTakenError) {
+        if (err.existingUserId && !err.existingUserActive) {
+          setEmailTakenError(err)
+        } else if (err.existingUserActive) {
+          showToast(`Email sudah terdaftar atas nama ${err.existingUserName}`)
+        } else {
+          showToast('Email sudah terdaftar')
+        }
+      } else {
+        showToast(err instanceof Error ? err.message : 'Gagal menyimpan user. Coba lagi.')
+      }
     }
   }
 
@@ -130,6 +271,15 @@ export default function UserPage() {
       } else {
         showToast('Gagal menonaktifkan user. Coba lagi.')
       }
+    }
+  }
+
+  async function handleReactivate(id: string, name?: string) {
+    try {
+      await updateUser.mutateAsync({ id, input: { is_active: true } })
+      showToast(name ? `${name} diaktifkan kembali` : 'User diaktifkan kembali')
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Gagal mengaktifkan user. Coba lagi.')
     }
   }
 
@@ -172,64 +322,86 @@ export default function UserPage() {
         </div>
       </div>
 
-      <Card className="overflow-hidden">
-        {isLoading ? (
+      {isLoading ? (
+        <Card className="overflow-hidden">
           <p className="p-4 text-sm text-muted-foreground">Memuat...</p>
-        ) : !users?.length ? (
+        </Card>
+      ) : !users?.length ? (
+        <Card className="overflow-hidden">
           <p className="p-4 text-sm text-muted-foreground">Belum ada data.</p>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-[#F7F9FC] text-left text-[10.5px] font-bold uppercase text-[#94A3B8]">
-              <tr>
-                <th className="px-4 py-2.5">Nama</th>
-                <th className="px-4 py-2.5">Email</th>
-                <th className="px-4 py-2.5">Role</th>
-                <th className="px-4 py-2.5">Tim</th>
-                <th className="px-4 py-2.5">Status</th>
-                <th className="px-4 py-2.5" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#F1F5F9]">
-              {users.map((u) => (
-                <tr key={u.id}>
-                  <td className="px-4 py-2.5">{u.name}</td>
-                  <td className="px-4 py-2.5">{u.email}</td>
-                  <td className="px-4 py-2.5">{u.role}</td>
-                  <td className="px-4 py-2.5">
-                    {teams?.find((t) => t.id === u.team_id)?.name ?? '—'}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <span
-                      className={
-                        u.is_active
-                          ? 'rounded-full bg-[#DCFCE7] px-2 py-0.5 text-xs font-medium text-[#166534]'
-                          : 'rounded-full bg-[#F1F5F9] px-2 py-0.5 text-xs font-medium text-[#64748B]'
-                      }
-                    >
-                      {u.is_active ? 'Aktif' : 'Nonaktif'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2.5 text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button variant="outline" size="sm" onClick={() => openEdit(u)}>
-                        Edit
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => setResetTarget(u)}>
-                        Reset Password
-                      </Button>
-                      {u.is_active && (
-                        <Button variant="destructive" size="sm" onClick={() => handleDeactivate(u)}>
-                          Nonaktifkan
-                        </Button>
-                      )}
-                    </div>
-                  </td>
+        </Card>
+      ) : (
+        <>
+          <Card className="hidden overflow-hidden lg:block">
+            <table className="w-full text-sm">
+              <thead className="bg-[#F7F9FC] text-left text-[10.5px] font-bold uppercase text-[#94A3B8]">
+                <tr>
+                  <th className="px-4 py-2.5">Nama</th>
+                  <th className="px-4 py-2.5">Email</th>
+                  <th className="px-4 py-2.5">Role</th>
+                  <th className="px-4 py-2.5">Tim</th>
+                  <th className="px-4 py-2.5">Status</th>
+                  <th className="px-4 py-2.5" />
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </Card>
+              </thead>
+              <tbody className="divide-y divide-[#F1F5F9]">
+                {users.map((u) => {
+                  // Backend rejects Edit/Reset Password/Deactivate for ADMIN_SALES acting on an SU
+                  // target - hiding here is convenience only, the real boundary is server-side.
+                  const isForbiddenTarget = currentUser?.role === 'ADMIN_SALES' && u.role === 'SU'
+                  return (
+                  <tr key={u.id}>
+                    <td className="px-4 py-2.5">{u.name}</td>
+                    <td className="px-4 py-2.5">{u.email}</td>
+                    <td className="px-4 py-2.5">{u.role}</td>
+                    <td className="px-4 py-2.5">
+                      {teams?.find((t) => t.id === u.team_id)?.name ?? '—'}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <span
+                        className={
+                          u.is_active
+                            ? 'rounded-full bg-[#DCFCE7] px-2 py-0.5 text-xs font-medium text-[#166534]'
+                            : 'rounded-full bg-[#F1F5F9] px-2 py-0.5 text-xs font-medium text-[#64748B]'
+                        }
+                      >
+                        {u.is_active ? 'Aktif' : 'Nonaktif'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5 text-right">
+                      <div className="flex justify-end gap-2">
+                        {isForbiddenTarget ? (
+                          <span className="text-xs text-muted-foreground">Tidak dapat dikelola</span>
+                        ) : (
+                          <UserActionsMenu
+                            user={u}
+                            onEdit={() => openEdit(u)}
+                            onResetPassword={() => setResetTarget(u)}
+                            onDeactivate={() => setConfirmDeactivateTarget(u)}
+                            onReactivate={() => handleReactivate(u.id ?? '', u.name)}
+                            reactivatePending={updateUser.isPending}
+                          />
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </Card>
+          <UserCards
+            users={users}
+            teams={teams}
+            currentUser={currentUser}
+            onEdit={openEdit}
+            onResetPassword={setResetTarget}
+            onDeactivate={setConfirmDeactivateTarget}
+            onReactivate={handleReactivate}
+            reactivatePending={updateUser.isPending}
+          />
+        </>
+      )}
 
       <Modal open={modal !== null} onClose={() => setModal(null)}>
         <h2 className="mb-4 text-lg font-semibold">
@@ -321,6 +493,56 @@ export default function UserPage() {
           </Button>
           <Button onClick={handleResetPassword} disabled={resetPassword.isPending}>
             Reset
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={confirmDeactivateTarget !== null}
+        onClose={() => setConfirmDeactivateTarget(null)}
+        maxWidth={380}
+      >
+        <h2 className="mb-2 text-lg font-semibold text-destructive">Nonaktifkan User</h2>
+        <p className="mb-4 text-sm text-muted-foreground">
+          {confirmDeactivateTarget?.name} tidak akan bisa login setelah dinonaktifkan. Tindakan ini
+          bisa dibatalkan lewat tombol Aktifkan.
+        </p>
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={() => setConfirmDeactivateTarget(null)}>
+            Batal
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={() => {
+              const target = confirmDeactivateTarget
+              setConfirmDeactivateTarget(null)
+              if (target) handleDeactivate(target)
+            }}
+          >
+            Ya, Nonaktifkan
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal open={emailTakenError !== null} onClose={() => setEmailTakenError(null)} maxWidth={380}>
+        <h2 className="mb-2 text-lg font-semibold">Email Sudah Terdaftar</h2>
+        <p className="mb-4 text-sm text-muted-foreground">
+          Email ini sudah dipakai oleh {emailTakenError?.existingUserName}, yang saat ini nonaktif.
+          Aktifkan kembali akun tersebut daripada membuat user baru?
+        </p>
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={() => setEmailTakenError(null)}>
+            Batal
+          </Button>
+          <Button
+            onClick={async () => {
+              if (!emailTakenError) return
+              await handleReactivate(emailTakenError.existingUserId, emailTakenError.existingUserName)
+              setEmailTakenError(null)
+              setModal(null)
+            }}
+          >
+            Aktifkan {emailTakenError?.existingUserName}
           </Button>
         </div>
       </Modal>

@@ -169,6 +169,7 @@ func TestCreateUser_ValidRoleAndTeam_Success(t *testing.T) {
 	teamID := uuid.Must(uuid.NewV7())
 
 	teamRepo.On("FindByID", teamID).Return(&models.SalesTeam{BaseModel: models.BaseModel{ID: teamID}, IsActive: true}, nil)
+	userRepo.On("FindByEmail", "sales@test.com").Return(nil, gorm.ErrRecordNotFound)
 	userRepo.On("Create", mock.AnythingOfType("*models.User")).Return(nil)
 
 	svc := newUserService(userRepo, new(MockRefreshTokenRepository), teamRepo)
@@ -213,6 +214,7 @@ func TestCreateUser_InactiveTeam_Rejected(t *testing.T) {
 	teamID := uuid.Must(uuid.NewV7())
 
 	teamRepo.On("FindByID", teamID).Return(&models.SalesTeam{BaseModel: models.BaseModel{ID: teamID}, IsActive: false}, nil)
+	userRepo.On("FindByEmail", "sales3@test.com").Return(nil, gorm.ErrRecordNotFound)
 
 	svc := newUserService(userRepo, new(MockRefreshTokenRepository), teamRepo)
 	input := dto.CreateUserInput{Name: "Sales", Email: "sales3@test.com", Password: "secret1", Role: "SALES", TeamID: &teamID}
@@ -236,7 +238,7 @@ func TestUpdateUser_NameOnly_NoRevoke(t *testing.T) {
 
 	svc := newUserService(userRepo, refreshRepo, new(MockSalesTeamRepository))
 	newName := "New"
-	result, err := svc.updateUser(userRepo, refreshRepo, userID, dto.UpdateUserInput{Name: &newName})
+	result, err := svc.updateUser(userRepo, refreshRepo, "SU", userID, dto.UpdateUserInput{Name: &newName})
 
 	assert.NoError(t, err)
 	assert.Equal(t, "New", result.Name)
@@ -256,7 +258,7 @@ func TestUpdateUser_RoleChanged_RevokeCalled(t *testing.T) {
 
 	svc := newUserService(userRepo, refreshRepo, new(MockSalesTeamRepository))
 	newRole := "LEADER"
-	result, err := svc.updateUser(userRepo, refreshRepo, userID, dto.UpdateUserInput{Role: &newRole})
+	result, err := svc.updateUser(userRepo, refreshRepo, "SU", userID, dto.UpdateUserInput{Role: &newRole})
 
 	assert.NoError(t, err)
 	assert.Equal(t, "LEADER", result.Role)
@@ -278,7 +280,7 @@ func TestUpdateUser_TeamChanged_RevokeCalled(t *testing.T) {
 	teamRepo.On("FindByID", newTeamID).Return(&models.SalesTeam{BaseModel: models.BaseModel{ID: newTeamID}, IsActive: true}, nil)
 
 	svc := newUserService(userRepo, refreshRepo, teamRepo)
-	result, err := svc.updateUser(userRepo, refreshRepo, userID, dto.UpdateUserInput{TeamID: &newTeamID})
+	result, err := svc.updateUser(userRepo, refreshRepo, "SU", userID, dto.UpdateUserInput{TeamID: &newTeamID})
 
 	assert.NoError(t, err)
 	assert.Equal(t, newTeamID, *result.TeamID)
@@ -298,7 +300,7 @@ func TestUpdateUser_DemoteToAdmin_ClearsTeamAndRejectsExplicitTeam(t *testing.T)
 
 	svc := newUserService(userRepo, refreshRepo, new(MockSalesTeamRepository))
 	newRole := "ADMIN_SALES"
-	result, err := svc.updateUser(userRepo, refreshRepo, userID, dto.UpdateUserInput{Role: &newRole})
+	result, err := svc.updateUser(userRepo, refreshRepo, "SU", userID, dto.UpdateUserInput{Role: &newRole})
 
 	assert.NoError(t, err)
 	assert.Nil(t, result.TeamID)
@@ -314,7 +316,7 @@ func TestUpdateUser_RoleTeamMismatch_Rejected(t *testing.T) {
 
 	svc := newUserService(userRepo, refreshRepo, new(MockSalesTeamRepository))
 	newRole := "SALES"
-	_, err := svc.updateUser(userRepo, refreshRepo, userID, dto.UpdateUserInput{Role: &newRole})
+	_, err := svc.updateUser(userRepo, refreshRepo, "SU", userID, dto.UpdateUserInput{Role: &newRole})
 
 	assert.Error(t, err)
 	userRepo.AssertNotCalled(t, "Update", mock.Anything)
@@ -334,7 +336,7 @@ func TestResetPassword_Success(t *testing.T) {
 	refreshRepo.On("DeleteAllByUserID", userID).Return(nil)
 
 	svc := newUserService(userRepo, refreshRepo, new(MockSalesTeamRepository))
-	err := svc.resetPassword(userRepo, refreshRepo, userID, dto.ResetPasswordInput{NewPassword: "newpass1"})
+	err := svc.resetPassword(userRepo, refreshRepo, "SU", userID, dto.ResetPasswordInput{NewPassword: "newpass1"})
 
 	assert.NoError(t, err)
 	assert.NotEqual(t, "old-hash", user.Password)
@@ -353,7 +355,7 @@ func TestDeactivateUser_ActiveLeadsNoReassign_Error(t *testing.T) {
 	userRepo.On("CountActiveByOwner", userID).Return(int64(3), nil)
 
 	svc := newUserService(userRepo, refreshRepo, new(MockSalesTeamRepository))
-	count, err := svc.deactivateUser(userRepo, refreshRepo, uuid.Must(uuid.NewV7()), userID, dto.DeactivateUserInput{})
+	count, err := svc.deactivateUser(userRepo, refreshRepo, uuid.Must(uuid.NewV7()), "SU", userID, dto.DeactivateUserInput{})
 
 	assert.ErrorIs(t, err, ErrActiveLeadsExist)
 	assert.Equal(t, int64(3), count)
@@ -378,7 +380,7 @@ func TestDeactivateUser_ActiveLeadsWithReassign_Success(t *testing.T) {
 	refreshRepo.On("DeleteAllByUserID", userID).Return(nil)
 
 	svc := newUserService(userRepo, refreshRepo, new(MockSalesTeamRepository))
-	count, err := svc.deactivateUser(userRepo, refreshRepo, uuid.Must(uuid.NewV7()), userID, dto.DeactivateUserInput{ReassignToUserID: &newOwnerID})
+	count, err := svc.deactivateUser(userRepo, refreshRepo, uuid.Must(uuid.NewV7()), "SU", userID, dto.DeactivateUserInput{ReassignToUserID: &newOwnerID})
 
 	assert.NoError(t, err)
 	assert.Equal(t, int64(2), count)
@@ -397,7 +399,7 @@ func TestDeactivateUser_ReassignToSelf_Rejected(t *testing.T) {
 	userRepo.On("CountActiveByOwner", userID).Return(int64(2), nil)
 
 	svc := newUserService(userRepo, refreshRepo, new(MockSalesTeamRepository))
-	_, err := svc.deactivateUser(userRepo, refreshRepo, uuid.Must(uuid.NewV7()), userID, dto.DeactivateUserInput{ReassignToUserID: &userID})
+	_, err := svc.deactivateUser(userRepo, refreshRepo, uuid.Must(uuid.NewV7()), "SU", userID, dto.DeactivateUserInput{ReassignToUserID: &userID})
 
 	assert.Error(t, err)
 	// Reassigning to self would strand the leads on the deactivated owner.
@@ -419,7 +421,7 @@ func TestDeactivateUser_ReassignToInactive_Rejected(t *testing.T) {
 	userRepo.On("CountActiveByOwner", userID).Return(int64(2), nil)
 
 	svc := newUserService(userRepo, refreshRepo, new(MockSalesTeamRepository))
-	_, err := svc.deactivateUser(userRepo, refreshRepo, uuid.Must(uuid.NewV7()), userID, dto.DeactivateUserInput{ReassignToUserID: &newOwnerID})
+	_, err := svc.deactivateUser(userRepo, refreshRepo, uuid.Must(uuid.NewV7()), "SU", userID, dto.DeactivateUserInput{ReassignToUserID: &newOwnerID})
 
 	assert.Error(t, err)
 	userRepo.AssertNotCalled(t, "ReassignOwner", mock.Anything, mock.Anything)
@@ -439,7 +441,7 @@ func TestDeactivateUser_NoActiveLeads_SkipsReassign(t *testing.T) {
 	refreshRepo.On("DeleteAllByUserID", userID).Return(nil)
 
 	svc := newUserService(userRepo, refreshRepo, new(MockSalesTeamRepository))
-	count, err := svc.deactivateUser(userRepo, refreshRepo, uuid.Must(uuid.NewV7()), userID, dto.DeactivateUserInput{})
+	count, err := svc.deactivateUser(userRepo, refreshRepo, uuid.Must(uuid.NewV7()), "SU", userID, dto.DeactivateUserInput{})
 
 	assert.NoError(t, err)
 	assert.Equal(t, int64(0), count)
@@ -454,7 +456,7 @@ func TestDeactivateUser_Self_Rejected(t *testing.T) {
 
 	svc := newUserService(userRepo, refreshRepo, new(MockSalesTeamRepository))
 	// caller == target: an admin must not deactivate their own account.
-	_, err := svc.deactivateUser(userRepo, refreshRepo, userID, userID, dto.DeactivateUserInput{})
+	_, err := svc.deactivateUser(userRepo, refreshRepo, userID, "SU", userID, dto.DeactivateUserInput{})
 
 	assert.Error(t, err)
 	userRepo.AssertNotCalled(t, "FindByID", mock.Anything)
@@ -472,7 +474,7 @@ func TestDeactivateUser_LastActiveAdmin_Rejected(t *testing.T) {
 	userRepo.On("CountActiveAdmins").Return(int64(1), nil)
 
 	svc := newUserService(userRepo, refreshRepo, new(MockSalesTeamRepository))
-	_, err := svc.deactivateUser(userRepo, refreshRepo, uuid.Must(uuid.NewV7()), userID, dto.DeactivateUserInput{})
+	_, err := svc.deactivateUser(userRepo, refreshRepo, uuid.Must(uuid.NewV7()), "SU", userID, dto.DeactivateUserInput{})
 
 	assert.Error(t, err)
 	userRepo.AssertNotCalled(t, "CountActiveByOwner", mock.Anything)
@@ -493,8 +495,120 @@ func TestDeactivateUser_AdminWithOtherAdmins_Allowed(t *testing.T) {
 	refreshRepo.On("DeleteAllByUserID", userID).Return(nil)
 
 	svc := newUserService(userRepo, refreshRepo, new(MockSalesTeamRepository))
-	_, err := svc.deactivateUser(userRepo, refreshRepo, uuid.Must(uuid.NewV7()), userID, dto.DeactivateUserInput{})
+	_, err := svc.deactivateUser(userRepo, refreshRepo, uuid.Must(uuid.NewV7()), "SU", userID, dto.DeactivateUserInput{})
 
 	assert.NoError(t, err)
 	assert.False(t, admin.IsActive)
+}
+
+// --- IsActive reactivation, ADMIN_SALES/SU authorization boundary, duplicate email ---
+
+func TestUpdateUser_RejectsIsActiveFalse(t *testing.T) {
+	userRepo := new(MockUserRepository)
+	teamRepo := new(MockSalesTeamRepository)
+	id := uuid.Must(uuid.NewV7())
+	existing := &models.User{BaseModel: models.BaseModel{ID: id}, Role: "SALES", IsActive: true}
+	userRepo.On("FindByID", id).Return(existing, nil)
+
+	svc := NewUserService(nil, userRepo, nil, teamRepo)
+	inactive := false
+	_, err := svc.updateUser(userRepo, nil, "SU", id, dto.UpdateUserInput{IsActive: &inactive})
+
+	assert.Error(t, err)
+	userRepo.AssertNotCalled(t, "Update", mock.Anything)
+}
+
+func TestUpdateUser_IsActiveTrueReactivates(t *testing.T) {
+	userRepo := new(MockUserRepository)
+	teamRepo := new(MockSalesTeamRepository)
+	id := uuid.Must(uuid.NewV7())
+	teamID := uuid.Must(uuid.NewV7())
+	existing := &models.User{BaseModel: models.BaseModel{ID: id}, Role: "SALES", TeamID: &teamID, IsActive: false}
+	userRepo.On("FindByID", id).Return(existing, nil)
+	userRepo.On("Update", mock.MatchedBy(func(u *models.User) bool { return u.IsActive })).Return(nil)
+
+	svc := NewUserService(nil, userRepo, nil, teamRepo)
+	active := true
+	result, err := svc.updateUser(userRepo, nil, "SU", id, dto.UpdateUserInput{IsActive: &active})
+
+	assert.NoError(t, err)
+	assert.True(t, result.IsActive)
+}
+
+func TestUpdateUser_AdminSalesCannotTargetSU(t *testing.T) {
+	userRepo := new(MockUserRepository)
+	teamRepo := new(MockSalesTeamRepository)
+	id := uuid.Must(uuid.NewV7())
+	target := &models.User{BaseModel: models.BaseModel{ID: id}, Role: "SU", IsActive: true}
+	userRepo.On("FindByID", id).Return(target, nil)
+
+	svc := NewUserService(nil, userRepo, nil, teamRepo)
+	newName := "New Name"
+	_, err := svc.updateUser(userRepo, nil, "ADMIN_SALES", id, dto.UpdateUserInput{Name: &newName})
+
+	assert.ErrorIs(t, err, ErrForbiddenTarget)
+	userRepo.AssertNotCalled(t, "Update", mock.Anything)
+}
+
+func TestUpdateUser_SUCanTargetSU(t *testing.T) {
+	userRepo := new(MockUserRepository)
+	teamRepo := new(MockSalesTeamRepository)
+	id := uuid.Must(uuid.NewV7())
+	target := &models.User{BaseModel: models.BaseModel{ID: id}, Role: "SU", IsActive: true}
+	userRepo.On("FindByID", id).Return(target, nil)
+	userRepo.On("Update", mock.Anything).Return(nil)
+
+	svc := NewUserService(nil, userRepo, nil, teamRepo)
+	newName := "New Name"
+	_, err := svc.updateUser(userRepo, nil, "SU", id, dto.UpdateUserInput{Name: &newName})
+
+	assert.NoError(t, err)
+}
+
+func TestDeactivateUser_AdminSalesCannotTargetSU(t *testing.T) {
+	userRepo := new(MockUserRepository)
+	refreshRepo := new(MockRefreshTokenRepository)
+	callerID := uuid.Must(uuid.NewV7())
+	targetID := uuid.Must(uuid.NewV7())
+	target := &models.User{BaseModel: models.BaseModel{ID: targetID}, Role: "SU", IsActive: true}
+	userRepo.On("FindByID", targetID).Return(target, nil)
+
+	svc := NewUserService(nil, userRepo, refreshRepo, nil)
+	_, err := svc.deactivateUser(userRepo, refreshRepo, callerID, "ADMIN_SALES", targetID, dto.DeactivateUserInput{})
+
+	assert.ErrorIs(t, err, ErrForbiddenTarget)
+}
+
+func TestResetPassword_AdminSalesCannotTargetSU(t *testing.T) {
+	userRepo := new(MockUserRepository)
+	refreshRepo := new(MockRefreshTokenRepository)
+	id := uuid.Must(uuid.NewV7())
+	target := &models.User{BaseModel: models.BaseModel{ID: id}, Role: "SU", IsActive: true}
+	userRepo.On("FindByID", id).Return(target, nil)
+
+	svc := NewUserService(nil, userRepo, refreshRepo, nil)
+	err := svc.resetPassword(userRepo, refreshRepo, "ADMIN_SALES", id, dto.ResetPasswordInput{NewPassword: "newpass1"})
+
+	assert.ErrorIs(t, err, ErrForbiddenTarget)
+}
+
+func TestCreateUser_DuplicateEmail_ReturnsExistingAccount(t *testing.T) {
+	userRepo := new(MockUserRepository)
+	existingID := uuid.Must(uuid.NewV7())
+	existing := &models.User{
+		BaseModel: models.BaseModel{ID: existingID}, Name: "Old User", Email: "taken@test.com", IsActive: false,
+	}
+	userRepo.On("FindByEmail", "taken@test.com").Return(existing, nil)
+
+	svc := NewUserService(nil, userRepo, nil, nil)
+	_, err := svc.CreateUser(dto.CreateUserInput{
+		Name: "New User", Email: "taken@test.com", Password: "password1", Role: "ADMIN_SALES",
+	})
+
+	var emailErr *EmailTakenError
+	assert.ErrorAs(t, err, &emailErr)
+	assert.Equal(t, existingID, emailErr.ExistingUserID)
+	assert.Equal(t, "Old User", emailErr.ExistingName)
+	assert.False(t, emailErr.ExistingActive)
+	userRepo.AssertNotCalled(t, "Create", mock.Anything)
 }

@@ -29,7 +29,7 @@ export function StatusPill({ status }: { status?: string }) {
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium',
+        'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium',
         config.className
       )}
     >
@@ -40,13 +40,5 @@ export function StatusPill({ status }: { status?: string }) {
 }
 
 export function SalesBadge({ ownerName }: { ownerName?: string }) {
-  const initial = ownerName ? ownerName.charAt(0).toUpperCase() : '?'
-  return (
-    <div className="flex items-center gap-2">
-      <div className="flex size-[26px] shrink-0 items-center justify-center rounded-[7px] bg-[#EEF2F7] text-[10.5px] font-bold text-[#475569]">
-        {initial}
-      </div>
-      {ownerName && <span className="text-sm">{ownerName}</span>}
-    </div>
-  )
+  return <span className="text-sm">{ownerName ?? '—'}</span>
 }

@@ -178,7 +178,7 @@ export default function LeadDetailPage() {
       </button>
 
       <div className="mb-[18px] rounded-[16px] border border-[#E7EDF3] bg-white p-[22px_24px] shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-        <div className="flex flex-wrap items-start justify-between gap-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:flex-wrap lg:items-start lg:justify-between lg:gap-6">
           <div className="min-w-0">
             <div className="mb-[7px] flex items-center gap-3">
               <span className="rounded-[7px] bg-[#1D4ED8] px-[11px] py-1 font-mono text-[13px] font-semibold tracking-[.02em] text-white">
@@ -205,7 +205,7 @@ export default function LeadDetailPage() {
             </div>
           </div>
 
-          <div className="flex shrink-0 gap-[9px]">
+          <div className="flex flex-wrap gap-[9px] lg:shrink-0">
             {canAct && (
               <button
                 type="button"

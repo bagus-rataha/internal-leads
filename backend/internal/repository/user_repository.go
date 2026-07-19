@@ -32,10 +32,11 @@ func (r *UserRepository) FindByEmail(email string) (*models.User, error) {
 	return &user, nil
 }
 
-// FindByID finds user by ID
+// FindByID finds user by ID, with Team preloaded for display purposes
+// (e.g. the profile endpoint's team name) — see models.User.Team's comment.
 func (r *UserRepository) FindByID(id uuid.UUID) (*models.User, error) {
 	var user models.User
-	err := r.db.Where("id = ?", id).First(&user).Error
+	err := r.db.Preload("Team").Where("id = ?", id).First(&user).Error
 	if err != nil {
 		return nil, err
 	}

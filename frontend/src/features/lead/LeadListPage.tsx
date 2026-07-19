@@ -3,7 +3,7 @@
 // lg: and up, stacked cards below it — same data, no horizontal scroll.
 import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Clock, Search, CalendarIcon, X, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import { Clock, Search, CalendarIcon, X, ChevronLeft, ChevronRight, Plus, SlidersHorizontal } from 'lucide-react'
 import type { DateRange } from 'react-day-picker'
 import { useAuth } from '@/auth/AuthContext'
 import { useLeads } from './useLeads'
@@ -178,49 +178,26 @@ function LeadCards({
 }) {
   const navigate = useNavigate()
   return (
-    <div className="flex flex-col gap-3 lg:hidden">
+    <div className="flex flex-col divide-y divide-[#F1F5F9] rounded-[14px] border border-[#E7EDF3] bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] lg:hidden">
       {items.map((lead) => (
-        <Card
+        <div
           key={lead.code}
-          className="relative cursor-pointer"
+          className="relative flex cursor-pointer flex-col gap-1.5 px-4 py-3 active:bg-[#F7F9FC]"
           onClick={() => navigate(`/leads/${lead.code}`)}
         >
           {lead.is_stale && (
-            <span className="absolute top-3 bottom-3 left-0 w-[3px] rounded bg-amber-600" />
+            <span className="absolute top-2 bottom-2 left-0 w-[3px] rounded bg-amber-600" />
           )}
-          <CardContent className="flex flex-col gap-2">
-            <div className="flex items-start justify-between gap-2">
-              <span className="font-mono text-primary">{lead.code}</span>
-              <StatusPill status={lead.status} />
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="font-mono text-xs text-primary">{lead.code}</p>
+              <p className="truncate font-semibold">{lead.company_name}</p>
             </div>
-            <div>
-              <p className="font-semibold">{lead.company_name}</p>
-              {lead.business_field && (
-                <p className="text-xs text-muted-foreground">{lead.business_field}</p>
-              )}
-            </div>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div>
-                <p className="text-xs text-muted-foreground">Kota</p>
-                <p>{lead.city_name ?? '—'}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">PIC</p>
-                <p>{lead.pic_name}</p>
-                {lead.pic_position && (
-                  <p className="text-xs text-muted-foreground">{lead.pic_position}</p>
-                )}
-              </div>
-            </div>
-            {showSales && (
-              <div>
-                <p className="text-xs text-muted-foreground">Sales</p>
-                <SalesBadge ownerName={lead.owner_name} />
-              </div>
-            )}
-            <FollowUpInfo lead={lead} />
-          </CardContent>
-        </Card>
+            <StatusPill status={lead.status} />
+          </div>
+          <FollowUpInfo lead={lead} />
+          {showSales && <SalesBadge ownerName={lead.owner_name} />}
+        </div>
       ))}
       {pagination}
     </div>
@@ -232,68 +209,53 @@ const STATUS_OPTIONS: LeadStatus[] = ['BARU', 'FOLLOW_UP', 'HANDOFF_ODOO', 'LOST
 const SELECT_CLASSNAME =
   'h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
 
+type FilterValues = {
+  status: LeadStatus | ''
+  sourceId: string
+  teamId: string
+  ownerId: string
+  dateRange?: DateRange
+  staleOnly: boolean
+}
+
+const EMPTY_FILTERS: FilterValues = {
+  status: '',
+  sourceId: '',
+  teamId: '',
+  ownerId: '',
+  dateRange: undefined,
+  staleOnly: false,
+}
+
 function FilterBar({
-  q,
-  onQChange,
-  status,
-  onStatusChange,
-  sourceId,
-  onSourceIdChange,
-  staleOnly,
-  onToggleStale,
+  draft,
+  onDraftChange,
   sources,
   showTeamFilter,
-  teamId,
-  onTeamIdChange,
   teams,
   showSalesFilter,
-  ownerId,
-  onOwnerIdChange,
   salesUsers,
-  dateRange,
-  onDateRangeChange,
+  onApply,
+  onReset,
 }: {
-  q: string
-  onQChange: (value: string) => void
-  status: LeadStatus | ''
-  onStatusChange: (value: LeadStatus | '') => void
-  sourceId: string
-  onSourceIdChange: (value: string) => void
-  staleOnly: boolean
-  onToggleStale: () => void
+  draft: FilterValues
+  onDraftChange: (patch: Partial<FilterValues>) => void
   sources: LeadSourceResponse[]
   showTeamFilter: boolean
-  teamId: string
-  onTeamIdChange: (value: string) => void
   teams: TeamResponse[]
   showSalesFilter: boolean
-  ownerId: string
-  onOwnerIdChange: (value: string) => void
   salesUsers: UserResponse[]
-  dateRange?: DateRange
-  onDateRangeChange: (range?: DateRange) => void
+  onApply: () => void
+  onReset: () => void
 }) {
   return (
     <Card className="rounded-[14px] shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
       <CardContent className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end">
-        <div className="flex flex-col gap-1 lg:min-w-[240px] lg:flex-1">
-          <label className={FILTER_LABEL_CLASSNAME}>Cari</label>
-          <div className="relative">
-            <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={q}
-              onChange={(e) => onQChange(e.target.value)}
-              placeholder="Cari kode lead atau nama perusahaan..."
-              className="pl-8"
-            />
-          </div>
-        </div>
-
         <div className="flex flex-col gap-1">
           <label className={FILTER_LABEL_CLASSNAME}>Status</label>
           <select
-            value={status}
-            onChange={(e) => onStatusChange(e.target.value as LeadStatus | '')}
+            value={draft.status}
+            onChange={(e) => onDraftChange({ status: e.target.value as LeadStatus | '' })}
             className={SELECT_CLASSNAME}
           >
             <option value="">Semua status</option>
@@ -308,8 +270,8 @@ function FilterBar({
         <div className="flex flex-col gap-1">
           <label className={FILTER_LABEL_CLASSNAME}>Sumber</label>
           <select
-            value={sourceId}
-            onChange={(e) => onSourceIdChange(e.target.value)}
+            value={draft.sourceId}
+            onChange={(e) => onDraftChange({ sourceId: e.target.value })}
             className={SELECT_CLASSNAME}
           >
             <option value="">Semua sumber</option>
@@ -325,8 +287,8 @@ function FilterBar({
           <div className="flex flex-col gap-1">
             <label className={FILTER_LABEL_CLASSNAME}>Tim</label>
             <select
-              value={teamId}
-              onChange={(e) => onTeamIdChange(e.target.value)}
+              value={draft.teamId}
+              onChange={(e) => onDraftChange({ teamId: e.target.value })}
               className={SELECT_CLASSNAME}
             >
               <option value="">Semua tim</option>
@@ -343,8 +305,8 @@ function FilterBar({
           <div className="flex flex-col gap-1">
             <label className={FILTER_LABEL_CLASSNAME}>Sales</label>
             <select
-              value={ownerId}
-              onChange={(e) => onOwnerIdChange(e.target.value)}
+              value={draft.ownerId}
+              onChange={(e) => onDraftChange({ ownerId: e.target.value })}
               className={SELECT_CLASSNAME}
             >
               <option value="">Semua sales</option>
@@ -367,15 +329,15 @@ function FilterBar({
               )}
             >
               <CalendarIcon className="size-3.5 shrink-0 text-muted-foreground" />
-              <span className={cn(!dateRange?.from && !dateRange?.to && 'text-muted-foreground')}>
-                {formatDateRangeLabel(dateRange)}
+              <span className={cn(!draft.dateRange?.from && !draft.dateRange?.to && 'text-muted-foreground')}>
+                {formatDateRangeLabel(draft.dateRange)}
               </span>
-              {(dateRange?.from || dateRange?.to) && (
+              {(draft.dateRange?.from || draft.dateRange?.to) && (
                 <X
                   className="ml-auto size-3.5 shrink-0 text-muted-foreground hover:text-foreground"
                   onClick={(e) => {
                     e.stopPropagation()
-                    onDateRangeChange(undefined)
+                    onDraftChange({ dateRange: undefined })
                   }}
                 />
               )}
@@ -383,9 +345,9 @@ function FilterBar({
             <PopoverContent className="w-auto p-0">
               <Calendar
                 mode="range"
-                selected={dateRange}
-                onSelect={onDateRangeChange}
-                defaultMonth={dateRange?.from}
+                selected={draft.dateRange}
+                onSelect={(range) => onDraftChange({ dateRange: range })}
+                defaultMonth={draft.dateRange?.from}
                 numberOfMonths={1}
               />
             </PopoverContent>
@@ -393,13 +355,22 @@ function FilterBar({
         </div>
 
         <Button
-          variant={staleOnly ? 'default' : 'outline'}
+          variant={draft.staleOnly ? 'default' : 'outline'}
           size="sm"
-          onClick={onToggleStale}
+          onClick={() => onDraftChange({ staleOnly: !draft.staleOnly })}
           className="lg:self-end"
         >
           Terlantar
         </Button>
+
+        <div className="flex items-center justify-end gap-2 lg:basis-full lg:border-t lg:border-t-[#F1F5F9] lg:pt-3">
+          <Button variant="outline" size="sm" onClick={onReset}>
+            Reset
+          </Button>
+          <Button size="sm" onClick={onApply}>
+            Terapkan
+          </Button>
+        </div>
       </CardContent>
     </Card>
   )
@@ -541,15 +512,28 @@ export default function LeadListPage() {
   const showSalesFilter = user?.role !== 'SALES'
 
   const [retryNonce, setRetryNonce] = useState(0)
+  const [filtersOpen, setFiltersOpen] = useState(false)
 
   const [q, setQ] = useState('')
   const [debouncedQ, setDebouncedQ] = useState('')
-  const [status, setStatus] = useState<LeadStatus | ''>('')
-  const [sourceId, setSourceId] = useState('')
-  const [teamId, setTeamId] = useState('')
-  const [ownerId, setOwnerId] = useState('')
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
-  const [staleOnly, setStaleOnly] = useState(false)
+  const [applied, setApplied] = useState<FilterValues>(EMPTY_FILTERS)
+  const [draft, setDraft] = useState<FilterValues>(EMPTY_FILTERS)
+
+  function updateDraft(patch: Partial<FilterValues>) {
+    setDraft((prev) => ({ ...prev, ...patch }))
+  }
+
+  function handleApplyFilters() {
+    setApplied(draft)
+    setPage(1)
+    setFiltersOpen(false)
+  }
+
+  function handleResetFilters() {
+    setDraft(EMPTY_FILTERS)
+    setApplied(EMPTY_FILTERS)
+    setPage(1)
+  }
   const [page, setPage] = useState(1)
   const [sources, setSources] = useState<LeadSourceResponse[]>([])
   const [teams, setTeams] = useState<TeamResponse[]>([])
@@ -592,61 +576,88 @@ export default function LeadListPage() {
       })
   }, [showSalesFilter])
 
-  const dateFrom = dateRange?.from ? toLocalDateString(dateRange.from) : ''
-  const dateTo = dateRange?.to ? toLocalDateString(dateRange.to) : ''
-
-  // A filter change invalidates whatever page the user was on — the old
-  // page number may not even exist in the new, possibly-smaller result set.
+  // Search still auto-applies, so it still needs its own page reset.
+  // Apply/Reset (handleApplyFilters/handleResetFilters above) reset the
+  // page themselves when `applied` changes — no separate effect needed.
   useEffect(() => {
     setPage(1)
-  }, [debouncedQ, status, sourceId, teamId, ownerId, dateFrom, dateTo, staleOnly])
+  }, [debouncedQ])
 
   const params: LeadListParams = {
     q: debouncedQ || undefined,
-    status: status || undefined,
-    source_id: sourceId || undefined,
-    team_id: teamId || undefined,
-    owner_id: ownerId || undefined,
-    date_from: dateFrom || undefined,
-    date_to: dateTo || undefined,
-    stale: staleOnly ? 'true' : undefined,
+    status: applied.status || undefined,
+    source_id: applied.sourceId || undefined,
+    team_id: applied.teamId || undefined,
+    owner_id: applied.ownerId || undefined,
+    date_from: applied.dateRange?.from ? toLocalDateString(applied.dateRange.from) : undefined,
+    date_to: applied.dateRange?.to ? toLocalDateString(applied.dateRange.to) : undefined,
+    stale: applied.staleOnly ? 'true' : undefined,
     page,
   }
 
+  const activeFilterCount = [
+    q,
+    applied.status,
+    applied.sourceId,
+    applied.teamId,
+    applied.ownerId,
+    applied.staleOnly,
+    applied.dateRange?.from,
+  ].filter(Boolean).length
+
   return (
     <div className="flex w-full max-w-full flex-col gap-4 p-4 lg:p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="font-display text-xl font-extrabold">Lead</h1>
-        <button
-          type="button"
-          onClick={() => navigate('/leads/new')}
-          className="inline-flex items-center gap-2 rounded-[8px] bg-[#1D4ED8] px-[17px] py-[9px] text-[13.5px] font-semibold text-white shadow-[0_1px_2px_rgba(29,78,216,0.3)] hover:bg-[#1A45BE]"
-        >
-          <Plus className="size-4" />
-          Lead Baru
-        </button>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+        <div className="flex items-center justify-between gap-2 lg:contents">
+          <h1 className="font-display text-xl font-extrabold lg:order-1">Lead</h1>
+          <div className="flex items-center gap-2 lg:order-3">
+            <Button
+              variant={filtersOpen ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setFiltersOpen((v) => !v)}
+              className="gap-1.5"
+            >
+              <SlidersHorizontal className="size-4" />
+              Filter
+              {activeFilterCount > 0 && (
+                <span className="ml-0.5 flex size-4 items-center justify-center rounded-full bg-white/20 text-[10px] font-bold">
+                  {activeFilterCount}
+                </span>
+              )}
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => navigate('/leads/new')}
+              className="gap-1.5 bg-[#1D4ED8] text-white shadow-[0_1px_2px_rgba(29,78,216,0.3)] hover:bg-[#1A45BE]"
+            >
+              <Plus className="size-4" />
+              Lead Baru
+            </Button>
+          </div>
+        </div>
+        <div className="relative lg:order-2 lg:ml-auto lg:w-72">
+          <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Cari kode lead atau nama perusahaan..."
+            className="pl-8"
+          />
+        </div>
       </div>
-      <FilterBar
-        q={q}
-        onQChange={setQ}
-        status={status}
-        onStatusChange={setStatus}
-        sourceId={sourceId}
-        onSourceIdChange={setSourceId}
-        staleOnly={staleOnly}
-        onToggleStale={() => setStaleOnly((v) => !v)}
-        sources={sources}
-        showTeamFilter={isAdmin}
-        teamId={teamId}
-        onTeamIdChange={setTeamId}
-        teams={teams}
-        showSalesFilter={showSalesFilter}
-        ownerId={ownerId}
-        onOwnerIdChange={setOwnerId}
-        salesUsers={salesUsers}
-        dateRange={dateRange}
-        onDateRangeChange={setDateRange}
-      />
+      {filtersOpen && (
+        <FilterBar
+          draft={draft}
+          onDraftChange={updateDraft}
+          sources={sources}
+          showTeamFilter={isAdmin}
+          teams={teams}
+          showSalesFilter={showSalesFilter}
+          salesUsers={salesUsers}
+          onApply={handleApplyFilters}
+          onReset={handleResetFilters}
+        />
+      )}
       <LeadListContent
         key={retryNonce}
         params={params}

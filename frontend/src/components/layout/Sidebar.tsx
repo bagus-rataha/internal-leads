@@ -149,7 +149,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">{user?.name}</p>
               <p className="truncate text-xs text-muted-foreground">
-                {user?.role} · {user?.team_id ?? '-'}
+                {user?.role}
+                {user?.team_name ? ` · ${user.team_name}` : ''}
               </p>
             </div>
           </div>
