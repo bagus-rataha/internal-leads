@@ -2,6 +2,7 @@
 *.env
 node_modules/
 frontend/dist/
-backend/internal/static/dist/
+backend/internal/static/dist/*
+!backend/internal/static/dist/.gitkeep
 .DS_Store
 Thumbs.db
