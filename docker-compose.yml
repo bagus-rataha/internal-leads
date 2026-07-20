@@ -1,6 +1,7 @@
 services:
   leadsales-app:
     build: .
+    init: true
     environment:
       DB_HOST: db
       DB_PORT: ${DB_PORT:?DB_PORT is required}
