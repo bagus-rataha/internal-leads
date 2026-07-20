@@ -479,6 +479,7 @@ export default function LeadFormPage() {
                 value={values.company_name}
                 onChange={(e) => change('company_name', e.target.value)}
                 onBlur={() => blur('company_name')}
+                placeholder="mis. PT Sinar Baja Elektrik"
                 className={errClass(FIELD_INPUT, touched.company_name && !!errors.company_name)}
               />
               {touched.company_name && errors.company_name && (
@@ -495,6 +496,7 @@ export default function LeadFormPage() {
                 value={values.business_field}
                 onChange={(e) => change('business_field', e.target.value)}
                 onBlur={() => blur('business_field')}
+                placeholder="mis. Manufaktur"
                 className={errClass(FIELD_INPUT, touched.business_field && !!errors.business_field)}
               />
               {touched.business_field && errors.business_field && (
@@ -510,6 +512,7 @@ export default function LeadFormPage() {
                 value={values.website}
                 onChange={(e) => change('website', e.target.value)}
                 onBlur={() => blur('website')}
+                placeholder="https://"
                 className={errClass(FIELD_INPUT, touched.website && !!errors.website)}
               />
               {touched.website && errors.website && (
@@ -573,6 +576,7 @@ export default function LeadFormPage() {
                 value={values.rt}
                 onChange={(e) => change('rt', e.target.value)}
                 onBlur={() => blur('rt')}
+                placeholder="001"
                 className={errClass(FIELD_INPUT_MONO, touched.rt && !!errors.rt)}
               />
               {touched.rt && errors.rt && (
@@ -590,6 +594,7 @@ export default function LeadFormPage() {
                 value={values.rw}
                 onChange={(e) => change('rw', e.target.value)}
                 onBlur={() => blur('rw')}
+                placeholder="005"
                 className={errClass(FIELD_INPUT_MONO, touched.rw && !!errors.rw)}
               />
               {touched.rw && errors.rw && (
@@ -607,6 +612,7 @@ export default function LeadFormPage() {
               value={values.street}
               onChange={(e) => change('street', e.target.value)}
               onBlur={() => blur('street')}
+              placeholder="mis. Jl. Rungkut Industri Raya No. 12, Blok B"
               className={errClass(FIELD_INPUT, touched.street && !!errors.street)}
             />
             {touched.street && errors.street && (
@@ -627,6 +633,7 @@ export default function LeadFormPage() {
                 value={values.pic_name}
                 onChange={(e) => change('pic_name', e.target.value)}
                 onBlur={() => blur('pic_name')}
+                placeholder="mis. Andi Wijaya"
                 className={errClass(FIELD_INPUT, touched.pic_name && !!errors.pic_name)}
               />
               {touched.pic_name && errors.pic_name && (
@@ -643,6 +650,7 @@ export default function LeadFormPage() {
                 value={values.pic_position}
                 onChange={(e) => change('pic_position', e.target.value)}
                 onBlur={() => blur('pic_position')}
+                placeholder="mis. IT Manager"
                 className={errClass(FIELD_INPUT, touched.pic_position && !!errors.pic_position)}
               />
               {touched.pic_position && errors.pic_position && (
@@ -662,6 +670,7 @@ export default function LeadFormPage() {
                   value={values.office_phone}
                   onChange={(e) => change('office_phone', e.target.value)}
                   onBlur={() => blur('office_phone')}
+                  placeholder="2112345678"
                   className={errClass(PHONE_INPUT, touched.office_phone && !!errors.office_phone)}
                 />
               </div>
@@ -683,6 +692,7 @@ export default function LeadFormPage() {
                   value={values.mobile_phone}
                   onChange={(e) => change('mobile_phone', e.target.value)}
                   onBlur={() => blur('mobile_phone')}
+                  placeholder="81234567890"
                   className={errClass(PHONE_INPUT, touched.mobile_phone && !!errors.mobile_phone)}
                 />
               </div>
@@ -701,6 +711,7 @@ export default function LeadFormPage() {
                 value={values.email}
                 onChange={(e) => change('email', e.target.value)}
                 onBlur={() => blur('email')}
+                placeholder="mis. andi@perusahaan.co.id"
                 className={errClass(FIELD_INPUT, touched.email && !!errors.email)}
               />
               {touched.email && errors.email && (
@@ -751,6 +762,7 @@ export default function LeadFormPage() {
                 value={values.capacity_mbps}
                 onChange={(e) => change('capacity_mbps', e.target.value)}
                 onBlur={() => blur('capacity_mbps')}
+                placeholder="50"
                 className={errClass(FIELD_INPUT, touched.capacity_mbps && !!errors.capacity_mbps)}
               />
               {touched.capacity_mbps && errors.capacity_mbps && (
@@ -762,6 +774,7 @@ export default function LeadFormPage() {
               <input
                 value={values.existing_isp}
                 onChange={(e) => set('existing_isp', e.target.value)}
+                placeholder="mis. Telkom IndiHome"
                 className={FIELD_INPUT}
               />
             </div>
@@ -773,6 +786,7 @@ export default function LeadFormPage() {
                 value={values.price}
                 onChange={(e) => change('price', e.target.value)}
                 onBlur={() => blur('price')}
+                placeholder="3500000"
                 className={errClass(FIELD_INPUT_MONO, touched.price && !!errors.price)}
               />
               {touched.price && errors.price && (
@@ -784,6 +798,7 @@ export default function LeadFormPage() {
               <input
                 value={values.other_services}
                 onChange={(e) => set('other_services', e.target.value)}
+                placeholder="mis. IP publik, cloud PABX"
                 className={FIELD_INPUT}
               />
             </div>
