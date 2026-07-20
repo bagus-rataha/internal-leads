@@ -182,8 +182,12 @@ func BuildSeedData(
 			return SeedResult{}, err
 		}
 		var zipID *int
-		if zid, zok := parseParentID(r["Zip/ID"]); zok {
-			zipID = &zid
+		if raw := r["Zip/ID"]; raw != "" {
+			if zid, zok := parseParentID(raw); zok {
+				zipID = &zid
+			} else {
+				stats.VillagesZipNulled++
+			}
 		}
 		candidateVillages = append(candidateVillages, models.Village{
 			ID:         id,
@@ -207,13 +211,24 @@ func BuildSeedData(
 		districts = append(districts, d)
 	}
 
+	// cities with at least one surviving district (needed below to re-filter
+	// zips, and reused by step 4 to prune cities - both checks mean the same
+	// thing and are computed from the same districts slice)
+	cityHasSurvivingDistrict := map[int]bool{}
+	for _, d := range districts {
+		cityHasSurvivingDistrict[d.CityID] = true
+	}
+
 	// --- Pass 2, step 2: re-filter zips against the pruned district set ---
 	// (a zip can pass Pass 1's per-parent check yet still dangle if its
-	// district was pruned here as a dead end)
+	// district was pruned here as a dead end). City/ID and Kecamatan/ID are
+	// independent fields in the source CSV, so also check the zip's own
+	// City/ID directly - a district surviving doesn't guarantee the zip's
+	// (possibly inconsistent) city did too.
 	zips := make([]models.Zip, 0, len(candidateZips))
 	validZipIDs := map[int]bool{}
 	for _, z := range candidateZips {
-		if !validDistrictIDs[z.DistrictID] {
+		if !validDistrictIDs[z.DistrictID] || !cityHasSurvivingDistrict[z.CityID] {
 			stats.ZipsPrunedDeadEnd++
 			continue
 		}
@@ -232,10 +247,7 @@ func BuildSeedData(
 	}
 
 	// --- Pass 2, step 4: prune cities with zero surviving districts ---
-	cityHasSurvivingDistrict := map[int]bool{}
-	for _, d := range districts {
-		cityHasSurvivingDistrict[d.CityID] = true
-	}
+	// (cityHasSurvivingDistrict was already computed above, before step 2)
 	finalCities := make([]models.City, 0, len(cities))
 	for _, c := range cities {
 		if !cityHasSurvivingDistrict[c.ID] {

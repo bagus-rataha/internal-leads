@@ -231,3 +231,60 @@ func TestBuildSeedData_MalformedOwnID_ReturnsError(t *testing.T) {
 
 	require.Error(t, err)
 }
+
+func TestBuildSeedData_ZipWithMismatchedCityAndDistrict_DroppedWhenCityDies(t *testing.T) {
+	prov, city, _, _, _ := validChain()
+	// Two cities, each with one district. City 20's district has a village
+	// (survives); city 10's district has none (dead end, city 10 dies in
+	// Pass 2). A zip claims City/ID=10 but Kecamatan/ID=200 (city 20's
+	// district) - an internally inconsistent source row. It must not survive
+	// with a city_id (10) that isn't in the final result.
+	city = append(city, map[string]string{"Country/ID": "100", "ID": "20", "External ID": "city_20", "State/ID": "1", "Name": "Second City"})
+	dist := []map[string]string{
+		{"ID": "100", "External ID": "dist_100", "City/ID": "10", "Kecamatan": "Dead End"},
+		{"ID": "200", "External ID": "dist_200", "City/ID": "20", "Kecamatan": "Kebayoran Baru"},
+	}
+	zip := []map[string]string{
+		{"ID": "1000", "External ID": "zip_1000", "ZIP": "12110", "City/ID": "10", "Kecamatan/ID": "200"},
+	}
+	vill := []map[string]string{
+		{"ID": "10000", "External ID": "vill_10000", "Kecamatan/ID": "200", "Zip/ID": "", "Kelurahan": "Gunung"},
+	}
+
+	result, err := BuildSeedData(prov, city, dist, zip, vill)
+
+	require.NoError(t, err)
+	assert.Empty(t, result.Zips, "the zip's own City/ID (10) never survives, even though its district (200) does")
+	assert.Equal(t, 1, result.Stats.ZipsPrunedDeadEnd)
+	// city 10 must not appear in the final cities either
+	for _, c := range result.Cities {
+		assert.NotEqual(t, 10, c.ID)
+	}
+}
+
+func TestBuildSeedData_EveryZipCityIDIsInFinalCities(t *testing.T) {
+	prov, city, dist, zip, vill := validChain()
+
+	result, err := BuildSeedData(prov, city, dist, zip, vill)
+
+	require.NoError(t, err)
+	finalCityIDs := map[int]bool{}
+	for _, c := range result.Cities {
+		finalCityIDs[c.ID] = true
+	}
+	for _, z := range result.Zips {
+		assert.True(t, finalCityIDs[z.CityID], "zip %d references city %d which is not in the final result", z.ID, z.CityID)
+	}
+}
+
+func TestBuildSeedData_VillageWithUnparseableZipID_CountedAsNulled(t *testing.T) {
+	prov, city, dist, zip, vill := validChain()
+	vill[0]["Zip/ID"] = "not-a-number"
+
+	result, err := BuildSeedData(prov, city, dist, zip, vill)
+
+	require.NoError(t, err)
+	require.Len(t, result.Villages, 1)
+	assert.Nil(t, result.Villages[0].ZipID)
+	assert.Equal(t, 1, result.Stats.VillagesZipNulled, "an unparseable Zip/ID is a real correction, unlike a simply-empty one")
+}
