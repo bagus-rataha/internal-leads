@@ -123,3 +123,57 @@ Examples of proper commit messages:
    ```bash
    git checkout -b feature/your-feature-name
    ```
+
+## Deployment
+
+Single Docker image (frontend embedded into the Go binary), deployed as a
+Portainer Git stack behind an existing Nginx Proxy Manager container.
+
+### Test locally first
+
+```bash
+cp .env.example .env      # fill in real-looking values, any values work locally
+docker compose -f docker-compose.yml -f docker-compose.local.yml up --build -d
+```
+
+App is reachable at `http://localhost:3000`. First run only, apply the
+schema and reference data:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.local.yml exec leadsales-app ./migrate-up.sh
+docker compose -f docker-compose.yml -f docker-compose.local.yml exec leadsales-app ./seed
+```
+
+Log in with the bootstrap account (`admin@leadsales.local` /
+`ChangeMe123!`) and change the password immediately.
+
+### Deploy to the VM
+
+1. In Nginx Proxy Manager, note the Docker network name it runs on
+   (`docker network ls` on the VM).
+2. In Portainer: **Stacks → Add stack → Repository**, point it at this
+   repo, compose path `docker-compose.yml`. Fill in the stack's
+   **Environment variables** using `.env.example` as the checklist, and set
+   `PROXY_NETWORK_NAME` to the value from step 1.
+3. Deploy. Postgres becomes healthy, then the app starts. The app connects
+   to the database, not to any table, so it stays up even before the schema
+   exists - only requests that touch the database return errors until
+   migrations are applied.
+4. **First deploy only** - open the `leadsales-app` container's Console in
+   Portainer and run:
+   ```sh
+   ./migrate-up.sh
+   ./seed
+   ```
+   Then log in with the bootstrap account above and change its password.
+5. In Nginx Proxy Manager, add a proxy host pointing at `leadsales-app`,
+   port `3000`, scheme `http` (NPM terminates TLS; the app trusts
+   `APP_ENV=production` alone to mark its refresh-token cookie `Secure`, so
+   no extra proxy header configuration is needed).
+
+### Subsequent deploys
+
+Redeploy the stack from Portainer (pulls the latest commit, rebuilds the
+image, recreates the container - data is untouched, it lives in the
+`pgdata` volume). Only re-run `./migrate-up.sh` when a new migration was
+actually added, and review it before running.
