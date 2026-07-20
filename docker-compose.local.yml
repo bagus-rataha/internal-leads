@@ -1,0 +1,19 @@
+# Local-only override for testing the exact same image/stack on this
+# machine before deploying to the VM. Never used in production - run
+# explicitly:
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
+services:
+  leadsales-app:
+    # No TLS locally, so APP_ENV=production's Secure cookie flag would
+    # silently break browser login over plain http://localhost. development
+    # mode also turns on swagger, which is harmless here.
+    environment:
+      APP_ENV: development
+    ports:
+      - "127.0.0.1:3000:3000"
+
+networks:
+  # The VM's reverse-proxy network doesn't exist locally - let compose
+  # create and manage an ordinary local bridge network instead.
+  proxy:
+    external: false
