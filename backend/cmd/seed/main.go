@@ -6,10 +6,8 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strconv"
 
 	"fiber-api-boilerplate/internal/config"
-	"fiber-api-boilerplate/internal/models"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -61,16 +59,6 @@ func csvRows(name string) []map[string]string {
 	return rows
 }
 
-// atoi parses an Odoo integer id; empty/invalid is a hard error since these are
-// required foreign keys or primary keys.
-func atoi(file, col, s string) int {
-	n, err := strconv.Atoi(s)
-	if err != nil {
-		log.Fatalf("%s: bad int in %q: %q", file, col, s)
-	}
-	return n
-}
-
 // upsert writes a slice in batches, updating on external_id conflict so the
 // command is idempotent (safe to re-run against real data).
 func upsert[T any](db *gorm.DB, rows []T) {
@@ -89,90 +77,33 @@ func main() {
 	cfg := config.LoadConfig()
 	db := config.ConnectDB(cfg)
 
-	// provinces <- res.country.state, only Indonesia (Country/ID == 100)
-	const provFile = "Country state (res.country.state).csv"
-	var provinces []models.Province
-	for _, r := range csvRows(provFile) {
-		if r["Country/ID"] != "100" {
-			continue
-		}
-		code := r["State Code"]
-		provinces = append(provinces, models.Province{
-			ID:         atoi(provFile, "ID", r["ID"]),
-			ExternalID: r["External ID"],
-			Code:       &code,
-			Name:       r["State Name"],
-		})
-	}
-	upsert(db, provinces)
+	provinceRows := csvRows("Country state (res.country.state).csv")
+	cityRows := csvRows("City (res.city).csv")
+	districtRows := csvRows("Kecamatan (location.district).csv")
+	zipRows := csvRows("Citylocations completion object (res.city.zip).csv")
+	villageRows := csvRows("Kelurahan (location.sub.district).csv")
 
-	// cities <- res.city, only Indonesia
-	const cityFile = "City (res.city).csv"
-	var cities []models.City
-	for _, r := range csvRows(cityFile) {
-		if r["Country/ID"] != "100" {
-			continue
-		}
-		cities = append(cities, models.City{
-			ID:         atoi(cityFile, "ID", r["ID"]),
-			ExternalID: r["External ID"],
-			ProvinceID: atoi(cityFile, "State/ID", r["State/ID"]),
-			Name:       r["Name"],
-		})
+	result, err := BuildSeedData(provinceRows, cityRows, districtRows, zipRows, villageRows)
+	if err != nil {
+		log.Fatal(err)
 	}
-	upsert(db, cities)
 
-	// districts <- location.district
-	const distFile = "Kecamatan (location.district).csv"
-	var districts []models.District
-	for _, r := range csvRows(distFile) {
-		districts = append(districts, models.District{
-			ID:         atoi(distFile, "ID", r["ID"]),
-			ExternalID: r["External ID"],
-			CityID:     atoi(distFile, "City/ID", r["City/ID"]),
-			Name:       r["Kecamatan"],
-		})
-	}
-	upsert(db, districts)
+	upsert(db, result.Provinces)
+	upsert(db, result.Cities)
+	upsert(db, result.Districts)
+	upsert(db, result.Zips)
+	upsert(db, result.Villages)
 
-	// zips <- res.city.zip; skip Odoo continuation rows (empty ID)
-	const zipFile = "Citylocations completion object (res.city.zip).csv"
-	var zips []models.Zip
-	skippedZips := 0
-	for _, r := range csvRows(zipFile) {
-		if r["ID"] == "" {
-			skippedZips++
-			continue
-		}
-		zips = append(zips, models.Zip{
-			ID:         atoi(zipFile, "ID", r["ID"]),
-			ExternalID: r["External ID"],
-			Code:       r["ZIP"],
-			CityID:     atoi(zipFile, "City/ID", r["City/ID"]),
-			DistrictID: atoi(zipFile, "Kecamatan/ID", r["Kecamatan/ID"]),
-		})
-	}
-	upsert(db, zips)
-
-	// villages <- location.sub.district; Zip/ID is nullable
-	const villFile = "Kelurahan (location.sub.district).csv"
-	var villages []models.Village
-	for _, r := range csvRows(villFile) {
-		var zipID *int
-		if s := r["Zip/ID"]; s != "" {
-			id := atoi(villFile, "Zip/ID", s)
-			zipID = &id
-		}
-		villages = append(villages, models.Village{
-			ID:         atoi(villFile, "ID", r["ID"]),
-			ExternalID: r["External ID"],
-			DistrictID: atoi(villFile, "Kecamatan/ID", r["Kecamatan/ID"]),
-			ZipID:      zipID,
-			Name:       r["Kelurahan"],
-		})
-	}
-	upsert(db, villages)
-
-	log.Printf("seeded: provinces=%d cities=%d districts=%d zips=%d (skipped %d continuation) villages=%d",
-		len(provinces), len(cities), len(districts), len(zips), skippedZips, len(villages))
+	s := result.Stats
+	log.Printf(
+		"seeded: provinces=%d (pruned %d) cities=%d (skipped %d bad-parent, pruned %d) "+
+			"districts=%d (skipped %d bad-parent, pruned %d) "+
+			"zips=%d (skipped %d continuation, %d bad-parent, pruned %d) "+
+			"villages=%d (skipped %d bad-parent, %d zip-nulled)",
+		len(result.Provinces), s.ProvincesPrunedDeadEnd,
+		len(result.Cities), s.CitiesSkippedBadParent, s.CitiesPrunedDeadEnd,
+		len(result.Districts), s.DistrictsSkippedBadParent, s.DistrictsPrunedDeadEnd,
+		len(result.Zips), s.ZipsSkippedContinuation, s.ZipsSkippedBadParent, s.ZipsPrunedDeadEnd,
+		len(result.Villages), s.VillagesSkippedBadParent, s.VillagesZipNulled,
+	)
 }
