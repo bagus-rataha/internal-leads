@@ -1,0 +1,10 @@
+.git
+.superpowers
+node_modules
+frontend/node_modules
+frontend/dist
+backend/bin
+backend/tmp
+backend/internal/static/dist
+.env
+*.env
