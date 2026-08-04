@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom'
 import { Clock, Search, CalendarIcon, X, ChevronLeft, ChevronRight, Plus, SlidersHorizontal, Download } from 'lucide-react'
 import type { DateRange } from 'react-day-picker'
 import { useAuth } from '@/auth/AuthContext'
+import { roleLabel } from '@/lib/roles'
 import { useLeads } from './useLeads'
 import { getLeadSources } from './refCache'
 import { fetchTeams, fetchUsers, LEAD_OWNER_ROLES, downloadBlob, ExportTooManyRowsError, type LeadListParams, type LeadSourceResponse, type LeadStatus, type LeadResponse, type TeamResponse, type UserResponse } from './api'
@@ -315,7 +316,7 @@ function FilterBar({
               <option value="">Semua sales</option>
               {salesUsers.map((salesUser, i) => (
                 <option key={salesUser.id ?? i} value={salesUser.id ?? ''}>
-                  {salesUser.name}
+                  {salesUser.name} ({roleLabel(salesUser.role)})
                 </option>
               ))}
             </select>

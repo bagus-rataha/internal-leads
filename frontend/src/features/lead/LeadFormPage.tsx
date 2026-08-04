@@ -7,6 +7,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { ChevronLeft, ChevronDown, Info, Check } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { showToast } from '@/hooks/useToast'
+import { roleLabel } from '@/lib/roles'
 import { useServiceTypes, useLeadSources } from '@/features/reference/queries'
 import { useCreateLead, useUpdateLead, useSalesRoster, useLeadDetail } from './queries'
 import type { CreateLeadInput, LeadDetailResponse } from './api'
@@ -854,7 +855,7 @@ export default function LeadFormPage() {
                     <option value="">Pilih…</option>
                     {salesRoster.map((salesUser, i) => (
                       <option key={salesUser.id ?? i} value={salesUser.id ?? ''}>
-                        {salesUser.name}
+                        {salesUser.name} ({roleLabel(salesUser.role)})
                       </option>
                     ))}
                   </select>

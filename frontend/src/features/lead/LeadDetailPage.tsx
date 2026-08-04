@@ -2,6 +2,7 @@
 // and a sticky right-column follow-up timeline + composer.
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, ExternalLink, Building2, MapPin, User, Wifi, Tag, AlertTriangle, Check, X as XIcon, Pencil } from 'lucide-react'
+import { roleLabel } from '@/lib/roles'
 import {
   useLeadDetail,
   useFollowUps,
@@ -506,7 +507,7 @@ export default function LeadDetailPage() {
           <option value="">Pilih sales…</option>
           {(salesRoster ?? []).map((u) => (
             <option key={u.id} value={u.id}>
-              {u.name}
+              {u.name} ({roleLabel(u.role)})
             </option>
           ))}
         </select>

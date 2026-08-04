@@ -5,6 +5,7 @@
 // the same params object.
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/auth/AuthContext'
+import { roleLabel } from '@/lib/roles'
 import { fetchTeams, type TeamResponse } from '@/features/team/api'
 import { fetchUsers, LEAD_OWNER_ROLES, type UserResponse } from '@/features/user/api'
 import {
@@ -128,7 +129,7 @@ export default function DashboardPage() {
                 <option value="">Semua sales</option>
                 {salesUsers.map((u, i) => (
                   <option key={u.id ?? i} value={u.id ?? ''}>
-                    {u.name}
+                    {u.name} ({roleLabel(u.role)})
                   </option>
                 ))}
               </select>
