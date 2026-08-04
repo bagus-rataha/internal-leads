@@ -81,7 +81,7 @@ func (h *UserHandler) UpdateProfile(c *fiber.Ctx) error {
 // @Summary List users (LEADER: own team roster; ADMIN_SALES/SU: unrestricted)
 // @Tags users
 // @Security BearerAuth
-// @Param role query string false "Filter by role"
+// @Param role query string false "Filter by role; comma-separated for multiple (e.g. SALES,LEADER)"
 // @Param team_id query string false "Filter by team id (ignored for LEADER callers, who are always scoped to their own team)"
 // @Success 200 {object} utils.Response{data=[]dto.UserResponse}
 // @Router /users [get]
