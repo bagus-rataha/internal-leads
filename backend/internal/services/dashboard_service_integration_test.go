@@ -205,3 +205,37 @@ func TestDashboardSegments_HighVolumeLowConversion_WarnFlagSet(t *testing.T) {
 		assert.Equal(t, 0, *coldCall.ConversionPct)
 	}
 }
+
+func TestDashboardSalesActivity_LeaderInRosterAndFilterable(t *testing.T) {
+	db := setupServiceTestDB(t)
+	userRepo := repository.NewUserRepository(db)
+	svc := NewDashboardService(db, userRepo)
+
+	teamID := uuid.Must(uuid.NewV7())
+	require.NoError(t, db.Create(&models.SalesTeam{BaseModel: models.BaseModel{ID: teamID}, Name: "Team Leader", IsActive: true}).Error)
+
+	salesID := uuid.Must(uuid.NewV7())
+	leaderID := uuid.Must(uuid.NewV7())
+	require.NoError(t, db.Create(&models.User{BaseModel: models.BaseModel{ID: salesID}, Email: "sales@test.local", Password: "h", Name: "Sales User", Role: "SALES", TeamID: &teamID, IsActive: true}).Error)
+	require.NoError(t, db.Create(&models.User{BaseModel: models.BaseModel{ID: leaderID}, Email: "leader@test.local", Password: "h", Name: "Leader User", Role: "LEADER", TeamID: &teamID, IsActive: true}).Error)
+
+	lead := &models.Lead{Code: "LD-2607-0015", OwnerID: leaderID, CreatedByID: leaderID, CompanyName: "Leader's lead"}
+	require.NoError(t, db.Create(lead).Error)
+
+	adminID := uuid.Must(uuid.NewV7())
+	require.NoError(t, db.Create(&models.User{BaseModel: models.BaseModel{ID: adminID}, Email: "admin6@test.local", Password: "h", Name: "Admin", Role: "SU", IsActive: true}).Error)
+
+	// Test 1: Full roster includes both SALES and LEADER
+	q := dto.DashboardQuery{DateFrom: time.Now().AddDate(0, 0, -30), DateTo: time.Now()}
+	result, err := svc.SalesActivity(adminID, "SU", q)
+	require.NoError(t, err)
+	require.Len(t, result.Items, 2, "roster must include both SALES and LEADER users")
+
+	// Test 2: Filter by leader ID returns exactly 1 row (regression: used to return empty table)
+	q.OwnerID = &leaderID
+	result, err = svc.SalesActivity(adminID, "SU", q)
+	require.NoError(t, err)
+	require.Len(t, result.Items, 1, "filtering by leader ID must return exactly 1 row with the leader's data")
+	assert.Equal(t, leaderID, result.Items[0].UserID)
+	assert.Equal(t, "Leader User", result.Items[0].Name)
+}
