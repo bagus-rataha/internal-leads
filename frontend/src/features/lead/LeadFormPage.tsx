@@ -41,13 +41,13 @@ export interface LeadFormValues {
   owner_id: string
 }
 
-export function blankForm(): LeadFormValues {
+export function blankForm(defaultOwnerId?: string): LeadFormValues {
   return {
     company_name: '', business_field: '', website: '', address: {},
     rt: '', rw: '', street: '', pic_name: '', pic_position: '',
     office_phone: '', mobile_phone: '', email: '', service_type_id: '',
     capacity_mbps: '', existing_isp: '', price: '', other_services: '',
-    lead_source_id: '', owner_id: '',
+    lead_source_id: '', owner_id: defaultOwnerId ?? '',
   }
 }
 
@@ -332,7 +332,7 @@ export default function LeadFormPage() {
   const { user } = useAuth()
   const { code } = useParams<{ code?: string }>()
   const mode = code ? 'edit' : 'create'
-  const [values, setValues] = useState<LeadFormValues>(blankForm())
+  const [values, setValues] = useState<LeadFormValues>(() => blankForm(mode === 'create' && user?.role === 'LEADER' ? user.id : undefined))
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [touched, setTouched] = useState<Record<string, boolean>>({})
   const { data: sources = [] } = useLeadSources()
