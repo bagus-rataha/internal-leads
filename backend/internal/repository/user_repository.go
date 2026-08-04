@@ -70,8 +70,8 @@ func (r *UserRepository) ListWithFilter(role, teamID string) ([]models.User, err
 	q := r.db.Model(&models.User{})
 	if role != "" {
 		var roles []string
-		for _, r := range strings.Split(role, ",") {
-			if trimmed := strings.TrimSpace(r); trimmed != "" {
+		for _, part := range strings.Split(role, ",") {
+			if trimmed := strings.TrimSpace(part); trimmed != "" {
 				roles = append(roles, trimmed)
 			}
 		}
