@@ -312,7 +312,8 @@ func (s *DashboardService) SalesActivity(callerID uuid.UUID, role string, q dto.
 		return nil, err
 	}
 
-	rosterQuery := s.db.Model(&models.User{}).Where("role = 'SALES' AND is_active = true")
+	// Leaders also own leads, so include them alongside SALES in the activity roster
+	rosterQuery := s.db.Model(&models.User{}).Where("role IN ('SALES','LEADER') AND is_active = true")
 	if scope.TeamID != nil {
 		rosterQuery = rosterQuery.Where("team_id = ?", *scope.TeamID)
 	}

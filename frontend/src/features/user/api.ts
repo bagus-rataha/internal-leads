@@ -5,19 +5,11 @@ import type { components } from '@/api/types'
 
 export type UserResponse = components['schemas']['dto.UserResponse']
 
-export async function fetchSalesUsers(): Promise<UserResponse[]> {
-  const res = await apiFetch('/api/v1/users?role=SALES')
-  if (!res.ok) {
-    throw new Error('Failed to load sales users')
-  }
-  let body: { data?: UserResponse[] }
-  try {
-    body = await res.json()
-  } catch {
-    throw new Error('Failed to load sales users')
-  }
-  return body?.data ?? []
-}
+// Roles eligible to own a lead: both SALES and LEADER can be a lead's
+// owner_id (see resolveOwnerID's role rule), so any owner-picking dropdown
+// (dashboard filters, lead list, reassign) fetches this combined roster
+// rather than SALES alone.
+export const LEAD_OWNER_ROLES = 'SALES,LEADER'
 
 export type CreateUserInput = components['schemas']['dto.CreateUserInput']
 export type UpdateUserInput = components['schemas']['dto.UpdateUserInput']

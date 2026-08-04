@@ -1502,7 +1502,7 @@ paths:
   /users:
     get:
       parameters:
-      - description: Filter by role
+      - description: Filter by role; comma-separated for multiple (e.g. SALES,LEADER)
         in: query
         name: role
         type: string

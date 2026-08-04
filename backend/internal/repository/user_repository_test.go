@@ -158,20 +158,47 @@ func TestUserRepository_ListWithFilter(t *testing.T) {
 
 	db.Create(&models.User{Email: "sales@test.com", Password: "h", Name: "Sales", Role: "SALES", TeamID: &team.ID})
 	db.Create(&models.User{Email: "su@test.com", Password: "h", Name: "SU", Role: "SU"})
+	db.Create(&models.User{Email: "leader@test.com", Password: "h", Name: "Leader", Role: "LEADER", TeamID: &team.ID})
 
+	// Test single role (regression: existing behavior must not change)
 	byRole, err := repo.ListWithFilter("SALES", "")
 	assert.NoError(t, err)
-	assert.Len(t, byRole, 1)
+	require.Len(t, byRole, 1)
 	assert.Equal(t, "sales@test.com", byRole[0].Email)
 
+	// Test comma-separated roles
+	byMultipleRoles, err := repo.ListWithFilter("SALES,LEADER", "")
+	assert.NoError(t, err)
+	require.Len(t, byMultipleRoles, 2)
+	emails := map[string]bool{byMultipleRoles[0].Email: true, byMultipleRoles[1].Email: true}
+	assert.True(t, emails["sales@test.com"])
+	assert.True(t, emails["leader@test.com"])
+
+	// Test comma-separated roles with whitespace and empty elements
+	byMultipleRolesWithSpaces, err := repo.ListWithFilter("SALES, ,LEADER", "")
+	assert.NoError(t, err)
+	require.Len(t, byMultipleRolesWithSpaces, 2)
+	emailsWithSpaces := map[string]bool{byMultipleRolesWithSpaces[0].Email: true, byMultipleRolesWithSpaces[1].Email: true}
+	assert.True(t, emailsWithSpaces["sales@test.com"])
+	assert.True(t, emailsWithSpaces["leader@test.com"])
+
+	// Test comma-only (all empty elements, no role filter applied)
+	noRoleFilter, err := repo.ListWithFilter(",", "")
+	assert.NoError(t, err)
+	assert.Len(t, noRoleFilter, 3)
+
+	// Test by team (existing regression check)
 	byTeam, err := repo.ListWithFilter("", team.ID.String())
 	assert.NoError(t, err)
-	assert.Len(t, byTeam, 1)
-	assert.Equal(t, "sales@test.com", byTeam[0].Email)
+	require.Len(t, byTeam, 2)
+	teamEmails := map[string]bool{byTeam[0].Email: true, byTeam[1].Email: true}
+	assert.True(t, teamEmails["sales@test.com"])
+	assert.True(t, teamEmails["leader@test.com"])
 
+	// Test no filters (existing regression check)
 	all, err := repo.ListWithFilter("", "")
 	assert.NoError(t, err)
-	assert.Len(t, all, 2)
+	assert.Len(t, all, 3)
 }
 
 func TestUserRepository_CountActiveByOwner(t *testing.T) {

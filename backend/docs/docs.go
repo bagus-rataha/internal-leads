@@ -1325,7 +1325,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Filter by role",
+                        "description": "Filter by role; comma-separated for multiple (e.g. SALES,LEADER)",
                         "name": "role",
                         "in": "query"
                     },
