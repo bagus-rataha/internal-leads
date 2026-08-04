@@ -504,7 +504,7 @@ export default function LeadDetailPage() {
           onChange={(e) => setReassignTo(e.target.value)}
           className="h-[42px] w-full rounded-[9px] border border-[#CBD5E1] px-3 text-[13.5px] text-[#0F172A] outline-none"
         >
-          <option value="">Pilih sales…</option>
+          <option value="">Pilih owner…</option>
           {(salesRoster ?? []).map((u) => (
             <option key={u.id} value={u.id}>
               {u.name} ({roleLabel(u.role)})
