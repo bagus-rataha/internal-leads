@@ -6,7 +6,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/auth/AuthContext'
 import { fetchTeams, type TeamResponse } from '@/features/team/api'
-import { fetchSalesUsers, type UserResponse } from '@/features/user/api'
+import { fetchUsers, LEAD_OWNER_ROLES, type UserResponse } from '@/features/user/api'
 import {
   useDashboardSummary,
   useDashboardActivity,
@@ -59,7 +59,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!showSalesWidget) return
-    fetchSalesUsers()
+    fetchUsers(LEAD_OWNER_ROLES)
       .then(setSalesUsers)
       .catch(() => {
         // Same degrade-quietly approach.

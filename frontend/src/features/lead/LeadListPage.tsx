@@ -8,7 +8,7 @@ import type { DateRange } from 'react-day-picker'
 import { useAuth } from '@/auth/AuthContext'
 import { useLeads } from './useLeads'
 import { getLeadSources } from './refCache'
-import { fetchTeams, fetchSalesUsers, downloadBlob, ExportTooManyRowsError, type LeadListParams, type LeadSourceResponse, type LeadStatus, type LeadResponse, type TeamResponse, type UserResponse } from './api'
+import { fetchTeams, fetchUsers, LEAD_OWNER_ROLES, downloadBlob, ExportTooManyRowsError, type LeadListParams, type LeadSourceResponse, type LeadStatus, type LeadResponse, type TeamResponse, type UserResponse } from './api'
 import { useExportLeads } from './queries'
 import { Modal } from '@/components/ui/modal'
 import { showToast } from '@/hooks/useToast'
@@ -575,7 +575,7 @@ export default function LeadListPage() {
   // scope it usefully for them anyway) — skip the fetch too.
   useEffect(() => {
     if (!showSalesFilter) return
-    fetchSalesUsers()
+    fetchUsers(LEAD_OWNER_ROLES)
       .then(setSalesUsers)
       .catch(() => {
         // Same degrade-quietly approach as the sources fetch above.

@@ -8,7 +8,8 @@ import {
   createFollowUp,
   updateLeadStatus,
   reassignOwner,
-  fetchSalesUsers,
+  fetchUsers,
+  LEAD_OWNER_ROLES,
   createLead,
   updateLead,
   exportLeads,
@@ -38,7 +39,11 @@ export function useFollowUps(code: string) {
 // enabled: false until the reassign UI is actually opened - no reason to
 // fetch the sales roster before anyone asks to reassign.
 export function useSalesRoster(enabled: boolean) {
-  return useQuery({ queryKey: ['users', 'SALES'], queryFn: fetchSalesUsers, enabled })
+  return useQuery({
+    queryKey: ['users', 'lead-owners'],
+    queryFn: () => fetchUsers(LEAD_OWNER_ROLES),
+    enabled,
+  })
 }
 
 export function useCreateFollowUp(code: string) {

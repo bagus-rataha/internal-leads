@@ -7,7 +7,7 @@ import type { components } from '@/api/types'
 export type { TeamResponse } from '@/features/team/api'
 export type { UserResponse } from '@/features/user/api'
 export { fetchTeams } from '@/features/team/api'
-export { fetchSalesUsers } from '@/features/user/api'
+export { fetchUsers, LEAD_OWNER_ROLES } from '@/features/user/api'
 
 export type PaginatedLeadResponse = components['schemas']['dto.PaginatedLeadResponse']
 export type LeadSourceResponse = components['schemas']['dto.LeadSourceResponse']
