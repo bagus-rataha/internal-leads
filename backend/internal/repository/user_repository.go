@@ -2,6 +2,7 @@ package repository
 
 import (
 	"fiber-api-boilerplate/internal/models"
+	"strings"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -58,14 +59,25 @@ func (r *UserRepository) List() ([]models.User, error) {
 }
 
 // ListWithFilter returns users optionally narrowed by role and/or team_id.
-// Empty string means "no filter" for that field. This is query-param
-// narrowing for the admin user list, not the lead ownership scoping that
-// belongs to the Lead module.
+// Empty string means "no filter" for that field.
+// The role parameter accepts comma-separated values (e.g. "SALES,LEADER"),
+// which are split, trimmed, and filtered empty — if any remain, they're used
+// as an IN clause. Empty strings or all-whitespace input results in no role filter.
+// This is query-param narrowing for the admin user list, not the lead ownership
+// scoping that belongs to the Lead module.
 func (r *UserRepository) ListWithFilter(role, teamID string) ([]models.User, error) {
 	var users []models.User
 	q := r.db.Model(&models.User{})
 	if role != "" {
-		q = q.Where("role = ?", role)
+		var roles []string
+		for _, r := range strings.Split(role, ",") {
+			if trimmed := strings.TrimSpace(r); trimmed != "" {
+				roles = append(roles, trimmed)
+			}
+		}
+		if len(roles) > 0 {
+			q = q.Where("role IN ?", roles)
+		}
 	}
 	if teamID != "" {
 		q = q.Where("team_id = ?", teamID)
