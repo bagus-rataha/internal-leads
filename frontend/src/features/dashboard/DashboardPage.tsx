@@ -78,13 +78,15 @@ export default function DashboardPage() {
     date_to: toLocalDateString(dateTo),
     team_id: teamId || undefined,
     owner_id: ownerId || undefined,
-    status: status || undefined,
   }
+  // Only Summary and SalesActivity read `status` server-side (see dashboard_service.go) -
+  // the other three ignore it, so they stay on `params` to avoid refetching on every status change.
+  const paramsWithStatus = { ...params, status: status || undefined }
 
-  const summary = useDashboardSummary(params)
+  const summary = useDashboardSummary(paramsWithStatus)
   const activity = useDashboardActivity(params)
   const staleLeads = useDashboardStaleLeads(params)
-  const salesActivity = useDashboardSalesActivity(params, showSalesWidget)
+  const salesActivity = useDashboardSalesActivity(paramsWithStatus, showSalesWidget)
   const segments = useDashboardSegments(params)
 
   const scopeLabel =
