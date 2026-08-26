@@ -8,6 +8,7 @@ import { useAuth } from '@/auth/AuthContext'
 import { roleLabel } from '@/lib/roles'
 import { fetchTeams, type TeamResponse } from '@/features/team/api'
 import { fetchUsers, LEAD_OWNER_ROLES, type UserResponse } from '@/features/user/api'
+import { STATUS_CONFIG } from '@/features/lead/shared'
 import {
   useDashboardSummary,
   useDashboardActivity,
@@ -15,7 +16,7 @@ import {
   useDashboardSalesActivity,
   useDashboardSegments,
 } from './queries'
-import { MetricCards, FunnelCard } from './SummaryWidgets'
+import { MetricCards, FunnelCard, ForecastCard } from './SummaryWidgets'
 import { TrendChart } from './TrendChart'
 import { StaleLeadsCard, SalesActivityCard } from './StaleAndSalesTables'
 import { SegmentsSection } from './SegmentsSection'
@@ -46,6 +47,7 @@ export default function DashboardPage() {
   const [rangeDays, setRangeDays] = useState(30)
   const [teamId, setTeamId] = useState('')
   const [ownerId, setOwnerId] = useState('')
+  const [status, setStatus] = useState('')
   const [teams, setTeams] = useState<TeamResponse[]>([])
   const [salesUsers, setSalesUsers] = useState<UserResponse[]>([])
 
@@ -76,6 +78,7 @@ export default function DashboardPage() {
     date_to: toLocalDateString(dateTo),
     team_id: teamId || undefined,
     owner_id: ownerId || undefined,
+    status: status || undefined,
   }
 
   const summary = useDashboardSummary(params)
@@ -105,6 +108,17 @@ export default function DashboardPage() {
               {RANGE_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
                   {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className={FILTER_LABEL_CLASSNAME}>Status (forecast)</label>
+            <select value={status} onChange={(e) => setStatus(e.target.value)} className={SELECT_CLASSNAME}>
+              <option value="">Semua status</option>
+              {Object.entries(STATUS_CONFIG).map(([value, cfg]) => (
+                <option key={value} value={value}>
+                  {cfg.label}
                 </option>
               ))}
             </select>
@@ -139,6 +153,12 @@ export default function DashboardPage() {
       </div>
 
       <MetricCards summary={summary.data} loading={summary.isLoading} compareLabel={`vs ${rangeDays} hari sebelumnya`} />
+
+      <ForecastCard
+        summary={summary.data}
+        loading={summary.isLoading}
+        statusLabel={status ? (STATUS_CONFIG[status]?.label ?? status) : 'Semua status'}
+      />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[360px_1fr]">
         <FunnelCard summary={summary.data} loading={summary.isLoading} />

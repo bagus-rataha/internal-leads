@@ -18,6 +18,7 @@ export interface DashboardQueryParams {
   date_to: string
   team_id?: string
   owner_id?: string
+  status?: string
 }
 
 function buildDashboardQuery(params: DashboardQueryParams): string {
