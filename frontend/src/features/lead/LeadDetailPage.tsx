@@ -344,6 +344,7 @@ export default function LeadDetailPage() {
                 <DataRow label="Kapasitas" value={<span className="font-mono">{lead.capacity_mbps ? `${lead.capacity_mbps} Mbps` : '—'}</span>} />
                 <DataRow label="ISP Eksisting" value={lead.existing_isp ?? '—'} />
                 <DataRow label="Harga" value={<span className="font-mono">{lead.price ? `Rp ${lead.price.toLocaleString('id-ID')}` : '—'}</span>} />
+                <DataRow label="Forecast MRR" value={<span className="font-mono">{lead.forecast_mrr ? `Rp ${lead.forecast_mrr.toLocaleString('id-ID')}` : '—'}</span>} />
                 <DataRow label="Layanan Lainnya" last value={lead.other_services ?? '—'} />
               </>
             ) : (

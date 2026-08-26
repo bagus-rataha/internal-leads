@@ -37,6 +37,7 @@ export interface LeadFormValues {
   capacity_mbps: string
   existing_isp: string
   price: string
+  forecast_mrr: string
   other_services: string
   lead_source_id: string
   owner_id: string
@@ -47,7 +48,7 @@ export function blankForm(defaultOwnerId?: string): LeadFormValues {
     company_name: '', business_field: '', website: '', address: {},
     rt: '', rw: '', street: '', pic_name: '', pic_position: '',
     office_phone: '', mobile_phone: '', email: '', service_type_id: '',
-    capacity_mbps: '', existing_isp: '', price: '', other_services: '',
+    capacity_mbps: '', existing_isp: '', price: '', forecast_mrr: '', other_services: '',
     lead_source_id: '', owner_id: defaultOwnerId ?? '',
   }
 }
@@ -88,6 +89,7 @@ function fromDetail(d: LeadDetailResponse): LeadFormValues {
     capacity_mbps: d.capacity_mbps != null ? String(d.capacity_mbps) : '',
     existing_isp: d.existing_isp ?? '',
     price: d.price != null ? String(d.price) : '',
+    forecast_mrr: d.forecast_mrr != null ? String(d.forecast_mrr) : '',
     other_services: d.other_services ?? '',
     lead_source_id: d.lead_source_id ?? '',
     owner_id: d.owner_id ?? '',
@@ -141,6 +143,7 @@ export function buildLeadPayload(v: LeadFormValues, includeOwner: boolean): Crea
     capacity_mbps: n(v.capacity_mbps),
     existing_isp: s(v.existing_isp),
     price: n(v.price),
+    forecast_mrr: n(v.forecast_mrr),
     other_services: s(v.other_services),
     lead_source_id: s(v.lead_source_id),
     ...(includeOwner && v.owner_id ? { owner_id: v.owner_id } : {}),
@@ -185,6 +188,7 @@ const ALL_FIELDS: FieldName[] = [
   'email',
   'capacity_mbps',
   'price',
+  'forecast_mrr',
   'lead_source_id',
   'owner_id',
 ]
@@ -238,6 +242,12 @@ function validateField(
     }
     case 'price': {
       const v = values.price.trim()
+      if (!v) return undefined
+      const num = Number(v)
+      return Number.isFinite(num) && num >= 0 ? undefined : 'Tidak boleh negatif'
+    }
+    case 'forecast_mrr': {
+      const v = values.forecast_mrr.trim()
       if (!v) return undefined
       const num = Number(v)
       return Number.isFinite(num) && num >= 0 ? undefined : 'Tidak boleh negatif'
@@ -792,6 +802,21 @@ export default function LeadFormPage() {
               />
               {touched.price && errors.price && (
                 <p className="mt-1 text-[11px] text-[#DC2626]">{errors.price}</p>
+              )}
+            </div>
+            <div>
+              <label className={FIELD_LABEL}>Forecast Pendapatan (MRR)</label>
+              <input
+                id="forecast_mrr"
+                type="number"
+                value={values.forecast_mrr}
+                onChange={(e) => change('forecast_mrr', e.target.value)}
+                onBlur={() => blur('forecast_mrr')}
+                placeholder="5000000"
+                className={errClass(FIELD_INPUT_MONO, touched.forecast_mrr && !!errors.forecast_mrr)}
+              />
+              {touched.forecast_mrr && errors.forecast_mrr && (
+                <p className="mt-1 text-[11px] text-[#DC2626]">{errors.forecast_mrr}</p>
               )}
             </div>
             <div className="lg:col-span-2">
