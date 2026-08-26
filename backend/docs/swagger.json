@@ -1733,6 +1733,10 @@
                     "type": "string",
                     "maxLength": 100
                 },
+                "forecast_mrr": {
+                    "type": "number",
+                    "minimum": 0
+                },
                 "lead_source_id": {
                     "type": "string"
                 },
@@ -1953,6 +1957,9 @@
                 },
                 "terlantar": {
                     "$ref": "#/definitions/dto.MetricCard"
+                },
+                "total_forecast_mrr": {
+                    "type": "number"
                 }
             }
         },
@@ -2091,6 +2098,9 @@
                 "follow_up_count": {
                     "type": "integer"
                 },
+                "forecast_mrr": {
+                    "type": "number"
+                },
                 "id": {
                     "type": "string"
                 },
@@ -2215,6 +2225,9 @@
                 },
                 "follow_up_count": {
                     "type": "integer"
+                },
+                "forecast_mrr": {
+                    "type": "number"
                 },
                 "id": {
                     "type": "string"
@@ -2432,6 +2445,9 @@
                 "follow_up": {
                     "type": "integer"
                 },
+                "forecast_mrr": {
+                    "type": "number"
+                },
                 "handoff": {
                     "type": "integer"
                 },
@@ -2575,6 +2591,10 @@
                 "existing_isp": {
                     "type": "string",
                     "maxLength": 100
+                },
+                "forecast_mrr": {
+                    "type": "number",
+                    "minimum": 0
                 },
                 "lead_source_id": {
                     "type": "string"

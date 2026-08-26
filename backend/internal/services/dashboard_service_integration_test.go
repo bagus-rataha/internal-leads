@@ -206,6 +206,71 @@ func TestDashboardSegments_HighVolumeLowConversion_WarnFlagSet(t *testing.T) {
 	}
 }
 
+func TestDashboardSummary_ForecastMrr_SummedAcrossAllStatusesIncludingLost(t *testing.T) {
+	db := setupServiceTestDB(t)
+	userRepo := repository.NewUserRepository(db)
+	svc := NewDashboardService(db, userRepo)
+
+	adminID := uuid.Must(uuid.NewV7())
+	require.NoError(t, db.Create(&models.User{BaseModel: models.BaseModel{ID: adminID}, Email: "forecast-dash@test.local", Password: "h", Name: "Admin", Role: "SU", IsActive: true}).Error)
+
+	f1, f2 := 1000000.0, 2000000.0
+	require.NoError(t, db.Create(&models.Lead{Code: "LD-2607-0010", OwnerID: adminID, CreatedByID: adminID, CompanyName: "Live", Status: "FOLLOW_UP", ForecastMrr: &f1}).Error)
+	require.NoError(t, db.Create(&models.Lead{Code: "LD-2607-0011", OwnerID: adminID, CreatedByID: adminID, CompanyName: "Lost deal", Status: "LOST", LostReason: strPtrSvc("no budget"), ForecastMrr: &f2}).Error)
+
+	now := time.Now()
+	q := dto.DashboardQuery{DateFrom: now.AddDate(0, 0, -1), DateTo: now.AddDate(0, 0, 1)}
+	result, err := svc.Summary(adminID, "SU", q)
+
+	require.NoError(t, err)
+	assert.Equal(t, f1+f2, result.TotalForecastMrr, "LOST leads must still count toward the total per the user's explicit choice")
+}
+
+func TestDashboardSummary_ForecastMrr_StatusFilterNarrowsOnlyForecast(t *testing.T) {
+	db := setupServiceTestDB(t)
+	userRepo := repository.NewUserRepository(db)
+	svc := NewDashboardService(db, userRepo)
+
+	adminID := uuid.Must(uuid.NewV7())
+	require.NoError(t, db.Create(&models.User{BaseModel: models.BaseModel{ID: adminID}, Email: "forecast-filter@test.local", Password: "h", Name: "Admin", Role: "SU", IsActive: true}).Error)
+
+	f1, f2 := 1000000.0, 2000000.0
+	require.NoError(t, db.Create(&models.Lead{Code: "LD-2607-0012", OwnerID: adminID, CreatedByID: adminID, CompanyName: "Live", Status: "FOLLOW_UP", ForecastMrr: &f1}).Error)
+	require.NoError(t, db.Create(&models.Lead{Code: "LD-2607-0013", OwnerID: adminID, CreatedByID: adminID, CompanyName: "Lost deal", Status: "LOST", LostReason: strPtrSvc("no budget"), ForecastMrr: &f2}).Error)
+
+	now := time.Now()
+	status := "FOLLOW_UP"
+	q := dto.DashboardQuery{DateFrom: now.AddDate(0, 0, -1), DateTo: now.AddDate(0, 0, 1), Status: &status}
+	result, err := svc.Summary(adminID, "SU", q)
+
+	require.NoError(t, err)
+	assert.Equal(t, f1, result.TotalForecastMrr, "status filter narrows the forecast sum to FOLLOW_UP only")
+	assert.Equal(t, int64(2), result.LeadBaru.Value, "the status filter must NOT narrow lead_baru - both leads were created in-window regardless of status")
+}
+
+func TestDashboardSalesActivity_ForecastMrr_SummedPerOwner(t *testing.T) {
+	db := setupServiceTestDB(t)
+	userRepo := repository.NewUserRepository(db)
+	svc := NewDashboardService(db, userRepo)
+
+	teamID := uuid.Must(uuid.NewV7())
+	require.NoError(t, db.Create(&models.SalesTeam{BaseModel: models.BaseModel{ID: teamID}, Name: "Team Forecast", IsActive: true}).Error)
+	salesID := uuid.Must(uuid.NewV7())
+	require.NoError(t, db.Create(&models.User{BaseModel: models.BaseModel{ID: salesID}, Email: "sales-forecast@test.local", Password: "h", Name: "Sales F", Role: "SALES", TeamID: &teamID, IsActive: true}).Error)
+
+	f1, f2 := 1500000.0, 2500000.0
+	require.NoError(t, db.Create(&models.Lead{Code: "LD-2607-0014", OwnerID: salesID, CreatedByID: salesID, CompanyName: "A", Status: "FOLLOW_UP", ForecastMrr: &f1}).Error)
+	require.NoError(t, db.Create(&models.Lead{Code: "LD-2607-0015", OwnerID: salesID, CreatedByID: salesID, CompanyName: "B", Status: "LOST", LostReason: strPtrSvc("no budget"), ForecastMrr: &f2}).Error)
+
+	now := time.Now()
+	q := dto.DashboardQuery{DateFrom: now.AddDate(0, 0, -1), DateTo: now.AddDate(0, 0, 1)}
+	result, err := svc.SalesActivity(salesID, "SALES", q)
+
+	require.NoError(t, err)
+	require.Len(t, result.Items, 1)
+	assert.Equal(t, f1+f2, result.Items[0].ForecastMrr)
+}
+
 func TestDashboardSalesActivity_LeaderInRosterAndFilterable(t *testing.T) {
 	db := setupServiceTestDB(t)
 	userRepo := repository.NewUserRepository(db)

@@ -73,6 +73,14 @@ func parseDashboardQuery(c *fiber.Ctx) (dto.DashboardQuery, error) {
 		}
 		q.OwnerID = &id
 	}
+	if v := c.Query("status"); v != "" {
+		switch v {
+		case "BARU", "FOLLOW_UP", "HANDOFF_ODOO", "LOST":
+			q.Status = &v
+		default:
+			return q, errors.New("status must be one of BARU, FOLLOW_UP, HANDOFF_ODOO, LOST")
+		}
+	}
 
 	return q, nil
 }

@@ -54,3 +54,30 @@ func TestDashboardSummary_NoDateParams_DefaultsAndCallsService(t *testing.T) {
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 	svc.AssertCalled(t, "Summary", userID, "SALES", mock.AnythingOfType("dto.DashboardQuery"))
 }
+
+func TestDashboardSummary_InvalidStatus_Rejected(t *testing.T) {
+	svc := new(MockDashboardService)
+	app := newDashboardTestApp(svc, uuid.Must(uuid.NewV7()), "SALES")
+
+	req := httptest.NewRequest("GET", "/dashboard/summary?status=NOT_A_STATUS", nil)
+	resp, err := app.Test(req)
+
+	assert.NoError(t, err)
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+	svc.AssertNotCalled(t, "Summary")
+}
+
+func TestDashboardSummary_ValidStatus_ParsedAndCallsService(t *testing.T) {
+	svc := new(MockDashboardService)
+	userID := uuid.Must(uuid.NewV7())
+	svc.On("Summary", userID, "SALES", mock.MatchedBy(func(q dto.DashboardQuery) bool {
+		return q.Status != nil && *q.Status == "FOLLOW_UP"
+	})).Return(&dto.DashboardSummaryResponse{}, nil)
+	app := newDashboardTestApp(svc, userID, "SALES")
+
+	req := httptest.NewRequest("GET", "/dashboard/summary?status=FOLLOW_UP", nil)
+	resp, err := app.Test(req)
+
+	assert.NoError(t, err)
+	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
+}

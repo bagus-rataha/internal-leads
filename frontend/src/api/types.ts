@@ -1574,6 +1574,7 @@ export interface components {
             district_id?: number;
             email?: string;
             existing_isp?: string;
+            forecast_mrr?: number;
             lead_source_id?: string;
             mobile_phone?: string;
             office_phone?: string;
@@ -1631,6 +1632,7 @@ export interface components {
             handoff?: components["schemas"]["dto.MetricCard"];
             lead_baru?: components["schemas"]["dto.MetricCard"];
             terlantar?: components["schemas"]["dto.MetricCard"];
+            total_forecast_mrr?: number;
         };
         "dto.DeactivateUserInput": {
             reassign_to_user_id?: string;
@@ -1678,6 +1680,7 @@ export interface components {
             email?: string;
             existing_isp?: string;
             follow_up_count?: number;
+            forecast_mrr?: number;
             id?: string;
             is_stale?: boolean;
             last_follow_up_at?: string;
@@ -1720,6 +1723,7 @@ export interface components {
             email?: string;
             existing_isp?: string;
             follow_up_count?: number;
+            forecast_mrr?: number;
             id?: string;
             is_stale?: boolean;
             last_follow_up_at?: string;
@@ -1792,6 +1796,7 @@ export interface components {
             avg_fu_per_lead?: number;
             conv_pct?: number;
             follow_up?: number;
+            forecast_mrr?: number;
             handoff?: number;
             last_activity?: string;
             lead_baru?: number;
@@ -1841,6 +1846,7 @@ export interface components {
             district_id?: number;
             email?: string;
             existing_isp?: string;
+            forecast_mrr?: number;
             lead_source_id?: string;
             mobile_phone?: string;
             office_phone?: string;

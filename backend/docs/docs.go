@@ -1739,6 +1739,10 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 100
                 },
+                "forecast_mrr": {
+                    "type": "number",
+                    "minimum": 0
+                },
                 "lead_source_id": {
                     "type": "string"
                 },
@@ -1959,6 +1963,9 @@ const docTemplate = `{
                 },
                 "terlantar": {
                     "$ref": "#/definitions/dto.MetricCard"
+                },
+                "total_forecast_mrr": {
+                    "type": "number"
                 }
             }
         },
@@ -2097,6 +2104,9 @@ const docTemplate = `{
                 "follow_up_count": {
                     "type": "integer"
                 },
+                "forecast_mrr": {
+                    "type": "number"
+                },
                 "id": {
                     "type": "string"
                 },
@@ -2221,6 +2231,9 @@ const docTemplate = `{
                 },
                 "follow_up_count": {
                     "type": "integer"
+                },
+                "forecast_mrr": {
+                    "type": "number"
                 },
                 "id": {
                     "type": "string"
@@ -2438,6 +2451,9 @@ const docTemplate = `{
                 "follow_up": {
                     "type": "integer"
                 },
+                "forecast_mrr": {
+                    "type": "number"
+                },
                 "handoff": {
                     "type": "integer"
                 },
@@ -2581,6 +2597,10 @@ const docTemplate = `{
                 "existing_isp": {
                     "type": "string",
                     "maxLength": 100
+                },
+                "forecast_mrr": {
+                    "type": "number",
+                    "minimum": 0
                 },
                 "lead_source_id": {
                     "type": "string"
