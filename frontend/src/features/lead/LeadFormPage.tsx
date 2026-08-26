@@ -159,6 +159,71 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const WEBSITE_RE = /^(https?:\/\/)?([a-z0-9-]+\.)+[a-z]{2,}(\/\S*)?$/i
 const RTRW_RE = /^\d{1,4}$/
 
+const PRESET_OTHER = 'Lainnya'
+
+// Researched via web search (not the sales team's own field data) - see
+// .superpowers/specs/2026-08-26-forecast-followup-owner-isp-preset-design.md
+// section 3. Swap freely if the actual competitors differ.
+const ISP_PRESETS = [
+  'Telkom Indonesia (IndiHome/IndiBiz/Astinet)',
+  'Biznet',
+  'Lintasarta',
+  'Indosat Business (IOH)',
+  'XL Axiata Business',
+  'Iconnet (PLN Icon Plus)',
+  'MyRepublic',
+  'Moratelindo (Oxygen.id Business)',
+  'CBN',
+  'iForte',
+  'First Media',
+  'MNC Play',
+  'Indonet',
+  'Primacom (PRIMALINKnet)',
+  'Telkomsel Enterprise',
+  'Starlink Business',
+  'Corbec Communication',
+  'Melvar Lintasbuana',
+  'GTN (Graha Teknologi Nusantara)',
+  'Skynindo',
+] as const
+
+// Sourced from KBLI 2025 (BPS's official business-field classification, 21
+// top-level categories), curated to 19 - dropped "Aktivitas Rumah Tangga
+// sebagai Pemberi Kerja" and "Aktivitas Badan Internasional", both
+// essentially never a corporate-ISP lead. See spec section 3 for sources.
+const BUSINESS_FIELD_PRESETS = [
+  'Pertanian, Kehutanan & Perikanan',
+  'Pertambangan & Penggalian',
+  'Manufaktur (Industri Pengolahan)',
+  'Listrik, Gas & Energi',
+  'Pengelolaan Air & Limbah',
+  'Konstruksi',
+  'Perdagangan Besar & Eceran (Retail)',
+  'Transportasi & Pergudangan (Logistik)',
+  'Akomodasi & Makanan Minuman (Hospitality/F&B)',
+  'Informasi & Komunikasi (IT/Telekomunikasi)',
+  'Jasa Keuangan & Asuransi',
+  'Real Estat & Properti',
+  'Jasa Profesional, Ilmiah & Teknis (Konsultan/Hukum/Akuntansi)',
+  'Jasa Persewaan & Sewa Guna Usaha',
+  'Administrasi Pemerintahan',
+  'Pendidikan',
+  'Kesehatan & Aktivitas Sosial',
+  'Kesenian, Hiburan & Rekreasi',
+  'Jasa Lainnya',
+] as const
+
+// Derives a preset dropdown's selection from the actual stored value: a
+// preset match selects that preset, any other non-empty value (including
+// legacy free-text data from before this dropdown existed) selects
+// "Lainnya" with the text fallback pre-filled, and an empty value selects
+// nothing. Shared by both existing_isp and business_field - same logic,
+// different preset arrays.
+function presetSelectionFor(value: string, presets: readonly string[]): string {
+  if (value === '') return ''
+  return presets.includes(value) ? value : PRESET_OTHER
+}
+
 function phoneError(national: string, required: boolean): string | undefined {
   const v = national.trim()
   if (!v) return required ? 'Wajib diisi' : undefined
@@ -346,6 +411,10 @@ export default function LeadFormPage() {
   const [values, setValues] = useState<LeadFormValues>(() => blankForm(mode === 'create' && user?.role === 'LEADER' ? user.id : undefined))
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [touched, setTouched] = useState<Record<string, boolean>>({})
+  const [ispSelection, setIspSelection] = useState(() => presetSelectionFor(values.existing_isp, ISP_PRESETS))
+  const [bizFieldSelection, setBizFieldSelection] = useState(() =>
+    presetSelectionFor(values.business_field, BUSINESS_FIELD_PRESETS),
+  )
   const { data: sources = [] } = useLeadSources()
   const { data: serviceTypes = [] } = useServiceTypes()
   const showOwnerField = user?.role !== 'SALES'
@@ -366,7 +435,10 @@ export default function LeadFormPage() {
       navigate('/leads/' + code, { replace: true })
       return
     }
-    setValues(fromDetail(detail.data))
+    const next = fromDetail(detail.data)
+    setValues(next)
+    setIspSelection(presetSelectionFor(next.existing_isp, ISP_PRESETS))
+    setBizFieldSelection(presetSelectionFor(next.business_field, BUSINESS_FIELD_PRESETS))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [detail.data?.id])
 
@@ -501,15 +573,40 @@ export default function LeadFormPage() {
               <label className={FIELD_LABEL}>
                 Bidang Usaha <RequiredMark />
               </label>
-              <input
-                id="business_field"
-                required
-                value={values.business_field}
-                onChange={(e) => change('business_field', e.target.value)}
-                onBlur={() => blur('business_field')}
-                placeholder="mis. Manufaktur"
-                className={errClass(FIELD_INPUT, touched.business_field && !!errors.business_field)}
-              />
+              <div className="relative">
+                <select
+                  id="business_field"
+                  required
+                  value={bizFieldSelection}
+                  onChange={(e) => {
+                    const v = e.target.value
+                    setBizFieldSelection(v)
+                    if (v !== PRESET_OTHER) change('business_field', v)
+                  }}
+                  onBlur={() => blur('business_field')}
+                  className={errClass(FIELD_SELECT, touched.business_field && !!errors.business_field)}
+                >
+                  <option value="">Pilih…</option>
+                  {BUSINESS_FIELD_PRESETS.map((bf) => (
+                    <option key={bf} value={bf}>
+                      {bf}
+                    </option>
+                  ))}
+                  <option value={PRESET_OTHER}>{PRESET_OTHER}</option>
+                </select>
+                <SelectChevron />
+              </div>
+              {bizFieldSelection === PRESET_OTHER && (
+                <input
+                  value={values.business_field}
+                  onChange={(e) => change('business_field', e.target.value)}
+                  onBlur={() => blur('business_field')}
+                  placeholder="Tulis bidang usaha"
+                  className={
+                    errClass(FIELD_INPUT, touched.business_field && !!errors.business_field) + ' mt-2'
+                  }
+                />
+              )}
               {touched.business_field && errors.business_field && (
                 <p className="mt-1 text-[11px] text-[#DC2626]">{errors.business_field}</p>
               )}
@@ -782,12 +879,34 @@ export default function LeadFormPage() {
             </div>
             <div>
               <label className={FIELD_LABEL}>ISP Eksisting</label>
-              <input
-                value={values.existing_isp}
-                onChange={(e) => set('existing_isp', e.target.value)}
-                placeholder="mis. Telkom IndiHome"
-                className={FIELD_INPUT}
-              />
+              <div className="relative">
+                <select
+                  value={ispSelection}
+                  onChange={(e) => {
+                    const v = e.target.value
+                    setIspSelection(v)
+                    if (v !== PRESET_OTHER) set('existing_isp', v)
+                  }}
+                  className={FIELD_SELECT}
+                >
+                  <option value="">Pilih…</option>
+                  {ISP_PRESETS.map((isp) => (
+                    <option key={isp} value={isp}>
+                      {isp}
+                    </option>
+                  ))}
+                  <option value={PRESET_OTHER}>{PRESET_OTHER}</option>
+                </select>
+                <SelectChevron />
+              </div>
+              {ispSelection === PRESET_OTHER && (
+                <input
+                  value={values.existing_isp}
+                  onChange={(e) => set('existing_isp', e.target.value)}
+                  placeholder="Tulis nama ISP"
+                  className={FIELD_INPUT + ' mt-2'}
+                />
+              )}
             </div>
             <div>
               <label className={FIELD_LABEL}>Harga / bulan</label>
