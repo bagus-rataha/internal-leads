@@ -73,6 +73,45 @@ func TestLeadCreate_Sales_OwnerForcedToSelf(t *testing.T) {
 	userRepo.AssertNumberOfCalls(t, "FindByID", 1)
 }
 
+func TestLeadCreate_ForecastMrrPassedThrough(t *testing.T) {
+	leadRepo := new(MockLeadRepository)
+	userRepo := new(MockUserRepository)
+	salesID := uuid.Must(uuid.NewV7())
+	forecast := 5000000.0
+
+	userRepo.On("FindByID", salesID).Return(&models.User{Name: "Sales Person"}, nil)
+	leadRepo.On("NextCode", mock.AnythingOfType("time.Time")).Return("LD-2607-0002", nil)
+	leadRepo.On("Create", mock.AnythingOfType("*models.Lead")).Run(func(args mock.Arguments) {
+		lead := args.Get(0).(*models.Lead)
+		require.NotNil(t, lead.ForecastMrr)
+		assert.Equal(t, forecast, *lead.ForecastMrr)
+	}).Return(nil)
+
+	svc := NewLeadService(nil, leadRepo, userRepo, nil)
+	input := dto.CreateLeadInput{CompanyName: "Acme", ForecastMrr: &forecast}
+	result, err := svc.createLead(leadRepo, userRepo, salesID, "SALES", input)
+
+	assert.NoError(t, err)
+	require.NotNil(t, result.ForecastMrr)
+	assert.Equal(t, forecast, *result.ForecastMrr)
+}
+
+func TestApplyLeadUpdate_ForecastMrrSubmitted_Applied(t *testing.T) {
+	lead := &models.Lead{}
+	forecast := 12000000.0
+	applyLeadUpdate(lead, dto.UpdateLeadInput{ForecastMrr: &forecast}, "SALES")
+	require.NotNil(t, lead.ForecastMrr)
+	assert.Equal(t, forecast, *lead.ForecastMrr)
+}
+
+func TestApplyLeadUpdate_ForecastMrrOmitted_Unchanged(t *testing.T) {
+	existing := 3000000.0
+	lead := &models.Lead{ForecastMrr: &existing}
+	applyLeadUpdate(lead, dto.UpdateLeadInput{}, "SALES")
+	require.NotNil(t, lead.ForecastMrr)
+	assert.Equal(t, existing, *lead.ForecastMrr)
+}
+
 // TestLeadCreate_OwnerNamePopulatedInResponse is the regression test for the
 // create-response gap: createLead used to build the DTO straight from the
 // in-memory lead without ever loading Owner, so owner_name always came back

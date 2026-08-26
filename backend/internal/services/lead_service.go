@@ -193,6 +193,7 @@ func (s *LeadService) createLead(
 		Price:         input.Price,
 		OtherServices: input.OtherServices,
 		LeadSourceID:  input.LeadSourceID,
+		ForecastMrr:   input.ForecastMrr,
 	}
 
 	if err := leadRepo.Create(lead); err != nil {
@@ -425,6 +426,9 @@ func applyLeadUpdate(lead *models.Lead, input dto.UpdateLeadInput, role string) 
 	}
 	if input.LeadSourceID != nil {
 		lead.LeadSourceID = input.LeadSourceID
+	}
+	if input.ForecastMrr != nil {
+		lead.ForecastMrr = input.ForecastMrr
 	}
 	if input.OwnerID != nil && (role == "ADMIN_SALES" || role == "SU") {
 		lead.OwnerID = *input.OwnerID
