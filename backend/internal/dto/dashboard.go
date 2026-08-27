@@ -16,6 +16,7 @@ type DashboardQuery struct {
 	DateTo   time.Time
 	TeamID   *uuid.UUID
 	OwnerID  *uuid.UUID
+	Status   *string
 }
 
 // MetricCard is a single dashboard/summary metric: a current-period value
@@ -52,11 +53,12 @@ type FunnelResponse struct {
 // DashboardSummaryResponse is GET /dashboard/summary's payload: the metric
 // cards plus the conversion funnel.
 type DashboardSummaryResponse struct {
-	LeadBaru  MetricCard     `json:"lead_baru"`
-	FollowUp  MetricCard     `json:"follow_up"`
-	Handoff   MetricCard     `json:"handoff"`
-	Terlantar MetricCard     `json:"terlantar"`
-	Funnel    FunnelResponse `json:"funnel"`
+	LeadBaru         MetricCard     `json:"lead_baru"`
+	FollowUp         MetricCard     `json:"follow_up"`
+	Handoff          MetricCard     `json:"handoff"`
+	Terlantar        MetricCard     `json:"terlantar"`
+	Funnel           FunnelResponse `json:"funnel"`
+	TotalForecastMrr float64        `json:"total_forecast_mrr"`
 }
 
 // ActivityBucket is one day of the activity trend chart (GET /dashboard/activity).
@@ -93,6 +95,7 @@ type SalesActivityRow struct {
 	AvgFuPerLead float64    `json:"avg_fu_per_lead"`
 	Terlantar    int64      `json:"terlantar"`
 	Handoff      int64      `json:"handoff"`
+	ForecastMrr  float64    `json:"forecast_mrr"`
 	ConvPct      *int       `json:"conv_pct"`
 	LastActivity *time.Time `json:"last_activity"`
 	AttentionTag *string    `json:"attention_tag"`

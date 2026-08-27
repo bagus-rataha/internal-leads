@@ -362,6 +362,7 @@ export default function LeadDetailPage() {
                 </span>
               }
             />
+            <DataRow label="Forecast MRR" value={<span className="font-mono">{lead.forecast_mrr ? `Rp ${lead.forecast_mrr.toLocaleString('id-ID')}` : '—'}</span>} />
             <DataRow
               label="Diinput"
               last

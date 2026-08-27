@@ -106,7 +106,7 @@ var leadsSheetHeader = []interface{}{
 	"Kode", "Status", "Nama Perusahaan", "Bidang Usaha", "Website",
 	"PIC", "Jabatan PIC", "Telepon Kantor", "Telepon Genggam", "Email",
 	"Provinsi", "Kota/Kabupaten", "Kecamatan", "Kelurahan", "RT", "RW", "Alamat",
-	"Jenis Layanan", "Kapasitas (Mbps)", "ISP Existing", "Harga", "Layanan Lain",
+	"Jenis Layanan", "Kapasitas (Mbps)", "ISP Existing", "Harga", "Forecast MRR", "Layanan Lain",
 	"Sumber Lead", "Sales", "Tim", "Jumlah Follow-up", "Follow-up Terakhir",
 	"Alasan Lost", "Tanggal Dibuat",
 }
@@ -171,6 +171,7 @@ func leadExportRow(lead *models.Lead) []interface{} {
 		intOrEmpty(lead.CapacityMbps),
 		strOrEmpty(lead.ExistingIsp),
 		floatOrEmpty(lead.Price),
+		floatOrEmpty(lead.ForecastMrr),
 		strOrEmpty(lead.OtherServices),
 		leadSourceName(lead.LeadSource),
 		ownerName,

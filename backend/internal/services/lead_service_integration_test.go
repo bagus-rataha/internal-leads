@@ -48,3 +48,25 @@ func TestLeadCreate_ConcurrentCreates_NoDuplicateCodes(t *testing.T) {
 		seen[code] = true
 	}
 }
+
+func TestLeadCreate_ForecastMrr_PersistsAndRoundTrips(t *testing.T) {
+	db := setupServiceTestDB(t)
+	leadRepo := repository.NewLeadRepository(db)
+	userRepo := repository.NewUserRepository(db)
+	referenceRepo := repository.NewReferenceRepository(db)
+	svc := NewLeadService(db, leadRepo, userRepo, referenceRepo)
+
+	ownerID := uuid.Must(uuid.NewV7())
+	require.NoError(t, db.Create(&models.User{BaseModel: models.BaseModel{ID: ownerID}, Email: "forecast@test.local", Password: "h", Name: "Owner", Role: "ADMIN_SALES", IsActive: true}).Error)
+
+	forecast := 7500000.0
+	created, err := svc.Create(ownerID, "ADMIN_SALES", dto.CreateLeadInput{CompanyName: "Forecast Co", ForecastMrr: &forecast})
+	require.NoError(t, err)
+	require.NotNil(t, created.ForecastMrr)
+	assert.Equal(t, forecast, *created.ForecastMrr)
+
+	fetched, err := svc.FindByCode(ownerID, "ADMIN_SALES", created.Code)
+	require.NoError(t, err)
+	require.NotNil(t, fetched.ForecastMrr)
+	assert.Equal(t, forecast, *fetched.ForecastMrr, "value must survive a real DB round-trip, not just the in-memory response")
+}

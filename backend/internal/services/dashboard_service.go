@@ -173,12 +173,33 @@ func (s *DashboardService) Summary(callerID uuid.UUID, role string, q dto.Dashbo
 		LostPct:        percentOf(lost, total),
 	}
 
+	// Forecast MRR: an independent targeted sum, not a change to base()'s
+	// scope. Summed across ALL statuses including LOST (user's explicit
+	// choice - total forecast ever quoted in scope, not just live pipeline),
+	// additionally narrowed by q.Status when the caller passes it - but ONLY
+	// this sum, never lead_baru/follow_up/handoff/terlantar/the funnel above,
+	// which already carry their own hardcoded status conditions that a
+	// second status filter here would collide with (AND-ing two different
+	// status equalities zeroes most of them out).
+	forecastTx := base()
+	if q.Status != nil {
+		forecastTx = forecastTx.Where("leads.status = ?", *q.Status)
+	}
+	type forecastSum struct {
+		Total float64
+	}
+	var forecast forecastSum
+	if err := forecastTx.Select("COALESCE(SUM(forecast_mrr), 0) AS total").Scan(&forecast).Error; err != nil {
+		return nil, err
+	}
+
 	return &dto.DashboardSummaryResponse{
-		LeadBaru:  dto.MetricCard{Value: leadBaruCur, ChangePct: changePct(leadBaruCur, leadBaruPrev)},
-		FollowUp:  dto.MetricCard{Value: fuCur, ChangePct: changePct(fuCur, fuPrev)},
-		Handoff:   dto.MetricCard{Value: handCur, ChangePct: changePct(handCur, handPrev)},
-		Terlantar: dto.MetricCard{Value: staleNow, ChangePct: changePct(staleNow, stalePrev)},
-		Funnel:    funnel,
+		LeadBaru:         dto.MetricCard{Value: leadBaruCur, ChangePct: changePct(leadBaruCur, leadBaruPrev)},
+		FollowUp:         dto.MetricCard{Value: fuCur, ChangePct: changePct(fuCur, fuPrev)},
+		Handoff:          dto.MetricCard{Value: handCur, ChangePct: changePct(handCur, handPrev)},
+		Terlantar:        dto.MetricCard{Value: staleNow, ChangePct: changePct(staleNow, stalePrev)},
+		Funnel:           funnel,
+		TotalForecastMrr: forecast.Total,
 	}, nil
 }
 
@@ -370,6 +391,25 @@ func (s *DashboardService) SalesActivity(callerID uuid.UUID, role string, q dto.
 		ownedByOwner[r.OwnerID] = r
 	}
 
+	forecastQuery := s.db.Model(&models.Lead{}).
+		Select("owner_id, COALESCE(SUM(forecast_mrr), 0) AS total").
+		Where("owner_id IN ?", ids)
+	if q.Status != nil {
+		forecastQuery = forecastQuery.Where("status = ?", *q.Status)
+	}
+	type forecastAgg struct {
+		OwnerID uuid.UUID
+		Total   float64
+	}
+	var forecastRows []forecastAgg
+	if err := forecastQuery.Group("owner_id").Scan(&forecastRows).Error; err != nil {
+		return nil, err
+	}
+	forecastByOwner := make(map[uuid.UUID]float64, len(forecastRows))
+	for _, r := range forecastRows {
+		forecastByOwner[r.OwnerID] = r.Total
+	}
+
 	type lastActivityAgg struct {
 		CreatedByID uuid.UUID
 		Last        time.Time
@@ -438,6 +478,7 @@ func (s *DashboardService) SalesActivity(callerID uuid.UUID, role string, q dto.
 				AvgFuPerLead: owned.AvgFu,
 				Terlantar:    terlantar,
 				Handoff:      handoffByOwner[u.ID],
+				ForecastMrr:  forecastByOwner[u.ID],
 				ConvPct:      percentOf(handoffByOwner[u.ID], owned.Total),
 				LastActivity: lastActivity,
 				AttentionTag: attentionTag,

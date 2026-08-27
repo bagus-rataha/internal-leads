@@ -36,6 +36,7 @@ type Lead struct {
 	Price          *float64
 	OtherServices  *string
 	LeadSourceID   *uuid.UUID `gorm:"type:uuid"`
+	ForecastMrr    *float64
 	LastFollowUpAt *time.Time `gorm:"index"`
 	FollowUpCount  int        `gorm:"not null;default:0"`
 

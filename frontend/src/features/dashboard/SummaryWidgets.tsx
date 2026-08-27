@@ -181,3 +181,30 @@ export function FunnelCard({ summary, loading }: { summary?: DashboardSummaryRes
     </Card>
   )
 }
+
+export function ForecastCard({
+  summary,
+  loading,
+  statusLabel,
+}: {
+  summary?: DashboardSummaryResponse
+  loading: boolean
+  statusLabel: string
+}) {
+  if (loading || !summary) {
+    return <div className="h-[92px] animate-pulse rounded-[15px] bg-muted" />
+  }
+  return (
+    <div className="rounded-[15px] border border-[#E7EDF3] bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <span className="text-[12.5px] font-semibold text-[#64748B]">Forecast Pendapatan (MRR)</span>
+        <span className="rounded-full bg-[#EEF2F7] px-2.5 py-0.5 text-[11px] font-bold whitespace-nowrap text-[#64748B]">
+          {statusLabel}
+        </span>
+      </div>
+      <div className="font-display text-[30px] leading-none font-extrabold text-[#0F172A]">
+        Rp {(summary.total_forecast_mrr ?? 0).toLocaleString('id-ID')}
+      </div>
+    </div>
+  )
+}

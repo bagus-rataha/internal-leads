@@ -55,6 +55,9 @@ definitions:
       existing_isp:
         maxLength: 100
         type: string
+      forecast_mrr:
+        minimum: 0
+        type: number
       lead_source_id:
         type: string
       mobile_phone:
@@ -210,6 +213,8 @@ definitions:
         $ref: '#/definitions/dto.MetricCard'
       terlantar:
         $ref: '#/definitions/dto.MetricCard'
+      total_forecast_mrr:
+        type: number
     type: object
   dto.DeactivateUserInput:
     properties:
@@ -299,6 +304,8 @@ definitions:
         type: string
       follow_up_count:
         type: integer
+      forecast_mrr:
+        type: number
       id:
         type: string
       is_stale:
@@ -382,6 +389,8 @@ definitions:
         type: string
       follow_up_count:
         type: integer
+      forecast_mrr:
+        type: number
       id:
         type: string
       is_stale:
@@ -524,6 +533,8 @@ definitions:
         type: integer
       follow_up:
         type: integer
+      forecast_mrr:
+        type: number
       handoff:
         type: integer
       last_activity:
@@ -619,6 +630,9 @@ definitions:
       existing_isp:
         maxLength: 100
         type: string
+      forecast_mrr:
+        minimum: 0
+        type: number
       lead_source_id:
         type: string
       mobile_phone:

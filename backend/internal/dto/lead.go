@@ -33,6 +33,7 @@ type CreateLeadInput struct {
 	Price         *float64   `json:"price" validate:"omitempty,gte=0"`
 	OtherServices *string    `json:"other_services" validate:"omitempty,max=500"`
 	LeadSourceID  *uuid.UUID `json:"lead_source_id"`
+	ForecastMrr   *float64   `json:"forecast_mrr" validate:"omitempty,gte=0"`
 	OwnerID       *uuid.UUID `json:"owner_id"`
 }
 
@@ -64,6 +65,7 @@ type UpdateLeadInput struct {
 	Price         *float64   `json:"price" validate:"omitempty,gte=0"`
 	OtherServices *string    `json:"other_services" validate:"omitempty,max=500"`
 	LeadSourceID  *uuid.UUID `json:"lead_source_id"`
+	ForecastMrr   *float64   `json:"forecast_mrr" validate:"omitempty,gte=0"`
 	OwnerID       *uuid.UUID `json:"owner_id"`
 }
 
@@ -129,6 +131,7 @@ type LeadResponse struct {
 	Price          *float64   `json:"price"`
 	OtherServices  *string    `json:"other_services"`
 	LeadSourceID   *uuid.UUID `json:"lead_source_id"`
+	ForecastMrr    *float64   `json:"forecast_mrr"`
 	LastFollowUpAt *time.Time `json:"last_follow_up_at"`
 	FollowUpCount  int        `json:"follow_up_count"`
 	CreatedAt      time.Time  `json:"created_at"`
@@ -211,6 +214,7 @@ func ToLeadResponse(lead *models.Lead) LeadResponse {
 		Price:          lead.Price,
 		OtherServices:  lead.OtherServices,
 		LeadSourceID:   lead.LeadSourceID,
+		ForecastMrr:    lead.ForecastMrr,
 		LastFollowUpAt: lead.LastFollowUpAt,
 		FollowUpCount:  lead.FollowUpCount,
 		CreatedAt:      lead.CreatedAt,

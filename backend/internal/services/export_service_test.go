@@ -35,9 +35,9 @@ func TestBuildExportWorkbook_LeadsSheet_HasNamesNotIDs(t *testing.T) {
 	assert.Equal(t, "PT Contoh", rows[1][2])
 	assert.Equal(t, "DKI Jakarta", rows[1][10])
 	assert.Equal(t, "Jakarta Selatan", rows[1][11])
-	assert.Equal(t, "Sales A", rows[1][23])
-	assert.Equal(t, "Team A", rows[1][24])
-	assert.Equal(t, "2", rows[1][25])
+	assert.Equal(t, "Sales A", rows[1][24])
+	assert.Equal(t, "Team A", rows[1][25])
+	assert.Equal(t, "2", rows[1][26])
 }
 
 func TestBuildExportWorkbook_LeadsSheet_NilRelationsBecomeEmptyNotPanic(t *testing.T) {
@@ -54,8 +54,8 @@ func TestBuildExportWorkbook_LeadsSheet_NilRelationsBecomeEmptyNotPanic(t *testi
 	require.NoError(t, err)
 	require.Len(t, rows, 2)
 	assert.Equal(t, "", rows[1][10]) // province
-	assert.Equal(t, "", rows[1][23]) // sales
-	assert.Equal(t, "", rows[1][24]) // team
+	assert.Equal(t, "", rows[1][24]) // sales
+	assert.Equal(t, "", rows[1][25]) // team
 }
 
 func TestBuildExportWorkbook_FollowUpSheet_UsesLeadCodeNotID(t *testing.T) {
@@ -76,4 +76,30 @@ func TestBuildExportWorkbook_FollowUpSheet_UsesLeadCodeNotID(t *testing.T) {
 	assert.Equal(t, "LD-2607-0003", rows[1][0])
 	assert.Equal(t, "Sales B", rows[1][2])
 	assert.Equal(t, "Follow up pertama", rows[1][3])
+}
+
+func TestBuildExportWorkbook_LeadsSheet_ForecastMrrColumn(t *testing.T) {
+	forecast := 4500000.0
+	withForecast := models.Lead{
+		BaseModel:   models.BaseModel{ID: uuid.Must(uuid.NewV7()), CreatedAt: time.Now()},
+		Code:        "LD-2607-0004",
+		Status:      "FOLLOW_UP",
+		CompanyName: "PT Forecast",
+		ForecastMrr: &forecast,
+	}
+	withoutForecast := models.Lead{
+		BaseModel:   models.BaseModel{ID: uuid.Must(uuid.NewV7()), CreatedAt: time.Now()},
+		Code:        "LD-2607-0005",
+		Status:      "BARU",
+		CompanyName: "PT Tanpa Forecast",
+	}
+
+	f := buildExportWorkbook([]models.Lead{withForecast, withoutForecast}, nil)
+
+	rows, err := f.GetRows(leadsSheetName)
+	require.NoError(t, err)
+	require.Len(t, rows, 3)
+	assert.Equal(t, "Forecast MRR", rows[0][21])
+	assert.Equal(t, "4500000", rows[1][21])
+	assert.Equal(t, "", rows[2][21], "nil forecast_mrr becomes an empty cell, not 0 or an error")
 }

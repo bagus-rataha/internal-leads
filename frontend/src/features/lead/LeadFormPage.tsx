@@ -37,6 +37,7 @@ export interface LeadFormValues {
   capacity_mbps: string
   existing_isp: string
   price: string
+  forecast_mrr: string
   other_services: string
   lead_source_id: string
   owner_id: string
@@ -47,7 +48,7 @@ export function blankForm(defaultOwnerId?: string): LeadFormValues {
     company_name: '', business_field: '', website: '', address: {},
     rt: '', rw: '', street: '', pic_name: '', pic_position: '',
     office_phone: '', mobile_phone: '', email: '', service_type_id: '',
-    capacity_mbps: '', existing_isp: '', price: '', other_services: '',
+    capacity_mbps: '', existing_isp: '', price: '', forecast_mrr: '', other_services: '',
     lead_source_id: '', owner_id: defaultOwnerId ?? '',
   }
 }
@@ -88,6 +89,7 @@ function fromDetail(d: LeadDetailResponse): LeadFormValues {
     capacity_mbps: d.capacity_mbps != null ? String(d.capacity_mbps) : '',
     existing_isp: d.existing_isp ?? '',
     price: d.price != null ? String(d.price) : '',
+    forecast_mrr: d.forecast_mrr != null ? String(d.forecast_mrr) : '',
     other_services: d.other_services ?? '',
     lead_source_id: d.lead_source_id ?? '',
     owner_id: d.owner_id ?? '',
@@ -141,6 +143,7 @@ export function buildLeadPayload(v: LeadFormValues, includeOwner: boolean): Crea
     capacity_mbps: n(v.capacity_mbps),
     existing_isp: s(v.existing_isp),
     price: n(v.price),
+    forecast_mrr: n(v.forecast_mrr),
     other_services: s(v.other_services),
     lead_source_id: s(v.lead_source_id),
     ...(includeOwner && v.owner_id ? { owner_id: v.owner_id } : {}),
@@ -155,6 +158,104 @@ type FieldName = keyof LeadFormValues | AddressField
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const WEBSITE_RE = /^(https?:\/\/)?([a-z0-9-]+\.)+[a-z]{2,}(\/\S*)?$/i
 const RTRW_RE = /^\d{1,4}$/
+
+const PRESET_OTHER = 'Lainnya'
+
+// Researched via web search (not the sales team's own field data) - see
+// .superpowers/specs/2026-08-26-forecast-followup-owner-isp-preset-design.md
+// section 3. Expanded from 20 to 33 with 13 more researched via web search
+// on 2026-08-27. Still flagged for the product owner's own sanity-check.
+const ISP_PRESETS = [
+  'Telkom Indonesia (IndiHome/IndiBiz/Astinet)',
+  'Biznet',
+  'Lintasarta',
+  'Indosat Business (IOH)',
+  'XL Axiata Business',
+  'Iconnet (PLN Icon Plus)',
+  'MyRepublic',
+  'Moratelindo (Oxygen.id Business)',
+  'CBN',
+  'iForte',
+  'First Media',
+  'MNC Play',
+  'Indonet',
+  'Primacom (PRIMALINKnet)',
+  'Telkomsel Enterprise',
+  'Starlink Business',
+  'Corbec Communication',
+  'Melvar Lintasbuana',
+  'GTN (Graha Teknologi Nusantara)',
+  'Skynindo',
+  'ION Network',
+  'Intimedia (Sarana Intimedia Telematika)',
+  'WOWNET',
+  'Padi Technology',
+  'D~NET',
+  'GMedia',
+  'PRIMADONA Net',
+  'DataComm',
+  'Fibernet',
+  'NAP Info',
+  'SKINET (Sumber Koneksi Indonesia)',
+  'Fiberstar',
+  'PSN (Pasifik Satelit Nusantara)',
+] as const
+
+// Sourced from KBLI 2025 (BPS's official business-field classification, 21
+// top-level categories), curated to 19, then expanded to 35 by breaking the
+// top-level KBLI 2020 categories down to golongan-pokok (2-digit division)
+// granularity - e.g. "Manufaktur" split into ~10 industry-specific rows.
+// NOTE: this breakdown was NOT independently re-verified against the
+// official BPS PDF (a scanned, non-text-searchable image file) - sanity
+// check against real field data before trusting it.
+const BUSINESS_FIELD_PRESETS = [
+  'Pertanian, Kehutanan & Perikanan',
+  'Pertambangan & Penggalian',
+  'Industri Makanan & Minuman',
+  'Industri Tekstil, Pakaian & Alas Kaki',
+  'Industri Kayu, Kertas & Percetakan',
+  'Industri Kimia & Farmasi',
+  'Industri Karet, Plastik & Barang Galian Bukan Logam',
+  'Industri Logam Dasar & Barang Logam',
+  'Industri Komputer, Elektronik & Optik',
+  'Industri Peralatan Listrik',
+  'Industri Mesin & Perlengkapan',
+  'Industri Kendaraan Bermotor & Alat Angkutan Lain',
+  'Industri Furnitur & Manufaktur Lainnya',
+  'Listrik, Gas & Energi',
+  'Pengelolaan Air, Limbah & Daur Ulang',
+  'Konstruksi',
+  'Perdagangan Besar (Grosir/Distributor)',
+  'Perdagangan Eceran (Retail)',
+  'Transportasi & Pergudangan (Logistik)',
+  'Akomodasi (Hotel/Penginapan)',
+  'Makanan & Minuman (Restoran/F&B)',
+  'Telekomunikasi',
+  'Pemrograman, Konsultansi & Aktivitas Komputer',
+  'Penerbitan, Media & Penyiaran',
+  'Jasa Keuangan & Perbankan',
+  'Asuransi & Dana Pensiun',
+  'Real Estat & Properti',
+  'Jasa Profesional, Ilmiah & Teknis (Konsultan/Hukum/Akuntansi)',
+  'Jasa Persewaan & Sewa Guna Usaha',
+  'Jasa Ketenagakerjaan, Agen Perjalanan & Penunjang Usaha',
+  'Administrasi Pemerintahan & Pertahanan',
+  'Pendidikan',
+  'Kesehatan & Aktivitas Sosial',
+  'Kesenian, Hiburan & Rekreasi',
+  'Jasa Lainnya',
+] as const
+
+// Derives a preset dropdown's selection from the actual stored value: a
+// preset match selects that preset, any other non-empty value (including
+// legacy free-text data from before this dropdown existed) selects
+// "Lainnya" with the text fallback pre-filled, and an empty value selects
+// nothing. Shared by both existing_isp and business_field - same logic,
+// different preset arrays.
+function presetSelectionFor(value: string, presets: readonly string[]): string {
+  if (value === '') return ''
+  return presets.includes(value) ? value : PRESET_OTHER
+}
 
 function phoneError(national: string, required: boolean): string | undefined {
   const v = national.trim()
@@ -184,7 +285,9 @@ const ALL_FIELDS: FieldName[] = [
   'mobile_phone',
   'email',
   'capacity_mbps',
+  'existing_isp',
   'price',
+  'forecast_mrr',
   'lead_source_id',
   'owner_id',
 ]
@@ -193,6 +296,7 @@ function validateField(
   name: FieldName,
   values: LeadFormValues,
   showOwner: boolean,
+  ispSelection: string,
 ): string | undefined {
   switch (name) {
     case 'company_name':
@@ -201,6 +305,8 @@ function validateField(
     case 'pic_name':
     case 'pic_position':
       return values[name].trim() === '' ? 'Wajib diisi' : undefined
+    case 'existing_isp':
+      return ispSelection === PRESET_OTHER && values.existing_isp.trim() === '' ? 'Wajib diisi' : undefined
     case 'lead_source_id':
       return values.lead_source_id === '' ? 'Wajib dipilih' : undefined
     case 'owner_id':
@@ -242,15 +348,25 @@ function validateField(
       const num = Number(v)
       return Number.isFinite(num) && num >= 0 ? undefined : 'Tidak boleh negatif'
     }
+    case 'forecast_mrr': {
+      const v = values.forecast_mrr.trim()
+      if (!v) return 'Wajib diisi'
+      const num = Number(v)
+      return Number.isFinite(num) && num >= 0 ? undefined : 'Tidak boleh negatif'
+    }
     default:
       return undefined
   }
 }
 
-function validateAll(values: LeadFormValues, showOwner: boolean): Record<string, string> {
+function validateAll(
+  values: LeadFormValues,
+  showOwner: boolean,
+  ispSelection: string,
+): Record<string, string> {
   const errs: Record<string, string> = {}
   for (const f of ALL_FIELDS) {
-    const err = validateField(f, values, showOwner)
+    const err = validateField(f, values, showOwner, ispSelection)
     if (err) errs[f] = err
   }
   return errs
@@ -268,12 +384,12 @@ const ADDRESS_FIELD_SET = new Set<FieldName>([
 const scrollTargetId = (field: FieldName) =>
   ADDRESS_FIELD_SET.has(field) ? 'address-fields' : field
 
-// +62 prefix group: input's left corners flattened, no left border (the
-// prefix chip supplies it), right side keeps the normal field rounding.
-const PHONE_INPUT = FIELD_INPUT_MONO
+// Prefix chip group: input's left corners flattened, no left border (the
+// prefix chip supplies it), right side keeps normal field rounding.
+const PREFIXED_INPUT = FIELD_INPUT_MONO
   .replace('w-full', 'flex-1 min-w-0')
   .replace('rounded-[9px]', 'rounded-r-[9px] rounded-l-none') + ' border-l-0'
-const PHONE_PREFIX =
+const INPUT_PREFIX_CHIP =
   'flex h-[42px] shrink-0 items-center rounded-l-[9px] border border-r-0 border-[#CBD5E1] bg-[#F1F5F9] px-3 font-mono text-[13px] text-[#64748B]'
 
 const errClass = (base: string, hasError: boolean) => (hasError ? base + ' border-[#DC2626]' : base)
@@ -336,6 +452,10 @@ export default function LeadFormPage() {
   const [values, setValues] = useState<LeadFormValues>(() => blankForm(mode === 'create' && user?.role === 'LEADER' ? user.id : undefined))
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [touched, setTouched] = useState<Record<string, boolean>>({})
+  const [ispSelection, setIspSelection] = useState(() => presetSelectionFor(values.existing_isp, ISP_PRESETS))
+  const [bizFieldSelection, setBizFieldSelection] = useState(() =>
+    presetSelectionFor(values.business_field, BUSINESS_FIELD_PRESETS),
+  )
   const { data: sources = [] } = useLeadSources()
   const { data: serviceTypes = [] } = useServiceTypes()
   const showOwnerField = user?.role !== 'SALES'
@@ -356,7 +476,10 @@ export default function LeadFormPage() {
       navigate('/leads/' + code, { replace: true })
       return
     }
-    setValues(fromDetail(detail.data))
+    const next = fromDetail(detail.data)
+    setValues(next)
+    setIspSelection(presetSelectionFor(next.existing_isp, ISP_PRESETS))
+    setBizFieldSelection(presetSelectionFor(next.business_field, BUSINESS_FIELD_PRESETS))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [detail.data?.id])
 
@@ -367,20 +490,20 @@ export default function LeadFormPage() {
   // Validates on first blur, then live on every change while touched.
   function blur(field: keyof LeadFormValues) {
     setTouched((t) => ({ ...t, [field]: true }))
-    setErrors((e) => ({ ...e, [field]: validateField(field, values, showOwnerField) ?? '' }))
+    setErrors((e) => ({ ...e, [field]: validateField(field, values, showOwnerField, ispSelection) ?? '' }))
   }
 
   function change<K extends keyof LeadFormValues>(key: K, value: LeadFormValues[K]) {
     set(key, value)
     if (touched[key]) {
       const next = { ...values, [key]: value }
-      setErrors((e) => ({ ...e, [key]: validateField(key, next, showOwnerField) ?? '' }))
+      setErrors((e) => ({ ...e, [key]: validateField(key, next, showOwnerField, ispSelection) ?? '' }))
     }
   }
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    const errs = validateAll(values, showOwnerField)
+    const errs = validateAll(values, showOwnerField, ispSelection)
     setErrors(errs)
     setTouched((t) => {
       const next = { ...t }
@@ -491,15 +614,40 @@ export default function LeadFormPage() {
               <label className={FIELD_LABEL}>
                 Bidang Usaha <RequiredMark />
               </label>
-              <input
-                id="business_field"
-                required
-                value={values.business_field}
-                onChange={(e) => change('business_field', e.target.value)}
-                onBlur={() => blur('business_field')}
-                placeholder="mis. Manufaktur"
-                className={errClass(FIELD_INPUT, touched.business_field && !!errors.business_field)}
-              />
+              <div className="relative">
+                <select
+                  id="business_field"
+                  required
+                  value={bizFieldSelection}
+                  onChange={(e) => {
+                    const v = e.target.value
+                    setBizFieldSelection(v)
+                    if (v !== PRESET_OTHER) change('business_field', v)
+                  }}
+                  onBlur={() => blur('business_field')}
+                  className={errClass(FIELD_SELECT, touched.business_field && !!errors.business_field)}
+                >
+                  <option value="">Pilih…</option>
+                  {BUSINESS_FIELD_PRESETS.map((bf) => (
+                    <option key={bf} value={bf}>
+                      {bf}
+                    </option>
+                  ))}
+                  <option value={PRESET_OTHER}>{PRESET_OTHER}</option>
+                </select>
+                <SelectChevron />
+              </div>
+              {bizFieldSelection === PRESET_OTHER && (
+                <input
+                  value={values.business_field}
+                  onChange={(e) => change('business_field', e.target.value)}
+                  onBlur={() => blur('business_field')}
+                  placeholder="Tulis bidang usaha"
+                  className={
+                    errClass(FIELD_INPUT, touched.business_field && !!errors.business_field) + ' mt-2'
+                  }
+                />
+              )}
               {touched.business_field && errors.business_field && (
                 <p className="mt-1 text-[11px] text-[#DC2626]">{errors.business_field}</p>
               )}
@@ -538,7 +686,7 @@ export default function LeadFormPage() {
                   for (const f of ['province_id', 'city_id', 'district_id', 'village_id'] as const) {
                     if (touched[f]) {
                       next[f] =
-                        validateField(f, { ...values, address }, showOwnerField) ?? ''
+                        validateField(f, { ...values, address }, showOwnerField, ispSelection) ?? ''
                     }
                   }
                   return next
@@ -552,7 +700,7 @@ export default function LeadFormPage() {
               }}
               onBlurField={(f) => {
                 setTouched((t) => ({ ...t, [f]: true }))
-                setErrors((e) => ({ ...e, [f]: validateField(f, values, showOwnerField) ?? '' }))
+                setErrors((e) => ({ ...e, [f]: validateField(f, values, showOwnerField, ispSelection) ?? '' }))
               }}
             />
           </div>
@@ -663,7 +811,7 @@ export default function LeadFormPage() {
                 Telepon Kantor <OptTag />
               </label>
               <div className="flex">
-                <span className={PHONE_PREFIX}>+62</span>
+                <span className={INPUT_PREFIX_CHIP}>+62</span>
                 <input
                   id="office_phone"
                   inputMode="numeric"
@@ -672,7 +820,7 @@ export default function LeadFormPage() {
                   onChange={(e) => change('office_phone', e.target.value)}
                   onBlur={() => blur('office_phone')}
                   placeholder="2112345678"
-                  className={errClass(PHONE_INPUT, touched.office_phone && !!errors.office_phone)}
+                  className={errClass(PREFIXED_INPUT, touched.office_phone && !!errors.office_phone)}
                 />
               </div>
               {touched.office_phone && errors.office_phone && (
@@ -684,7 +832,7 @@ export default function LeadFormPage() {
                 No. HP <RequiredMark />
               </label>
               <div className="flex">
-                <span className={PHONE_PREFIX}>+62</span>
+                <span className={INPUT_PREFIX_CHIP}>+62</span>
                 <input
                   id="mobile_phone"
                   required
@@ -694,7 +842,7 @@ export default function LeadFormPage() {
                   onChange={(e) => change('mobile_phone', e.target.value)}
                   onBlur={() => blur('mobile_phone')}
                   placeholder="81234567890"
-                  className={errClass(PHONE_INPUT, touched.mobile_phone && !!errors.mobile_phone)}
+                  className={errClass(PREFIXED_INPUT, touched.mobile_phone && !!errors.mobile_phone)}
                 />
               </div>
               {touched.mobile_phone && errors.mobile_phone && (
@@ -772,24 +920,54 @@ export default function LeadFormPage() {
             </div>
             <div>
               <label className={FIELD_LABEL}>ISP Eksisting</label>
-              <input
-                value={values.existing_isp}
-                onChange={(e) => set('existing_isp', e.target.value)}
-                placeholder="mis. Telkom IndiHome"
-                className={FIELD_INPUT}
-              />
+              <div className="relative">
+                <select
+                  value={ispSelection}
+                  onChange={(e) => {
+                    const v = e.target.value
+                    setIspSelection(v)
+                    if (v !== PRESET_OTHER) change('existing_isp', v)
+                  }}
+                  onBlur={() => blur('existing_isp')}
+                  className={errClass(FIELD_SELECT, touched.existing_isp && !!errors.existing_isp)}
+                >
+                  <option value="">Pilih…</option>
+                  {ISP_PRESETS.map((isp) => (
+                    <option key={isp} value={isp}>
+                      {isp}
+                    </option>
+                  ))}
+                  <option value={PRESET_OTHER}>{PRESET_OTHER}</option>
+                </select>
+                <SelectChevron />
+              </div>
+              {ispSelection === PRESET_OTHER && (
+                <input
+                  value={values.existing_isp}
+                  onChange={(e) => change('existing_isp', e.target.value)}
+                  onBlur={() => blur('existing_isp')}
+                  placeholder="Tulis nama ISP"
+                  className={errClass(FIELD_INPUT, touched.existing_isp && !!errors.existing_isp) + ' mt-2'}
+                />
+              )}
+              {touched.existing_isp && errors.existing_isp && (
+                <p className="mt-1 text-[11px] text-[#DC2626]">{errors.existing_isp}</p>
+              )}
             </div>
             <div>
               <label className={FIELD_LABEL}>Harga / bulan</label>
-              <input
-                id="price"
-                type="number"
-                value={values.price}
-                onChange={(e) => change('price', e.target.value)}
-                onBlur={() => blur('price')}
-                placeholder="3500000"
-                className={errClass(FIELD_INPUT_MONO, touched.price && !!errors.price)}
-              />
+              <div className="flex">
+                <span className={INPUT_PREFIX_CHIP}>Rp</span>
+                <input
+                  id="price"
+                  type="number"
+                  value={values.price}
+                  onChange={(e) => change('price', e.target.value)}
+                  onBlur={() => blur('price')}
+                  placeholder="3500000"
+                  className={errClass(PREFIXED_INPUT, touched.price && !!errors.price)}
+                />
+              </div>
               {touched.price && errors.price && (
                 <p className="mt-1 text-[11px] text-[#DC2626]">{errors.price}</p>
               )}
@@ -808,6 +986,27 @@ export default function LeadFormPage() {
 
         <FormCard number={5} title="Sumber Lead + Owner">
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div className="lg:col-span-2">
+              <label className={FIELD_LABEL}>
+                Forecast Pendapatan (MRR) <RequiredMark />
+              </label>
+              <div className="flex">
+                <span className={INPUT_PREFIX_CHIP}>Rp</span>
+                <input
+                  id="forecast_mrr"
+                  required
+                  type="number"
+                  value={values.forecast_mrr}
+                  onChange={(e) => change('forecast_mrr', e.target.value)}
+                  onBlur={() => blur('forecast_mrr')}
+                  placeholder="5000000"
+                  className={errClass(PREFIXED_INPUT, touched.forecast_mrr && !!errors.forecast_mrr)}
+                />
+              </div>
+              {touched.forecast_mrr && errors.forecast_mrr && (
+                <p className="mt-1 text-[11px] text-[#DC2626]">{errors.forecast_mrr}</p>
+              )}
+            </div>
             <div className={showOwnerField ? '' : 'lg:col-span-2'}>
               <label className={FIELD_LABEL}>
                 Sumber Lead <RequiredMark />
