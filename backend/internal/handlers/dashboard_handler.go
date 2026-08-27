@@ -29,6 +29,19 @@ func NewDashboardHandler(dashboardService dashboardService) *DashboardHandler {
 	return &DashboardHandler{dashboardService: dashboardService}
 }
 
+// jakartaLoc is this app's single fixed business timezone (Indonesia-only
+// ISP sales tool, no multi-tenancy). Loaded once at package init; falls back
+// to UTC if the container has no tzdata rather than panicking — a wrong
+// "today" for the default dashboard range is a degraded convenience, not a
+// security issue.
+var jakartaLoc = func() *time.Location {
+	loc, err := time.LoadLocation("Asia/Jakarta")
+	if err != nil {
+		return time.UTC
+	}
+	return loc
+}()
+
 // parseDashboardQuery builds dto.DashboardQuery from raw query strings,
 // shared by every dashboard handler method. date_from/date_to must be
 // provided together or not at all (a lone one is ambiguous, rejected rather
@@ -40,7 +53,9 @@ func parseDashboardQuery(c *fiber.Ctx) (dto.DashboardQuery, error) {
 	fromStr, toStr := c.Query("date_from"), c.Query("date_to")
 	switch {
 	case fromStr == "" && toStr == "":
-		q.DateTo = time.Now().Truncate(24 * time.Hour)
+		now := time.Now().In(jakartaLoc)
+		y, m, d := now.Date()
+		q.DateTo = time.Date(y, m, d, 0, 0, 0, 0, jakartaLoc)
 		q.DateFrom = q.DateTo.AddDate(0, 0, -29)
 	case fromStr == "" || toStr == "":
 		return q, errors.New("date_from and date_to must be provided together")
