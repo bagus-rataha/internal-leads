@@ -350,7 +350,7 @@ function validateField(
     }
     case 'forecast_mrr': {
       const v = values.forecast_mrr.trim()
-      if (!v) return undefined
+      if (!v) return 'Wajib diisi'
       const num = Number(v)
       return Number.isFinite(num) && num >= 0 ? undefined : 'Tidak boleh negatif'
     }
@@ -972,24 +972,6 @@ export default function LeadFormPage() {
                 <p className="mt-1 text-[11px] text-[#DC2626]">{errors.price}</p>
               )}
             </div>
-            <div>
-              <label className={FIELD_LABEL}>Forecast Pendapatan (MRR)</label>
-              <div className="flex">
-                <span className={INPUT_PREFIX_CHIP}>Rp</span>
-                <input
-                  id="forecast_mrr"
-                  type="number"
-                  value={values.forecast_mrr}
-                  onChange={(e) => change('forecast_mrr', e.target.value)}
-                  onBlur={() => blur('forecast_mrr')}
-                  placeholder="5000000"
-                  className={errClass(PREFIXED_INPUT, touched.forecast_mrr && !!errors.forecast_mrr)}
-                />
-              </div>
-              {touched.forecast_mrr && errors.forecast_mrr && (
-                <p className="mt-1 text-[11px] text-[#DC2626]">{errors.forecast_mrr}</p>
-              )}
-            </div>
             <div className="lg:col-span-2">
               <label className={FIELD_LABEL}>Layanan Lainnya</label>
               <input
@@ -1004,6 +986,27 @@ export default function LeadFormPage() {
 
         <FormCard number={5} title="Sumber Lead + Owner">
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div className="lg:col-span-2">
+              <label className={FIELD_LABEL}>
+                Forecast Pendapatan (MRR) <RequiredMark />
+              </label>
+              <div className="flex">
+                <span className={INPUT_PREFIX_CHIP}>Rp</span>
+                <input
+                  id="forecast_mrr"
+                  required
+                  type="number"
+                  value={values.forecast_mrr}
+                  onChange={(e) => change('forecast_mrr', e.target.value)}
+                  onBlur={() => blur('forecast_mrr')}
+                  placeholder="5000000"
+                  className={errClass(PREFIXED_INPUT, touched.forecast_mrr && !!errors.forecast_mrr)}
+                />
+              </div>
+              {touched.forecast_mrr && errors.forecast_mrr && (
+                <p className="mt-1 text-[11px] text-[#DC2626]">{errors.forecast_mrr}</p>
+              )}
+            </div>
             <div className={showOwnerField ? '' : 'lg:col-span-2'}>
               <label className={FIELD_LABEL}>
                 Sumber Lead <RequiredMark />
