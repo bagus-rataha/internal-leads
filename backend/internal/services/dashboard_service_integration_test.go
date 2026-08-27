@@ -65,7 +65,17 @@ func TestDashboardActivity_BucketsOneRowPerDay_ScopedCounts(t *testing.T) {
 	adminID := uuid.Must(uuid.NewV7())
 	require.NoError(t, db.Create(&models.User{BaseModel: models.BaseModel{ID: adminID}, Email: "admin2@test.local", Password: "h", Name: "Admin", Role: "SU", IsActive: true}).Error)
 
-	today := time.Now().Truncate(24 * time.Hour)
+	// Jakarta midnight, not UTC: time.Truncate operates on the absolute
+	// instant since the Go zero time, so it always lands on a UTC boundary
+	// regardless of Now()'s Location -- before 07:00 WIB that's still
+	// "yesterday" locally. Construct local midnight explicitly instead.
+	jakartaLoc, err := time.LoadLocation("Asia/Jakarta")
+	if err != nil {
+		jakartaLoc = time.UTC
+	}
+	now := time.Now().In(jakartaLoc)
+	y, m, d := now.Date()
+	today := time.Date(y, m, d, 0, 0, 0, 0, jakartaLoc)
 	lead := &models.Lead{Code: "LD-2607-0004", OwnerID: adminID, CreatedByID: adminID, CompanyName: "Today's lead"}
 	require.NoError(t, db.Create(lead).Error)
 
