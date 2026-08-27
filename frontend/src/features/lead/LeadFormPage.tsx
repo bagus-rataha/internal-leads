@@ -163,7 +163,8 @@ const PRESET_OTHER = 'Lainnya'
 
 // Researched via web search (not the sales team's own field data) - see
 // .superpowers/specs/2026-08-26-forecast-followup-owner-isp-preset-design.md
-// section 3. Swap freely if the actual competitors differ.
+// section 3. Expanded from 20 to 33 with 13 more researched via web search
+// on 2026-08-27. Still flagged for the product owner's own sanity-check.
 const ISP_PRESETS = [
   'Telkom Indonesia (IndiHome/IndiBiz/Astinet)',
   'Biznet',
@@ -185,28 +186,60 @@ const ISP_PRESETS = [
   'Melvar Lintasbuana',
   'GTN (Graha Teknologi Nusantara)',
   'Skynindo',
+  'ION Network',
+  'Intimedia (Sarana Intimedia Telematika)',
+  'WOWNET',
+  'Padi Technology',
+  'D~NET',
+  'GMedia',
+  'PRIMADONA Net',
+  'DataComm',
+  'Fibernet',
+  'NAP Info',
+  'SKINET (Sumber Koneksi Indonesia)',
+  'Fiberstar',
+  'PSN (Pasifik Satelit Nusantara)',
 ] as const
 
 // Sourced from KBLI 2025 (BPS's official business-field classification, 21
-// top-level categories), curated to 19 - dropped "Aktivitas Rumah Tangga
-// sebagai Pemberi Kerja" and "Aktivitas Badan Internasional", both
-// essentially never a corporate-ISP lead. See spec section 3 for sources.
+// top-level categories), curated to 19, then expanded to 35 by breaking the
+// top-level KBLI 2020 categories down to golongan-pokok (2-digit division)
+// granularity - e.g. "Manufaktur" split into ~10 industry-specific rows.
+// NOTE: this breakdown was NOT independently re-verified against the
+// official BPS PDF (a scanned, non-text-searchable image file) - sanity
+// check against real field data before trusting it.
 const BUSINESS_FIELD_PRESETS = [
   'Pertanian, Kehutanan & Perikanan',
   'Pertambangan & Penggalian',
-  'Manufaktur (Industri Pengolahan)',
+  'Industri Makanan & Minuman',
+  'Industri Tekstil, Pakaian & Alas Kaki',
+  'Industri Kayu, Kertas & Percetakan',
+  'Industri Kimia & Farmasi',
+  'Industri Karet, Plastik & Barang Galian Bukan Logam',
+  'Industri Logam Dasar & Barang Logam',
+  'Industri Komputer, Elektronik & Optik',
+  'Industri Peralatan Listrik',
+  'Industri Mesin & Perlengkapan',
+  'Industri Kendaraan Bermotor & Alat Angkutan Lain',
+  'Industri Furnitur & Manufaktur Lainnya',
   'Listrik, Gas & Energi',
-  'Pengelolaan Air & Limbah',
+  'Pengelolaan Air, Limbah & Daur Ulang',
   'Konstruksi',
-  'Perdagangan Besar & Eceran (Retail)',
+  'Perdagangan Besar (Grosir/Distributor)',
+  'Perdagangan Eceran (Retail)',
   'Transportasi & Pergudangan (Logistik)',
-  'Akomodasi & Makanan Minuman (Hospitality/F&B)',
-  'Informasi & Komunikasi (IT/Telekomunikasi)',
-  'Jasa Keuangan & Asuransi',
+  'Akomodasi (Hotel/Penginapan)',
+  'Makanan & Minuman (Restoran/F&B)',
+  'Telekomunikasi',
+  'Pemrograman, Konsultansi & Aktivitas Komputer',
+  'Penerbitan, Media & Penyiaran',
+  'Jasa Keuangan & Perbankan',
+  'Asuransi & Dana Pensiun',
   'Real Estat & Properti',
   'Jasa Profesional, Ilmiah & Teknis (Konsultan/Hukum/Akuntansi)',
   'Jasa Persewaan & Sewa Guna Usaha',
-  'Administrasi Pemerintahan',
+  'Jasa Ketenagakerjaan, Agen Perjalanan & Penunjang Usaha',
+  'Administrasi Pemerintahan & Pertahanan',
   'Pendidikan',
   'Kesehatan & Aktivitas Sosial',
   'Kesenian, Hiburan & Rekreasi',
@@ -252,6 +285,7 @@ const ALL_FIELDS: FieldName[] = [
   'mobile_phone',
   'email',
   'capacity_mbps',
+  'existing_isp',
   'price',
   'forecast_mrr',
   'lead_source_id',
@@ -262,6 +296,7 @@ function validateField(
   name: FieldName,
   values: LeadFormValues,
   showOwner: boolean,
+  ispSelection: string,
 ): string | undefined {
   switch (name) {
     case 'company_name':
@@ -270,6 +305,8 @@ function validateField(
     case 'pic_name':
     case 'pic_position':
       return values[name].trim() === '' ? 'Wajib diisi' : undefined
+    case 'existing_isp':
+      return ispSelection === PRESET_OTHER && values.existing_isp.trim() === '' ? 'Wajib diisi' : undefined
     case 'lead_source_id':
       return values.lead_source_id === '' ? 'Wajib dipilih' : undefined
     case 'owner_id':
@@ -322,10 +359,14 @@ function validateField(
   }
 }
 
-function validateAll(values: LeadFormValues, showOwner: boolean): Record<string, string> {
+function validateAll(
+  values: LeadFormValues,
+  showOwner: boolean,
+  ispSelection: string,
+): Record<string, string> {
   const errs: Record<string, string> = {}
   for (const f of ALL_FIELDS) {
-    const err = validateField(f, values, showOwner)
+    const err = validateField(f, values, showOwner, ispSelection)
     if (err) errs[f] = err
   }
   return errs
@@ -449,20 +490,20 @@ export default function LeadFormPage() {
   // Validates on first blur, then live on every change while touched.
   function blur(field: keyof LeadFormValues) {
     setTouched((t) => ({ ...t, [field]: true }))
-    setErrors((e) => ({ ...e, [field]: validateField(field, values, showOwnerField) ?? '' }))
+    setErrors((e) => ({ ...e, [field]: validateField(field, values, showOwnerField, ispSelection) ?? '' }))
   }
 
   function change<K extends keyof LeadFormValues>(key: K, value: LeadFormValues[K]) {
     set(key, value)
     if (touched[key]) {
       const next = { ...values, [key]: value }
-      setErrors((e) => ({ ...e, [key]: validateField(key, next, showOwnerField) ?? '' }))
+      setErrors((e) => ({ ...e, [key]: validateField(key, next, showOwnerField, ispSelection) ?? '' }))
     }
   }
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    const errs = validateAll(values, showOwnerField)
+    const errs = validateAll(values, showOwnerField, ispSelection)
     setErrors(errs)
     setTouched((t) => {
       const next = { ...t }
@@ -645,7 +686,7 @@ export default function LeadFormPage() {
                   for (const f of ['province_id', 'city_id', 'district_id', 'village_id'] as const) {
                     if (touched[f]) {
                       next[f] =
-                        validateField(f, { ...values, address }, showOwnerField) ?? ''
+                        validateField(f, { ...values, address }, showOwnerField, ispSelection) ?? ''
                     }
                   }
                   return next
@@ -659,7 +700,7 @@ export default function LeadFormPage() {
               }}
               onBlurField={(f) => {
                 setTouched((t) => ({ ...t, [f]: true }))
-                setErrors((e) => ({ ...e, [f]: validateField(f, values, showOwnerField) ?? '' }))
+                setErrors((e) => ({ ...e, [f]: validateField(f, values, showOwnerField, ispSelection) ?? '' }))
               }}
             />
           </div>
@@ -885,9 +926,10 @@ export default function LeadFormPage() {
                   onChange={(e) => {
                     const v = e.target.value
                     setIspSelection(v)
-                    if (v !== PRESET_OTHER) set('existing_isp', v)
+                    if (v !== PRESET_OTHER) change('existing_isp', v)
                   }}
-                  className={FIELD_SELECT}
+                  onBlur={() => blur('existing_isp')}
+                  className={errClass(FIELD_SELECT, touched.existing_isp && !!errors.existing_isp)}
                 >
                   <option value="">Pilih…</option>
                   {ISP_PRESETS.map((isp) => (
@@ -902,10 +944,14 @@ export default function LeadFormPage() {
               {ispSelection === PRESET_OTHER && (
                 <input
                   value={values.existing_isp}
-                  onChange={(e) => set('existing_isp', e.target.value)}
+                  onChange={(e) => change('existing_isp', e.target.value)}
+                  onBlur={() => blur('existing_isp')}
                   placeholder="Tulis nama ISP"
-                  className={FIELD_INPUT + ' mt-2'}
+                  className={errClass(FIELD_INPUT, touched.existing_isp && !!errors.existing_isp) + ' mt-2'}
                 />
+              )}
+              {touched.existing_isp && errors.existing_isp && (
+                <p className="mt-1 text-[11px] text-[#DC2626]">{errors.existing_isp}</p>
               )}
             </div>
             <div>
