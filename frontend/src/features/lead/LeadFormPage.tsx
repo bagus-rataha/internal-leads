@@ -384,12 +384,12 @@ const ADDRESS_FIELD_SET = new Set<FieldName>([
 const scrollTargetId = (field: FieldName) =>
   ADDRESS_FIELD_SET.has(field) ? 'address-fields' : field
 
-// +62 prefix group: input's left corners flattened, no left border (the
-// prefix chip supplies it), right side keeps the normal field rounding.
-const PHONE_INPUT = FIELD_INPUT_MONO
+// Prefix chip group: input's left corners flattened, no left border (the
+// prefix chip supplies it), right side keeps normal field rounding.
+const PREFIXED_INPUT = FIELD_INPUT_MONO
   .replace('w-full', 'flex-1 min-w-0')
   .replace('rounded-[9px]', 'rounded-r-[9px] rounded-l-none') + ' border-l-0'
-const PHONE_PREFIX =
+const INPUT_PREFIX_CHIP =
   'flex h-[42px] shrink-0 items-center rounded-l-[9px] border border-r-0 border-[#CBD5E1] bg-[#F1F5F9] px-3 font-mono text-[13px] text-[#64748B]'
 
 const errClass = (base: string, hasError: boolean) => (hasError ? base + ' border-[#DC2626]' : base)
@@ -811,7 +811,7 @@ export default function LeadFormPage() {
                 Telepon Kantor <OptTag />
               </label>
               <div className="flex">
-                <span className={PHONE_PREFIX}>+62</span>
+                <span className={INPUT_PREFIX_CHIP}>+62</span>
                 <input
                   id="office_phone"
                   inputMode="numeric"
@@ -820,7 +820,7 @@ export default function LeadFormPage() {
                   onChange={(e) => change('office_phone', e.target.value)}
                   onBlur={() => blur('office_phone')}
                   placeholder="2112345678"
-                  className={errClass(PHONE_INPUT, touched.office_phone && !!errors.office_phone)}
+                  className={errClass(PREFIXED_INPUT, touched.office_phone && !!errors.office_phone)}
                 />
               </div>
               {touched.office_phone && errors.office_phone && (
@@ -832,7 +832,7 @@ export default function LeadFormPage() {
                 No. HP <RequiredMark />
               </label>
               <div className="flex">
-                <span className={PHONE_PREFIX}>+62</span>
+                <span className={INPUT_PREFIX_CHIP}>+62</span>
                 <input
                   id="mobile_phone"
                   required
@@ -842,7 +842,7 @@ export default function LeadFormPage() {
                   onChange={(e) => change('mobile_phone', e.target.value)}
                   onBlur={() => blur('mobile_phone')}
                   placeholder="81234567890"
-                  className={errClass(PHONE_INPUT, touched.mobile_phone && !!errors.mobile_phone)}
+                  className={errClass(PREFIXED_INPUT, touched.mobile_phone && !!errors.mobile_phone)}
                 />
               </div>
               {touched.mobile_phone && errors.mobile_phone && (
@@ -956,30 +956,36 @@ export default function LeadFormPage() {
             </div>
             <div>
               <label className={FIELD_LABEL}>Harga / bulan</label>
-              <input
-                id="price"
-                type="number"
-                value={values.price}
-                onChange={(e) => change('price', e.target.value)}
-                onBlur={() => blur('price')}
-                placeholder="3500000"
-                className={errClass(FIELD_INPUT_MONO, touched.price && !!errors.price)}
-              />
+              <div className="flex">
+                <span className={INPUT_PREFIX_CHIP}>Rp</span>
+                <input
+                  id="price"
+                  type="number"
+                  value={values.price}
+                  onChange={(e) => change('price', e.target.value)}
+                  onBlur={() => blur('price')}
+                  placeholder="3500000"
+                  className={errClass(PREFIXED_INPUT, touched.price && !!errors.price)}
+                />
+              </div>
               {touched.price && errors.price && (
                 <p className="mt-1 text-[11px] text-[#DC2626]">{errors.price}</p>
               )}
             </div>
             <div>
               <label className={FIELD_LABEL}>Forecast Pendapatan (MRR)</label>
-              <input
-                id="forecast_mrr"
-                type="number"
-                value={values.forecast_mrr}
-                onChange={(e) => change('forecast_mrr', e.target.value)}
-                onBlur={() => blur('forecast_mrr')}
-                placeholder="5000000"
-                className={errClass(FIELD_INPUT_MONO, touched.forecast_mrr && !!errors.forecast_mrr)}
-              />
+              <div className="flex">
+                <span className={INPUT_PREFIX_CHIP}>Rp</span>
+                <input
+                  id="forecast_mrr"
+                  type="number"
+                  value={values.forecast_mrr}
+                  onChange={(e) => change('forecast_mrr', e.target.value)}
+                  onBlur={() => blur('forecast_mrr')}
+                  placeholder="5000000"
+                  className={errClass(PREFIXED_INPUT, touched.forecast_mrr && !!errors.forecast_mrr)}
+                />
+              </div>
               {touched.forecast_mrr && errors.forecast_mrr && (
                 <p className="mt-1 text-[11px] text-[#DC2626]">{errors.forecast_mrr}</p>
               )}
