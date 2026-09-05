@@ -55,6 +55,11 @@ func (s *DashboardService) followUpsInScope(scope repository.LeadScope, teamID, 
 	return tx
 }
 
+// reachedSurveyExpr is the conversion predicate: a lead has "reached survey"
+// once survey_at is stamped, or if it's a legacy HANDOFF_ODOO row not yet
+// migrated. Prefixed for base()/scopedLeads() queries that join other tables.
+const reachedSurveyExpr = "(leads.survey_at IS NOT NULL OR leads.status = 'HANDOFF_ODOO')"
+
 // changePct implements MetricCard's zero-state contract: nil when the
 // comparison period was 0. A caller distinguishes "—" from "baru" using
 // Value alongside a nil ChangePct (see dto.MetricCard's doc comment) -
@@ -118,16 +123,14 @@ func (s *DashboardService) Summary(callerID uuid.UUID, role string, q dto.Dashbo
 		return nil, err
 	}
 
-	// Handoff period-window uses updated_at as the transition-timestamp
-	// proxy: HANDOFF_ODOO is a terminal status (no legal further mutation
-	// once a lead reaches it), so updated_at on a HANDOFF_ODOO lead is
-	// reliably "when it got there". No dedicated column exists - documented
-	// approximation, not silently assumed.
-	var handCur, handPrev int64
-	if err := base().Where("leads.status = 'HANDOFF_ODOO' AND leads.updated_at >= ? AND leads.updated_at < ?", q.DateFrom, q.DateTo.AddDate(0, 0, 1)).Count(&handCur).Error; err != nil {
+	// survey_at is the set-once conversion timestamp - a clean window key.
+	// Legacy HANDOFF_ODOO rows have a NULL survey_at and won't appear here
+	// (pre-pipeline, acceptable).
+	var surveyCur, surveyPrev int64
+	if err := base().Where("leads.survey_at >= ? AND leads.survey_at < ?", q.DateFrom, q.DateTo.AddDate(0, 0, 1)).Count(&surveyCur).Error; err != nil {
 		return nil, err
 	}
-	if err := base().Where("leads.status = 'HANDOFF_ODOO' AND leads.updated_at >= ? AND leads.updated_at < ?", prevFrom, prevTo.AddDate(0, 0, 1)).Count(&handPrev).Error; err != nil {
+	if err := base().Where("leads.survey_at >= ? AND leads.survey_at < ?", prevFrom, prevTo.AddDate(0, 0, 1)).Count(&surveyPrev).Error; err != nil {
 		return nil, err
 	}
 
@@ -147,14 +150,14 @@ func (s *DashboardService) Summary(callerID uuid.UUID, role string, q dto.Dashbo
 		return nil, err
 	}
 
-	var total, reachedFu, reachedHand, lost int64
+	var total, reachedFu, reachedSurvey, lost int64
 	if err := base().Count(&total).Error; err != nil {
 		return nil, err
 	}
 	if err := base().Where("leads.follow_up_count > 0").Count(&reachedFu).Error; err != nil {
 		return nil, err
 	}
-	if err := base().Where("leads.status = 'HANDOFF_ODOO'").Count(&reachedHand).Error; err != nil {
+	if err := base().Where(reachedSurveyExpr).Count(&reachedSurvey).Error; err != nil {
 		return nil, err
 	}
 	if err := base().Where("leads.status = 'LOST'").Count(&lost).Error; err != nil {
@@ -165,12 +168,12 @@ func (s *DashboardService) Summary(callerID uuid.UUID, role string, q dto.Dashbo
 		Stages: []dto.FunnelStage{
 			{Name: "Lead Baru (masuk)", Count: total, Pct: percentOf(total, total)},
 			{Name: "Sudah di-follow-up", Count: reachedFu, Pct: percentOf(reachedFu, total)},
-			{Name: "Handoff ke Odoo", Count: reachedHand, Pct: percentOf(reachedHand, total)},
+			{Name: "Survey", Count: reachedSurvey, Pct: percentOf(reachedSurvey, total)},
 		},
-		BaruToFuPct:    percentOf(reachedFu, total),
-		FuToHandoffPct: percentOf(reachedHand, reachedFu),
-		LostCount:      lost,
-		LostPct:        percentOf(lost, total),
+		BaruToFuPct:   percentOf(reachedFu, total),
+		FuToSurveyPct: percentOf(reachedSurvey, reachedFu),
+		LostCount:     lost,
+		LostPct:       percentOf(lost, total),
 	}
 
 	// Forecast MRR: an independent targeted sum, not a change to base()'s
@@ -196,7 +199,7 @@ func (s *DashboardService) Summary(callerID uuid.UUID, role string, q dto.Dashbo
 	return &dto.DashboardSummaryResponse{
 		LeadBaru:         dto.MetricCard{Value: leadBaruCur, ChangePct: changePct(leadBaruCur, leadBaruPrev)},
 		FollowUp:         dto.MetricCard{Value: fuCur, ChangePct: changePct(fuCur, fuPrev)},
-		Handoff:          dto.MetricCard{Value: handCur, ChangePct: changePct(handCur, handPrev)},
+		Survey:           dto.MetricCard{Value: surveyCur, ChangePct: changePct(surveyCur, surveyPrev)},
 		Terlantar:        dto.MetricCard{Value: staleNow, ChangePct: changePct(staleNow, stalePrev)},
 		Funnel:           funnel,
 		TotalForecastMrr: forecast.Total,
@@ -368,7 +371,7 @@ func (s *DashboardService) SalesActivity(callerID uuid.UUID, role string, q dto.
 	if err != nil {
 		return nil, err
 	}
-	handoffByOwner, err := s.countByUUID("leads", "owner_id", ids, "status = 'HANDOFF_ODOO'")
+	surveyByOwner, err := s.countByUUID("leads", "owner_id", ids, "(survey_at IS NOT NULL OR status = 'HANDOFF_ODOO')")
 	if err != nil {
 		return nil, err
 	}
@@ -477,9 +480,9 @@ func (s *DashboardService) SalesActivity(callerID uuid.UUID, role string, q dto.
 				FollowUp:     fuWrittenByAuthor[u.ID],
 				AvgFuPerLead: owned.AvgFu,
 				Terlantar:    terlantar,
-				Handoff:      handoffByOwner[u.ID],
+				Survey:       surveyByOwner[u.ID],
 				ForecastMrr:  forecastByOwner[u.ID],
-				ConvPct:      percentOf(handoffByOwner[u.ID], owned.Total),
+				ConvPct:      percentOf(surveyByOwner[u.ID], owned.Total),
 				LastActivity: lastActivity,
 				AttentionTag: attentionTag,
 			},
@@ -502,14 +505,14 @@ func (s *DashboardService) SalesActivity(callerID uuid.UUID, role string, q dto.
 	return &dto.DashboardSalesActivityResponse{Items: items}, nil
 }
 
-// nilIfNoHandoff enforces the segments zero-state rule: when the caller's
-// entire scope has zero handoffs anywhere, every row's conversion is null -
-// not just rows with their own zero denominator, which never happens here
-// (a row only exists for a category with >=1 lead). Extends the same
-// null-not-zero contract ARCHITECTURE.md already defines for change_pct,
-// applied at the scope level instead of the per-row level.
-func nilIfNoHandoff(pct *int, anyHandoff bool) *int {
-	if !anyHandoff {
+// nilIfNoSurvey enforces the segments zero-state rule: when the caller's
+// entire scope has zero leads that reached survey anywhere, every row's
+// conversion is null - not just rows with their own zero denominator, which
+// never happens here (a row only exists for a category with >=1 lead).
+// Extends the same null-not-zero contract ARCHITECTURE.md already defines for
+// change_pct, applied at the scope level instead of the per-row level.
+func nilIfNoSurvey(pct *int, anySurvey bool) *int {
+	if !anySurvey {
 		return nil
 	}
 	return pct
@@ -543,11 +546,11 @@ func (s *DashboardService) Segments(callerID uuid.UUID, role string, q dto.Dashb
 	}
 	base := func() *gorm.DB { return s.scopedLeads(scope, q.TeamID, q.OwnerID) }
 
-	var reachedHand int64
-	if err := base().Where("leads.status = 'HANDOFF_ODOO'").Count(&reachedHand).Error; err != nil {
+	var reachedSurvey int64
+	if err := base().Where(reachedSurveyExpr).Count(&reachedSurvey).Error; err != nil {
 		return nil, err
 	}
-	anyHandoff := reachedHand > 0
+	anySurvey := reachedSurvey > 0
 
 	type nameAgg struct {
 		Name    string
@@ -559,7 +562,7 @@ func (s *DashboardService) Segments(callerID uuid.UUID, role string, q dto.Dashb
 	var sourceRows []nameAgg
 	if err := base().
 		Joins("JOIN lead_sources ON lead_sources.id = leads.lead_source_id").
-		Select("lead_sources.name AS name, COUNT(*) AS count, COUNT(*) FILTER (WHERE leads.status = 'HANDOFF_ODOO') AS handoff").
+		Select("lead_sources.name AS name, COUNT(*) AS count, COUNT(*) FILTER (WHERE " + reachedSurveyExpr + ") AS handoff").
 		Group("lead_sources.name").
 		Order("count DESC").
 		Scan(&sourceRows).Error; err != nil {
@@ -568,15 +571,15 @@ func (s *DashboardService) Segments(callerID uuid.UUID, role string, q dto.Dashb
 	sources := make([]dto.SegmentRow, len(sourceRows))
 	for i, r := range sourceRows {
 		convPct := percentOf(r.Handoff, r.Count)
-		warn := anyHandoff && r.Count >= 3 && *convPct < 20
-		sources[i] = dto.SegmentRow{Name: r.Name, Count: r.Count, ConversionPct: nilIfNoHandoff(convPct, anyHandoff), Warn: warn}
+		warn := anySurvey && r.Count >= 3 && *convPct < 20
+		sources[i] = dto.SegmentRow{Name: r.Name, Count: r.Count, ConversionPct: nilIfNoSurvey(convPct, anySurvey), Warn: warn}
 	}
 
 	// Bidang Usaha (leads.business_field is a plain nullable text column, no join)
 	var fieldRows []nameAgg
 	if err := base().
 		Where("leads.business_field IS NOT NULL AND leads.business_field <> ''").
-		Select("leads.business_field AS name, COUNT(*) AS count, COUNT(*) FILTER (WHERE leads.status = 'HANDOFF_ODOO') AS handoff").
+		Select("leads.business_field AS name, COUNT(*) AS count, COUNT(*) FILTER (WHERE " + reachedSurveyExpr + ") AS handoff").
 		Group("leads.business_field").
 		Order("count DESC").
 		Scan(&fieldRows).Error; err != nil {
@@ -584,7 +587,7 @@ func (s *DashboardService) Segments(callerID uuid.UUID, role string, q dto.Dashb
 	}
 	businessFields := make([]dto.SegmentRow, len(fieldRows))
 	for i, r := range fieldRows {
-		businessFields[i] = dto.SegmentRow{Name: r.Name, Count: r.Count, ConversionPct: nilIfNoHandoff(percentOf(r.Handoff, r.Count), anyHandoff)}
+		businessFields[i] = dto.SegmentRow{Name: r.Name, Count: r.Count, ConversionPct: nilIfNoSurvey(percentOf(r.Handoff, r.Count), anySurvey)}
 	}
 
 	// Penetrasi Wilayah: province rollup + city rollup, merged into one
@@ -598,7 +601,7 @@ func (s *DashboardService) Segments(callerID uuid.UUID, role string, q dto.Dashb
 	var provRows []regionAgg
 	if err := base().
 		Joins("JOIN provinces ON provinces.id = leads.province_id").
-		Select("provinces.name AS province_name, COUNT(*) AS count, COUNT(*) FILTER (WHERE leads.status = 'HANDOFF_ODOO') AS handoff").
+		Select("provinces.name AS province_name, COUNT(*) AS count, COUNT(*) FILTER (WHERE " + reachedSurveyExpr + ") AS handoff").
 		Group("provinces.name").
 		Order("count DESC").
 		Scan(&provRows).Error; err != nil {
@@ -608,7 +611,7 @@ func (s *DashboardService) Segments(callerID uuid.UUID, role string, q dto.Dashb
 	if err := base().
 		Joins("JOIN cities ON cities.id = leads.city_id").
 		Joins("JOIN provinces ON provinces.id = cities.province_id").
-		Select("provinces.name AS province_name, cities.name AS city_name, COUNT(*) AS count, COUNT(*) FILTER (WHERE leads.status = 'HANDOFF_ODOO') AS handoff").
+		Select("provinces.name AS province_name, cities.name AS city_name, COUNT(*) AS count, COUNT(*) FILTER (WHERE " + reachedSurveyExpr + ") AS handoff").
 		Group("provinces.name, cities.name").
 		Scan(&cityRows).Error; err != nil {
 		return nil, err
@@ -619,11 +622,11 @@ func (s *DashboardService) Segments(callerID uuid.UUID, role string, q dto.Dashb
 	}
 	var regions []dto.RegionRow
 	for _, p := range provRows {
-		regions = append(regions, dto.RegionRow{Level: "province", Name: p.ProvinceName, LeadCount: p.Count, HandoffCount: p.Handoff})
+		regions = append(regions, dto.RegionRow{Level: "province", Name: p.ProvinceName, LeadCount: p.Count, SurveyCount: p.Handoff})
 		cities := citiesByProvince[p.ProvinceName]
 		sort.SliceStable(cities, func(a, b int) bool { return cities[a].Count > cities[b].Count })
 		for _, c := range cities {
-			regions = append(regions, dto.RegionRow{Level: "city", Name: c.CityName, Parent: p.ProvinceName, LeadCount: c.Count, HandoffCount: c.Handoff})
+			regions = append(regions, dto.RegionRow{Level: "city", Name: c.CityName, Parent: p.ProvinceName, LeadCount: c.Count, SurveyCount: c.Handoff})
 		}
 	}
 
@@ -663,7 +666,7 @@ func (s *DashboardService) Segments(callerID uuid.UUID, role string, q dto.Dashb
 	}
 
 	return &dto.DashboardSegmentsResponse{
-		AnyHandoff:     anyHandoff,
+		AnySurvey:      anySurvey,
 		Sources:        sources,
 		Regions:        regions,
 		Competitor:     stats,

@@ -1897,7 +1897,7 @@
         "dto.DashboardSegmentsResponse": {
             "type": "object",
             "properties": {
-                "any_handoff": {
+                "any_survey": {
                     "type": "boolean"
                 },
                 "business_fields": {
@@ -1949,10 +1949,10 @@
                 "funnel": {
                     "$ref": "#/definitions/dto.FunnelResponse"
                 },
-                "handoff": {
+                "lead_baru": {
                     "$ref": "#/definitions/dto.MetricCard"
                 },
-                "lead_baru": {
+                "survey": {
                     "$ref": "#/definitions/dto.MetricCard"
                 },
                 "terlantar": {
@@ -2011,7 +2011,7 @@
                 "baru_to_fu_pct": {
                     "type": "integer"
                 },
-                "fu_to_handoff_pct": {
+                "fu_to_survey_pct": {
                     "type": "integer"
                 },
                 "lost_count": {
@@ -2399,9 +2399,6 @@
         "dto.RegionRow": {
             "type": "object",
             "properties": {
-                "handoff_count": {
-                    "type": "integer"
-                },
                 "lead_count": {
                     "type": "integer"
                 },
@@ -2414,6 +2411,9 @@
                 },
                 "parent": {
                     "type": "string"
+                },
+                "survey_count": {
+                    "type": "integer"
                 }
             }
         },
@@ -2448,9 +2448,6 @@
                 "forecast_mrr": {
                     "type": "number"
                 },
-                "handoff": {
-                    "type": "integer"
-                },
                 "last_activity": {
                     "type": "string"
                 },
@@ -2459,6 +2456,9 @@
                 },
                 "name": {
                     "type": "string"
+                },
+                "survey": {
+                    "type": "integer"
                 },
                 "team_name": {
                     "type": "string"
@@ -2683,7 +2683,12 @@
                     "type": "string",
                     "enum": [
                         "FOLLOW_UP",
-                        "HANDOFF_ODOO",
+                        "SURVEY",
+                        "SALES_CONFIRMATION",
+                        "REGISTRASI",
+                        "INSTALASI",
+                        "TRIAL",
+                        "INVOICE_BULANAN",
                         "LOST"
                     ]
                 }
