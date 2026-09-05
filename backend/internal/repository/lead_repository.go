@@ -225,9 +225,9 @@ func (r *LeadRepository) RecordFollowUp(leadID uuid.UUID) error {
 }
 
 // MaybeTransitionToFollowUp flips status to FOLLOW_UP only if it's currently
-// BARU - step 4 of the follow-up write transaction. The WHERE condition
-// makes this a no-op for HANDOFF_ODOO/LOST leads, preventing them from
-// being pulled backward by a follow-up.
+// BARU - step 4 of the follow-up write transaction. The WHERE status = 'BARU'
+// condition makes this a no-op for every later status, so a follow-up on an
+// in-pipeline or closed lead never pulls it back to FOLLOW_UP.
 func (r *LeadRepository) MaybeTransitionToFollowUp(leadID uuid.UUID) error {
 	return r.db.Model(&models.Lead{}).
 		Where("id = ? AND status = ?", leadID, "BARU").
