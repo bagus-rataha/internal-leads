@@ -110,7 +110,7 @@ export function SalesActivityCard({
                   <th className={TH_R}>Follow-up</th>
                   <th className={TH_R}>Avg FU/Lead</th>
                   <th className={TH_R}>Terlantar</th>
-                  <th className={TH_R}>Handoff</th>
+                  <th className={TH_R}>Survey</th>
                   <th className={TH_R}>Forecast MRR</th>
                   <th className={TH_R}>Conv.</th>
                   <th className={TH}>Aktivitas Terakhir</th>
@@ -160,7 +160,7 @@ export function SalesActivityCard({
                       >
                         {row.terlantar}
                       </td>
-                      <td className="border-t border-t-[#F1F5F9] px-3.5 py-2.5 text-right font-mono text-[13px] text-[#334155]">{row.handoff}</td>
+                      <td className="border-t border-t-[#F1F5F9] px-3.5 py-2.5 text-right font-mono text-[13px] text-[#334155]">{row.survey}</td>
                       <td className="border-t border-t-[#F1F5F9] px-3.5 py-2.5 text-right font-mono text-[13px] text-[#334155]">
                         Rp {(row.forecast_mrr ?? 0).toLocaleString('id-ID')}
                       </td>
