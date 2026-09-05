@@ -261,6 +261,7 @@ export default function LeadDetailPage() {
               <select
                 aria-label="Koreksi status mundur"
                 defaultValue=""
+                disabled={updateStatus.isPending}
                 onChange={(e) => {
                   const v = e.target.value
                   if (!v) return
@@ -284,7 +285,7 @@ export default function LeadDetailPage() {
           </div>
         </div>
 
-        {(isLocked || lead.status === 'LOST') && (
+        {isLocked && (
           <div className={lead.status === 'LOST'
             ? 'mt-4 flex gap-3 rounded-[12px] border border-[#FECACA] bg-[#FEE2E2] p-[13px_15px] text-[#B91C1C]'
             : 'mt-4 flex gap-3 rounded-[12px] border border-[#BBF7D0] bg-[#DCFCE7] p-[13px_15px] text-[#166534]'}>

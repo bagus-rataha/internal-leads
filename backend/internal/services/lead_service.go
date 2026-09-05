@@ -515,9 +515,10 @@ func (s *LeadService) UpdateStatus(callerID uuid.UUID, role, code string, input 
 	if input.Status == "LOST" {
 		lead.LostReason = input.LostReason
 	}
-	// survey_at: set once on first SURVEY entry; clear only when an admin
-	// pulls a lead from >=SURVEY back to FOLLOW_UP.
-	if input.Status == "SURVEY" && lead.SurveyAt == nil {
+	// survey_at is stamped once the lead first reaches SURVEY or beyond -
+	// including a legacy HANDOFF_ODOO lead advancing to SALES_CONFIRMATION,
+	// which otherwise loses both the timestamp and the status-based fallback.
+	if lead.SurveyAt == nil && stageIndex(input.Status) >= stageIndex("SURVEY") {
 		now := time.Now()
 		lead.SurveyAt = &now
 	}

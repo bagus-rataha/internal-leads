@@ -6,6 +6,7 @@ import (
 	"fiber-api-boilerplate/internal/repository"
 	"math"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -59,6 +60,9 @@ func (s *DashboardService) followUpsInScope(scope repository.LeadScope, teamID, 
 // once survey_at is stamped, or if it's a legacy HANDOFF_ODOO row not yet
 // migrated. Prefixed for base()/scopedLeads() queries that join other tables.
 const reachedSurveyExpr = "(leads.survey_at IS NOT NULL OR leads.status = 'HANDOFF_ODOO')"
+
+// countByUUID queries the leads table directly (no join), so it needs the predicate without the "leads." qualifier.
+var reachedSurveyExprUnprefixed = strings.ReplaceAll(reachedSurveyExpr, "leads.", "")
 
 // changePct implements MetricCard's zero-state contract: nil when the
 // comparison period was 0. A caller distinguishes "—" from "baru" using
@@ -180,7 +184,7 @@ func (s *DashboardService) Summary(callerID uuid.UUID, role string, q dto.Dashbo
 	// scope. Summed across ALL statuses including LOST (user's explicit
 	// choice - total forecast ever quoted in scope, not just live pipeline),
 	// additionally narrowed by q.Status when the caller passes it - but ONLY
-	// this sum, never lead_baru/follow_up/handoff/terlantar/the funnel above,
+	// this sum, never lead_baru/follow_up/survey/terlantar/the funnel above,
 	// which already carry their own hardcoded status conditions that a
 	// second status filter here would collide with (AND-ing two different
 	// status equalities zeroes most of them out).
@@ -371,7 +375,7 @@ func (s *DashboardService) SalesActivity(callerID uuid.UUID, role string, q dto.
 	if err != nil {
 		return nil, err
 	}
-	surveyByOwner, err := s.countByUUID("leads", "owner_id", ids, "(survey_at IS NOT NULL OR status = 'HANDOFF_ODOO')")
+	surveyByOwner, err := s.countByUUID("leads", "owner_id", ids, reachedSurveyExprUnprefixed)
 	if err != nil {
 		return nil, err
 	}

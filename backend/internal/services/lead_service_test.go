@@ -287,6 +287,49 @@ func TestLeadUpdateStatus_AdminPullBackToFollowUp_ClearsSurveyAt(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+// TestLeadUpdateStatus_LegacyHandoffAdvance_SetsSurveyAt: a legacy
+// HANDOFF_ODOO lead advancing one step past SURVEY's slot must still stamp
+// survey_at, or it drops out of every conversion metric (survey_at NULL and
+// status no longer 'HANDOFF_ODOO' for the reachedSurveyExpr fallback).
+func TestLeadUpdateStatus_LegacyHandoffAdvance_SetsSurveyAt(t *testing.T) {
+	leadRepo := new(MockLeadRepository)
+	userRepo := new(MockUserRepository)
+	adminID := uuid.Must(uuid.NewV7())
+	lead := &models.Lead{Code: "LD-2607-0017", Status: "HANDOFF_ODOO"}
+	leadRepo.On("FindByCode", repository.LeadScope{}, "LD-2607-0017").Return(lead, nil)
+	leadRepo.On("Update", mock.AnythingOfType("*models.Lead")).Run(func(args mock.Arguments) {
+		updated := args.Get(0).(*models.Lead)
+		assert.NotNil(t, updated.SurveyAt, "survey_at stamped when a legacy handoff lead advances")
+	}).Return(nil)
+
+	svc := NewLeadService(nil, leadRepo, userRepo, nil)
+	_, err := svc.UpdateStatus(adminID, "ADMIN_SALES", "LD-2607-0017", dto.UpdateLeadStatusInput{Status: "SALES_CONFIRMATION"})
+
+	assert.NoError(t, err)
+	assert.NotNil(t, lead.SurveyAt)
+}
+
+// TestLeadUpdateStatus_ForwardPastSurvey_KeepsSurveyAt: a forward move whose
+// target is beyond SURVEY must not overwrite an already-set survey_at.
+func TestLeadUpdateStatus_ForwardPastSurvey_KeepsSurveyAt(t *testing.T) {
+	leadRepo := new(MockLeadRepository)
+	userRepo := new(MockUserRepository)
+	adminID := uuid.Must(uuid.NewV7())
+	surveyed := time.Now().AddDate(0, 0, -5)
+	lead := &models.Lead{Code: "LD-2607-0018", Status: "SURVEY", SurveyAt: &surveyed}
+	leadRepo.On("FindByCode", repository.LeadScope{}, "LD-2607-0018").Return(lead, nil)
+	leadRepo.On("Update", mock.AnythingOfType("*models.Lead")).Run(func(args mock.Arguments) {
+		updated := args.Get(0).(*models.Lead)
+		assert.Equal(t, surveyed, *updated.SurveyAt, "survey_at not overwritten on a forward move past SURVEY")
+	}).Return(nil)
+
+	svc := NewLeadService(nil, leadRepo, userRepo, nil)
+	_, err := svc.UpdateStatus(adminID, "ADMIN_SALES", "LD-2607-0018", dto.UpdateLeadStatusInput{Status: "SALES_CONFIRMATION"})
+
+	assert.NoError(t, err)
+	assert.Equal(t, surveyed, *lead.SurveyAt)
+}
+
 func TestLeadUpdateStatus_Advance_IgnoresStrayLostReason(t *testing.T) {
 	leadRepo := new(MockLeadRepository)
 	userRepo := new(MockUserRepository)
@@ -305,7 +348,7 @@ func TestLeadUpdateStatus_Advance_IgnoresStrayLostReason(t *testing.T) {
 	assert.Nil(t, lead.LostReason)
 }
 
-func TestLeadUpdateStatus_InvoiceForward_Rejected(t *testing.T) {
+func TestLeadUpdateStatus_InvoiceToLost_Rejected(t *testing.T) {
 	leadRepo := new(MockLeadRepository)
 	userRepo := new(MockUserRepository)
 	adminID := uuid.Must(uuid.NewV7())
