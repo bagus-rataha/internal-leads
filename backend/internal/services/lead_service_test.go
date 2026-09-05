@@ -249,22 +249,45 @@ func TestLeadUpdateStatus_BaruToFollowUp_Rejected(t *testing.T) {
 	leadRepo.AssertNotCalled(t, "Update", mock.Anything)
 }
 
-func TestLeadUpdateStatus_FollowUpToHandoff_Allowed(t *testing.T) {
+func TestLeadUpdateStatus_FollowUpToSurvey_Allowed_SetsSurveyAt(t *testing.T) {
 	leadRepo := new(MockLeadRepository)
 	userRepo := new(MockUserRepository)
 	adminID := uuid.Must(uuid.NewV7())
 	lead := &models.Lead{Code: "LD-2607-0005", Status: "FOLLOW_UP"}
 	leadRepo.On("FindByCode", repository.LeadScope{}, "LD-2607-0005").Return(lead, nil)
-	leadRepo.On("Update", mock.AnythingOfType("*models.Lead")).Return(nil)
+	leadRepo.On("Update", mock.AnythingOfType("*models.Lead")).Run(func(args mock.Arguments) {
+		updated := args.Get(0).(*models.Lead)
+		assert.NotNil(t, updated.SurveyAt, "survey_at set on first SURVEY entry")
+	}).Return(nil)
 
 	svc := NewLeadService(nil, leadRepo, userRepo, nil)
-	result, err := svc.UpdateStatus(adminID, "ADMIN_SALES", "LD-2607-0005", dto.UpdateLeadStatusInput{Status: "HANDOFF_ODOO"})
+	result, err := svc.UpdateStatus(adminID, "ADMIN_SALES", "LD-2607-0005", dto.UpdateLeadStatusInput{Status: "SURVEY"})
 
 	assert.NoError(t, err)
-	assert.Equal(t, "HANDOFF_ODOO", result.Status)
+	assert.Equal(t, "SURVEY", result.Status)
 }
 
-func TestLeadUpdateStatus_FollowUpToHandoff_IgnoresStrayLostReason(t *testing.T) {
+// TestLeadUpdateStatus_AdminPullBackToFollowUp_ClearsSurveyAt: only an admin
+// moving a lead from >=SURVEY back to FOLLOW_UP nulls survey_at.
+func TestLeadUpdateStatus_AdminPullBackToFollowUp_ClearsSurveyAt(t *testing.T) {
+	leadRepo := new(MockLeadRepository)
+	userRepo := new(MockUserRepository)
+	adminID := uuid.Must(uuid.NewV7())
+	surveyed := time.Now().AddDate(0, 0, -3)
+	lead := &models.Lead{Code: "LD-2607-0016", Status: "SURVEY", SurveyAt: &surveyed}
+	leadRepo.On("FindByCode", repository.LeadScope{}, "LD-2607-0016").Return(lead, nil)
+	leadRepo.On("Update", mock.AnythingOfType("*models.Lead")).Run(func(args mock.Arguments) {
+		updated := args.Get(0).(*models.Lead)
+		assert.Nil(t, updated.SurveyAt, "survey_at cleared on admin pull-back to FOLLOW_UP")
+	}).Return(nil)
+
+	svc := NewLeadService(nil, leadRepo, userRepo, nil)
+	_, err := svc.UpdateStatus(adminID, "ADMIN_SALES", "LD-2607-0016", dto.UpdateLeadStatusInput{Status: "FOLLOW_UP"})
+
+	assert.NoError(t, err)
+}
+
+func TestLeadUpdateStatus_Advance_IgnoresStrayLostReason(t *testing.T) {
 	leadRepo := new(MockLeadRepository)
 	userRepo := new(MockUserRepository)
 	adminID := uuid.Must(uuid.NewV7())
@@ -276,17 +299,17 @@ func TestLeadUpdateStatus_FollowUpToHandoff_IgnoresStrayLostReason(t *testing.T)
 	}).Return(nil)
 
 	svc := NewLeadService(nil, leadRepo, userRepo, nil)
-	_, err := svc.UpdateStatus(adminID, "ADMIN_SALES", "LD-2607-0009", dto.UpdateLeadStatusInput{Status: "HANDOFF_ODOO", LostReason: strPtrSvc("stray")})
+	_, err := svc.UpdateStatus(adminID, "ADMIN_SALES", "LD-2607-0009", dto.UpdateLeadStatusInput{Status: "SURVEY", LostReason: strPtrSvc("stray")})
 
 	assert.NoError(t, err)
 	assert.Nil(t, lead.LostReason)
 }
 
-func TestLeadUpdateStatus_Terminal_Rejected(t *testing.T) {
+func TestLeadUpdateStatus_InvoiceForward_Rejected(t *testing.T) {
 	leadRepo := new(MockLeadRepository)
 	userRepo := new(MockUserRepository)
 	adminID := uuid.Must(uuid.NewV7())
-	lead := &models.Lead{Code: "LD-2607-0006", Status: "HANDOFF_ODOO"}
+	lead := &models.Lead{Code: "LD-2607-0006", Status: "INVOICE_BULANAN"}
 	leadRepo.On("FindByCode", repository.LeadScope{}, "LD-2607-0006").Return(lead, nil)
 
 	svc := NewLeadService(nil, leadRepo, userRepo, nil)
@@ -430,6 +453,39 @@ func TestLeadFindByCode_ReturnsDetailResponseWithResolvedNames(t *testing.T) {
 	assert.Equal(t, "Dedicated", *result.ServiceTypeName)
 	assert.Equal(t, "Rani", result.CreatedByName)
 	assert.Nil(t, result.ProvinceName, "unset province_id must produce a nil name, not a panic or empty string")
+}
+
+func TestValidateStatusTransition(t *testing.T) {
+	cases := []struct {
+		name           string
+		from, to, role string
+		want           bool
+	}{
+		{"forward one step, sales", "SURVEY", "SALES_CONFIRMATION", "SALES", true},
+		{"forward skip rejected", "SURVEY", "REGISTRASI", "SALES", false},
+		{"forward skip rejected even for admin", "SURVEY", "REGISTRASI", "SU", false},
+		{"backward rejected for sales", "INSTALASI", "SURVEY", "SALES", false},
+		{"backward rejected for leader", "INSTALASI", "SURVEY", "LEADER", false},
+		{"backward multi-step ok for admin", "INSTALASI", "SURVEY", "ADMIN_SALES", true},
+		{"backward one step ok for su", "TRIAL", "INSTALASI", "SU", true},
+		{"backward to follow_up ok for admin", "SURVEY", "FOLLOW_UP", "ADMIN_SALES", true},
+		{"lost from follow_up", "FOLLOW_UP", "LOST", "SALES", true},
+		{"lost from trial", "TRIAL", "LOST", "SALES", true},
+		{"lost from invoice rejected", "INVOICE_BULANAN", "LOST", "SU", false},
+		{"forward from invoice rejected", "INVOICE_BULANAN", "SURVEY", "SALES", false},
+		{"invoice backward ok for admin", "INVOICE_BULANAN", "TRIAL", "ADMIN_SALES", true},
+		{"baru to lost", "BARU", "LOST", "SALES", true},
+		{"baru to survey rejected", "BARU", "SURVEY", "SU", false},
+		{"baru to follow_up rejected via endpoint", "BARU", "FOLLOW_UP", "SU", false},
+		{"legacy handoff forward", "HANDOFF_ODOO", "SALES_CONFIRMATION", "SALES", true},
+		{"legacy handoff to lost", "HANDOFF_ODOO", "LOST", "SALES", true},
+		{"from lost rejected", "LOST", "FOLLOW_UP", "SU", false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			assert.Equal(t, c.want, validateStatusTransition(c.from, c.to, c.role))
+		})
+	}
 }
 
 func strPtrSvc(s string) *string { return &s }

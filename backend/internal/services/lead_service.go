@@ -29,8 +29,10 @@ var ErrInvalidStatusTransition = errors.New("invalid status transition")
 
 // isLeadStale mirrors the SQL stale predicate in repository.ApplyLeadFilter
 // exactly, so the query-param filter and this per-row flag can never
-// disagree: status still active (BARU/FOLLOW_UP) and the last activity
-// (last_follow_up_at, falling back to created_at) is older than
+// disagree. A lead is stale only while it's still the sales team's to chase -
+// status BARU or FOLLOW_UP. Everything from SURVEY onward (and legacy
+// HANDOFF_ODOO) has left for the Odoo pipeline; LOST is closed. The last
+// activity (last_follow_up_at, falling back to created_at) must be older than
 // repository.StaleLeadThresholdDays. now is passed in explicitly (rather than
 // calling time.Now() internally) so tests can pin the clock. Lives here
 // rather than in dto because dto must not import repository.
@@ -435,14 +437,57 @@ func applyLeadUpdate(lead *models.Lead, input dto.UpdateLeadInput, role string) 
 	}
 }
 
-// leadStatusTransitions is the ARCHITECTURE.md §9 state machine, minus
-// BARU->FOLLOW_UP - that transition only happens through the follow-up
-// endpoint (see FollowUpService.Create), never through this one.
-var leadStatusTransitions = map[string][]string{
-	"BARU":         {"LOST"},
-	"FOLLOW_UP":    {"HANDOFF_ODOO", "LOST"},
-	"HANDOFF_ODOO": {},
-	"LOST":         {},
+// leadStageOrder is the linear post-BARU pipeline. BARU (enters via first
+// follow-up) and LOST (a branch-out) are deliberately not in it.
+var leadStageOrder = []string{
+	"FOLLOW_UP", "SURVEY", "SALES_CONFIRMATION", "REGISTRASI",
+	"INSTALASI", "TRIAL", "INVOICE_BULANAN",
+}
+
+// stageIndex returns a status's position in leadStageOrder, mapping the
+// legacy HANDOFF_ODOO onto SURVEY's slot. -1 for BARU / LOST / unknown.
+func stageIndex(status string) int {
+	if status == "HANDOFF_ODOO" {
+		status = "SURVEY"
+	}
+	for i, s := range leadStageOrder {
+		if s == status {
+			return i
+		}
+	}
+	return -1
+}
+
+func isAdminRole(role string) bool { return role == "ADMIN_SALES" || role == "SU" }
+
+// validateStatusTransition is the ARCHITECTURE.md §9 state machine:
+// forward one step for anyone, backward any distance for admin/SU only,
+// LOST from anything before INVOICE_BULANAN. BARU->FOLLOW_UP is not here -
+// that only happens through the follow-up endpoint.
+func validateStatusTransition(from, to, role string) bool {
+	if from == "LOST" {
+		return false
+	}
+	if from == "INVOICE_BULANAN" && !isAdminRole(role) {
+		return false
+	}
+	if from == "BARU" {
+		return to == "LOST"
+	}
+	if to == "LOST" {
+		return stageIndex(from) >= 0 && stageIndex(from) < stageIndex("INVOICE_BULANAN")
+	}
+	fi, ti := stageIndex(from), stageIndex(to)
+	if fi < 0 || ti < 0 {
+		return false
+	}
+	if ti == fi+1 {
+		return true
+	}
+	if ti < fi && isAdminRole(role) {
+		return true
+	}
+	return false
 }
 
 // UpdateStatus validates and applies a status transition, scoped.
@@ -457,15 +502,7 @@ func (s *LeadService) UpdateStatus(callerID uuid.UUID, role, code string, input 
 		return nil, ErrLeadNotFound
 	}
 
-	allowed := leadStatusTransitions[lead.Status]
-	valid := false
-	for _, target := range allowed {
-		if target == input.Status {
-			valid = true
-			break
-		}
-	}
-	if !valid {
+	if !validateStatusTransition(lead.Status, input.Status, role) {
 		return nil, ErrInvalidStatusTransition
 	}
 
@@ -473,9 +510,19 @@ func (s *LeadService) UpdateStatus(callerID uuid.UUID, role, code string, input 
 		return nil, errors.New("lost_reason is required when status is LOST")
 	}
 
+	prevStatus := lead.Status
 	lead.Status = input.Status
 	if input.Status == "LOST" {
 		lead.LostReason = input.LostReason
+	}
+	// survey_at: set once on first SURVEY entry; clear only when an admin
+	// pulls a lead from >=SURVEY back to FOLLOW_UP.
+	if input.Status == "SURVEY" && lead.SurveyAt == nil {
+		now := time.Now()
+		lead.SurveyAt = &now
+	}
+	if input.Status == "FOLLOW_UP" && stageIndex(prevStatus) >= stageIndex("SURVEY") {
+		lead.SurveyAt = nil
 	}
 
 	if err := s.leadRepo.Update(lead); err != nil {
