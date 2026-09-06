@@ -21,6 +21,15 @@ export const PIPELINE_ORDER = [
   'INSTALASI', 'TRIAL', 'INVOICE_BULANAN',
 ] as const
 
+// Statuses offered as a filter choice in the UI - the full pipeline plus
+// LOST, but never legacy HANDOFF_ODOO (still rendered as a pill for old
+// leads via STATUS_CONFIG, just not a filter option). Shared by the lead
+// list filter and the dashboard forecast-status filter.
+export const STATUS_FILTER_OPTIONS: string[] = [
+  'BARU', 'FOLLOW_UP', 'SURVEY', 'SALES_CONFIRMATION', 'REGISTRASI',
+  'INSTALASI', 'TRIAL', 'INVOICE_BULANAN', 'LOST',
+]
+
 function chainIndex(status: string): number {
   const s = status === 'HANDOFF_ODOO' ? 'SURVEY' : status
   return (PIPELINE_ORDER as readonly string[]).indexOf(s)
