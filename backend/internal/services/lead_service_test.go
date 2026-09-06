@@ -34,8 +34,8 @@ func TestIsLeadStale_Terminal_AlwaysFalse(t *testing.T) {
 	now := time.Now()
 	old := now.AddDate(0, 0, -10)
 
-	handoff := &models.Lead{Status: "HANDOFF_ODOO", LastFollowUpAt: &old}
-	assert.False(t, isLeadStale(handoff, now), "terminal status is never stale regardless of dates")
+	advanced := &models.Lead{Status: "INVOICE_BULANAN", LastFollowUpAt: &old}
+	assert.False(t, isLeadStale(advanced, now), "past-SURVEY status is never stale regardless of dates")
 
 	lost := &models.Lead{Status: "LOST", LastFollowUpAt: &old}
 	assert.False(t, isLeadStale(lost, now), "terminal status is never stale regardless of dates")
@@ -287,28 +287,6 @@ func TestLeadUpdateStatus_AdminPullBackToFollowUp_ClearsSurveyAt(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-// TestLeadUpdateStatus_LegacyHandoffAdvance_SetsSurveyAt: a legacy
-// HANDOFF_ODOO lead advancing one step past SURVEY's slot must still stamp
-// survey_at, or it drops out of every conversion metric (survey_at NULL and
-// status no longer 'HANDOFF_ODOO' for the reachedSurveyExpr fallback).
-func TestLeadUpdateStatus_LegacyHandoffAdvance_SetsSurveyAt(t *testing.T) {
-	leadRepo := new(MockLeadRepository)
-	userRepo := new(MockUserRepository)
-	adminID := uuid.Must(uuid.NewV7())
-	lead := &models.Lead{Code: "LD-2607-0017", Status: "HANDOFF_ODOO"}
-	leadRepo.On("FindByCode", repository.LeadScope{}, "LD-2607-0017").Return(lead, nil)
-	leadRepo.On("Update", mock.AnythingOfType("*models.Lead")).Run(func(args mock.Arguments) {
-		updated := args.Get(0).(*models.Lead)
-		assert.NotNil(t, updated.SurveyAt, "survey_at stamped when a legacy handoff lead advances")
-	}).Return(nil)
-
-	svc := NewLeadService(nil, leadRepo, userRepo, nil)
-	_, err := svc.UpdateStatus(adminID, "ADMIN_SALES", "LD-2607-0017", dto.UpdateLeadStatusInput{Status: "SALES_CONFIRMATION"})
-
-	assert.NoError(t, err)
-	assert.NotNil(t, lead.SurveyAt)
-}
-
 // TestLeadUpdateStatus_ForwardPastSurvey_KeepsSurveyAt: a forward move whose
 // target is beyond SURVEY must not overwrite an already-set survey_at.
 func TestLeadUpdateStatus_ForwardPastSurvey_KeepsSurveyAt(t *testing.T) {
@@ -520,8 +498,6 @@ func TestValidateStatusTransition(t *testing.T) {
 		{"baru to lost", "BARU", "LOST", "SALES", true},
 		{"baru to survey rejected", "BARU", "SURVEY", "SU", false},
 		{"baru to follow_up rejected via endpoint", "BARU", "FOLLOW_UP", "SU", false},
-		{"legacy handoff forward", "HANDOFF_ODOO", "SALES_CONFIRMATION", "SALES", true},
-		{"legacy handoff to lost", "HANDOFF_ODOO", "LOST", "SALES", true},
 		{"from lost rejected", "LOST", "FOLLOW_UP", "SU", false},
 	}
 	for _, c := range cases {

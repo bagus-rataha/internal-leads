@@ -18,7 +18,7 @@ export type LeadResponse = components['schemas']['dto.LeadResponse']
 // handler's actual c.Query(...) keys.
 export type LeadStatus =
   | 'BARU' | 'FOLLOW_UP' | 'SURVEY' | 'SALES_CONFIRMATION' | 'REGISTRASI'
-  | 'INSTALASI' | 'TRIAL' | 'INVOICE_BULANAN' | 'LOST' | 'HANDOFF_ODOO'
+  | 'INSTALASI' | 'TRIAL' | 'INVOICE_BULANAN' | 'LOST'
 export type LeadSort = 'code' | '-code' | 'company_name' | '-company_name'
 
 export interface LeadListParams {
@@ -141,7 +141,7 @@ export async function createFollowUp(code: string, note: string): Promise<Follow
 }
 
 export interface UpdateLeadStatusInput {
-  status: Exclude<LeadStatus, 'BARU' | 'HANDOFF_ODOO'>
+  status: Exclude<LeadStatus, 'BARU'>
   lost_reason?: string
 }
 

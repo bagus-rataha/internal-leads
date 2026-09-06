@@ -226,7 +226,7 @@ func TestLeadRepository_List_StaleFilter(t *testing.T) {
 	recentFollowUp := time.Now().AddDate(0, 0, -1)
 	require.NoError(t, db.Create(&models.Lead{Code: "LD-2607-0801", OwnerID: userID, CreatedByID: userID, CompanyName: "Stale", Status: "FOLLOW_UP", LastFollowUpAt: &oldFollowUp}).Error)
 	require.NoError(t, db.Create(&models.Lead{Code: "LD-2607-0802", OwnerID: userID, CreatedByID: userID, CompanyName: "Fresh", Status: "FOLLOW_UP", LastFollowUpAt: &recentFollowUp}).Error)
-	require.NoError(t, db.Create(&models.Lead{Code: "LD-2607-0803", OwnerID: userID, CreatedByID: userID, CompanyName: "Won, old but terminal", Status: "HANDOFF_ODOO", LastFollowUpAt: &oldFollowUp}).Error)
+	require.NoError(t, db.Create(&models.Lead{Code: "LD-2607-0803", OwnerID: userID, CreatedByID: userID, CompanyName: "Won, old but terminal", Status: "INVOICE_BULANAN", LastFollowUpAt: &oldFollowUp}).Error)
 
 	results, _, err := repo.List(LeadScope{}, LeadFilter{Stale: true, Page: 1, Limit: 20})
 	require.NoError(t, err)

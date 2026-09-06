@@ -220,7 +220,6 @@ func TestUserRepository_CountActiveByOwner(t *testing.T) {
 	// past the sales-worked stages or terminal - must not be counted
 	assert.NoError(t, db.Create(&models.Lead{Code: "LD-2607-0008", Status: "INVOICE_BULANAN", OwnerID: owner.ID, CreatedByID: owner.ID, CompanyName: "Co H"}).Error)
 	assert.NoError(t, db.Create(&models.Lead{Code: "LD-2607-0003", Status: "LOST", LostReason: &lostReason, OwnerID: owner.ID, CreatedByID: owner.ID, CompanyName: "Co C"}).Error)
-	assert.NoError(t, db.Create(&models.Lead{Code: "LD-2607-0004", Status: "HANDOFF_ODOO", OwnerID: owner.ID, CreatedByID: owner.ID, CompanyName: "Co D"}).Error)
 	// active lead for a different owner - must not be counted
 	assert.NoError(t, db.Create(&models.Lead{Code: "LD-2607-0005", Status: "BARU", OwnerID: otherOwner.ID, CreatedByID: otherOwner.ID, CompanyName: "Co E"}).Error)
 

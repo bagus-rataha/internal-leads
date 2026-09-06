@@ -13,7 +13,6 @@ export const STATUS_CONFIG: Record<string, { label: string; className: string }>
   TRIAL: { label: 'Trial', className: 'bg-[#A7F3D0] text-[#14532D]' },
   INVOICE_BULANAN: { label: 'Invoice Bulanan', className: 'bg-[#16A34A] text-white' },
   LOST: { label: 'Hilang', className: 'bg-[#FEE2E2] text-[#B91C1C]' },
-  HANDOFF_ODOO: { label: 'Handoff Odoo', className: 'bg-[#DCFCE7] text-[#166534]' },
 }
 
 export const PIPELINE_ORDER = [
@@ -22,17 +21,15 @@ export const PIPELINE_ORDER = [
 ] as const
 
 // Statuses offered as a filter choice in the UI - the full pipeline plus
-// LOST, but never legacy HANDOFF_ODOO (still rendered as a pill for old
-// leads via STATUS_CONFIG, just not a filter option). Shared by the lead
-// list filter and the dashboard forecast-status filter.
+// LOST. Shared by the lead list filter and the dashboard forecast-status
+// filter.
 export const STATUS_FILTER_OPTIONS: string[] = [
   'BARU', 'FOLLOW_UP', 'SURVEY', 'SALES_CONFIRMATION', 'REGISTRASI',
   'INSTALASI', 'TRIAL', 'INVOICE_BULANAN', 'LOST',
 ]
 
 function chainIndex(status: string): number {
-  const s = status === 'HANDOFF_ODOO' ? 'SURVEY' : status
-  return (PIPELINE_ORDER as readonly string[]).indexOf(s)
+  return (PIPELINE_ORDER as readonly string[]).indexOf(status)
 }
 
 export function nextStage(status: string): string | null {

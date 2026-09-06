@@ -57,9 +57,9 @@ func (s *DashboardService) followUpsInScope(scope repository.LeadScope, teamID, 
 }
 
 // reachedSurveyExpr is the conversion predicate: a lead has "reached survey"
-// once survey_at is stamped, or if it's a legacy HANDOFF_ODOO row not yet
-// migrated. Prefixed for base()/scopedLeads() queries that join other tables.
-const reachedSurveyExpr = "(leads.survey_at IS NOT NULL OR leads.status = 'HANDOFF_ODOO')"
+// once survey_at is stamped. Prefixed for base()/scopedLeads() queries that
+// join other tables.
+const reachedSurveyExpr = "leads.survey_at IS NOT NULL"
 
 // countByUUID queries the leads table directly (no join), so it needs the predicate without the "leads." qualifier.
 var reachedSurveyExprUnprefixed = strings.ReplaceAll(reachedSurveyExpr, "leads.", "")
@@ -128,8 +128,6 @@ func (s *DashboardService) Summary(callerID uuid.UUID, role string, q dto.Dashbo
 	}
 
 	// survey_at is the set-once conversion timestamp - a clean window key.
-	// Legacy HANDOFF_ODOO rows have a NULL survey_at and won't appear here
-	// (pre-pipeline, acceptable).
 	var surveyCur, surveyPrev int64
 	if err := base().Where("leads.survey_at >= ? AND leads.survey_at < ?", q.DateFrom, q.DateTo.AddDate(0, 0, 1)).Count(&surveyCur).Error; err != nil {
 		return nil, err
@@ -559,14 +557,14 @@ func (s *DashboardService) Segments(callerID uuid.UUID, role string, q dto.Dashb
 	type nameAgg struct {
 		Name    string
 		Count   int64
-		Handoff int64
+		Reached int64
 	}
 
 	// Sumber Lead
 	var sourceRows []nameAgg
 	if err := base().
 		Joins("JOIN lead_sources ON lead_sources.id = leads.lead_source_id").
-		Select("lead_sources.name AS name, COUNT(*) AS count, COUNT(*) FILTER (WHERE " + reachedSurveyExpr + ") AS handoff").
+		Select("lead_sources.name AS name, COUNT(*) AS count, COUNT(*) FILTER (WHERE " + reachedSurveyExpr + ") AS reached").
 		Group("lead_sources.name").
 		Order("count DESC").
 		Scan(&sourceRows).Error; err != nil {
@@ -574,7 +572,7 @@ func (s *DashboardService) Segments(callerID uuid.UUID, role string, q dto.Dashb
 	}
 	sources := make([]dto.SegmentRow, len(sourceRows))
 	for i, r := range sourceRows {
-		convPct := percentOf(r.Handoff, r.Count)
+		convPct := percentOf(r.Reached, r.Count)
 		warn := anySurvey && r.Count >= 3 && *convPct < 20
 		sources[i] = dto.SegmentRow{Name: r.Name, Count: r.Count, ConversionPct: nilIfNoSurvey(convPct, anySurvey), Warn: warn}
 	}
@@ -583,7 +581,7 @@ func (s *DashboardService) Segments(callerID uuid.UUID, role string, q dto.Dashb
 	var fieldRows []nameAgg
 	if err := base().
 		Where("leads.business_field IS NOT NULL AND leads.business_field <> ''").
-		Select("leads.business_field AS name, COUNT(*) AS count, COUNT(*) FILTER (WHERE " + reachedSurveyExpr + ") AS handoff").
+		Select("leads.business_field AS name, COUNT(*) AS count, COUNT(*) FILTER (WHERE " + reachedSurveyExpr + ") AS reached").
 		Group("leads.business_field").
 		Order("count DESC").
 		Scan(&fieldRows).Error; err != nil {
@@ -591,7 +589,7 @@ func (s *DashboardService) Segments(callerID uuid.UUID, role string, q dto.Dashb
 	}
 	businessFields := make([]dto.SegmentRow, len(fieldRows))
 	for i, r := range fieldRows {
-		businessFields[i] = dto.SegmentRow{Name: r.Name, Count: r.Count, ConversionPct: nilIfNoSurvey(percentOf(r.Handoff, r.Count), anySurvey)}
+		businessFields[i] = dto.SegmentRow{Name: r.Name, Count: r.Count, ConversionPct: nilIfNoSurvey(percentOf(r.Reached, r.Count), anySurvey)}
 	}
 
 	// Penetrasi Wilayah: province rollup + city rollup, merged into one
@@ -600,12 +598,12 @@ func (s *DashboardService) Segments(callerID uuid.UUID, role string, q dto.Dashb
 		ProvinceName string
 		CityName     string
 		Count        int64
-		Handoff      int64
+		Reached      int64
 	}
 	var provRows []regionAgg
 	if err := base().
 		Joins("JOIN provinces ON provinces.id = leads.province_id").
-		Select("provinces.name AS province_name, COUNT(*) AS count, COUNT(*) FILTER (WHERE " + reachedSurveyExpr + ") AS handoff").
+		Select("provinces.name AS province_name, COUNT(*) AS count, COUNT(*) FILTER (WHERE " + reachedSurveyExpr + ") AS reached").
 		Group("provinces.name").
 		Order("count DESC").
 		Scan(&provRows).Error; err != nil {
@@ -615,7 +613,7 @@ func (s *DashboardService) Segments(callerID uuid.UUID, role string, q dto.Dashb
 	if err := base().
 		Joins("JOIN cities ON cities.id = leads.city_id").
 		Joins("JOIN provinces ON provinces.id = cities.province_id").
-		Select("provinces.name AS province_name, cities.name AS city_name, COUNT(*) AS count, COUNT(*) FILTER (WHERE " + reachedSurveyExpr + ") AS handoff").
+		Select("provinces.name AS province_name, cities.name AS city_name, COUNT(*) AS count, COUNT(*) FILTER (WHERE " + reachedSurveyExpr + ") AS reached").
 		Group("provinces.name, cities.name").
 		Scan(&cityRows).Error; err != nil {
 		return nil, err
@@ -626,11 +624,11 @@ func (s *DashboardService) Segments(callerID uuid.UUID, role string, q dto.Dashb
 	}
 	var regions []dto.RegionRow
 	for _, p := range provRows {
-		regions = append(regions, dto.RegionRow{Level: "province", Name: p.ProvinceName, LeadCount: p.Count, SurveyCount: p.Handoff})
+		regions = append(regions, dto.RegionRow{Level: "province", Name: p.ProvinceName, LeadCount: p.Count, SurveyCount: p.Reached})
 		cities := citiesByProvince[p.ProvinceName]
 		sort.SliceStable(cities, func(a, b int) bool { return cities[a].Count > cities[b].Count })
 		for _, c := range cities {
-			regions = append(regions, dto.RegionRow{Level: "city", Name: c.CityName, Parent: p.ProvinceName, LeadCount: c.Count, SurveyCount: c.Handoff})
+			regions = append(regions, dto.RegionRow{Level: "city", Name: c.CityName, Parent: p.ProvinceName, LeadCount: c.Count, SurveyCount: c.Reached})
 		}
 	}
 

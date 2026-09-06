@@ -15,7 +15,7 @@ import { StatusPill, formatRelativeTime, STATUS_CONFIG, nextStage, earlierStages
 import type { FollowUpResponse, UpdateLeadStatusInput } from './api'
 
 // nextStage()/earlierStages() only ever return valid forward/backward pipeline
-// stages, never BARU/HANDOFF_ODOO — so the cast to the mutation's status type is sound.
+// stages, never BARU — so the cast to the mutation's status type is sound.
 type PipelineStatus = UpdateLeadStatusInput['status']
 import { useState } from 'react'
 import { Modal } from '@/components/ui/modal'
@@ -107,7 +107,7 @@ export default function LeadDetailPage() {
     return <div className="p-6 text-sm text-destructive">Lead tidak ditemukan.</div>
   }
 
-  const isLocked = lead.status === 'INVOICE_BULANAN' || lead.status === 'LOST' || lead.status === 'HANDOFF_ODOO'
+  const isLocked = lead.status === 'INVOICE_BULANAN' || lead.status === 'LOST'
   const canEdit = lead.status === 'BARU' || lead.status === 'FOLLOW_UP'
   const canFollowUp = !isLocked
   const isAdmin = user?.role === 'ADMIN_SALES' || user?.role === 'SU'
@@ -291,14 +291,14 @@ export default function LeadDetailPage() {
             : 'mt-4 flex gap-3 rounded-[12px] border border-[#BBF7D0] bg-[#DCFCE7] p-[13px_15px] text-[#166534]'}>
             <div>
               <div className="text-[13px] font-bold">
-                {lead.status === 'LOST' ? 'Lead dinyatakan Lost'
-                  : lead.status === 'INVOICE_BULANAN' ? 'Pelanggan aktif — invoice bulanan berjalan'
-                  : 'Lead sudah di-handoff ke Odoo (legacy)'}
+                {lead.status === 'LOST'
+                  ? 'Lead dinyatakan Lost'
+                  : 'Pelanggan aktif — invoice bulanan berjalan'}
               </div>
               <div className="mt-0.5 text-[12px] opacity-85">
-                {lead.status === 'LOST' ? (lead.lost_reason ?? '')
-                  : lead.status === 'INVOICE_BULANAN' ? 'Kelola langganan di Odoo.'
-                  : 'Kelola selanjutnya di Odoo.'}
+                {lead.status === 'LOST'
+                  ? (lead.lost_reason ?? '')
+                  : 'Kelola langganan di Odoo.'}
               </div>
             </div>
           </div>

@@ -102,13 +102,14 @@ func TestDashboardStaleLeads_Top7MostOverdueFirst(t *testing.T) {
 	recentTime := time.Now().AddDate(0, 0, -10)
 	require.NoError(t, db.Create(&models.Lead{Code: "LD-2607-0005", OwnerID: adminID, CreatedByID: adminID, CompanyName: "Very stale", Status: "BARU", BaseModel: models.BaseModel{CreatedAt: oldTime}}).Error)
 	require.NoError(t, db.Create(&models.Lead{Code: "LD-2607-0006", OwnerID: adminID, CreatedByID: adminID, CompanyName: "Less stale", Status: "FOLLOW_UP", LastFollowUpAt: &recentTime}).Error)
-	require.NoError(t, db.Create(&models.Lead{Code: "LD-2607-0007", OwnerID: adminID, CreatedByID: adminID, CompanyName: "Handoff, never stale", Status: "HANDOFF_ODOO", BaseModel: models.BaseModel{CreatedAt: oldTime}}).Error)
+	surveyedAt := time.Now().AddDate(0, 0, -15)
+	require.NoError(t, db.Create(&models.Lead{Code: "LD-2607-0007", OwnerID: adminID, CreatedByID: adminID, CompanyName: "Invoiced, never stale", Status: "INVOICE_BULANAN", SurveyAt: &surveyedAt, BaseModel: models.BaseModel{CreatedAt: oldTime}}).Error)
 
 	q := dto.DashboardQuery{DateFrom: time.Now().AddDate(0, 0, -30), DateTo: time.Now()}
 	result, err := svc.StaleLeads(adminID, "SU", q)
 
 	require.NoError(t, err)
-	require.Len(t, result.Items, 2, "legacy HANDOFF_ODOO lead is terminal, never stale, excluded")
+	require.Len(t, result.Items, 2, "past-SURVEY lead is terminal, never stale, excluded")
 	assert.Equal(t, "LD-2607-0005", result.Items[0].Code, "most-overdue (created 20d ago) sorts first")
 	assert.Equal(t, "LD-2607-0006", result.Items[1].Code)
 }

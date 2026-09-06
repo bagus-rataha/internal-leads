@@ -164,7 +164,7 @@ Yang sudah dipakai lead tidak bisa dihapus — hanya dinonaktifkan (hilang dari 
 
 **Identitas & status**
 - `id` (uuid), `code` (unique) — format `LD-YYMM-NNNN`, mis. `LD-2607-0042`
-- `status`: `BARU` | `FOLLOW_UP` | `SURVEY` | `SALES_CONFIRMATION` | `REGISTRASI` | `INSTALASI` | `TRIAL` | `INVOICE_BULANAN` | `LOST`, plus `HANDOFF_ODOO` (legacy — masih valid di CHECK, tidak dipakai untuk lead baru). Simpan sebagai text + CHECK constraint, **bukan enum PostgreSQL** (enum PG menyulitkan penambahan nilai)
+- `status`: `BARU` | `FOLLOW_UP` | `SURVEY` | `SALES_CONFIRMATION` | `REGISTRASI` | `INSTALASI` | `TRIAL` | `INVOICE_BULANAN` | `LOST`. Simpan sebagai text + CHECK constraint, **bukan enum PostgreSQL** (enum PG menyulitkan penambahan nilai)
 - `lost_reason` (nullable, wajib saat status LOST)
 
 **Kepemilikan — dua field terpisah, jangan digabung**
@@ -289,7 +289,7 @@ TRIAL              → INVOICE_BULANAN | LOST
 INVOICE_BULANAN    → (hanya admin/SU yang bisa menariknya mundur)
 LOST               → (tidak ada transisi keluar)
 ```
-Maju: tepat satu tahap, semua role. Mundur: ke tahap lebih awal mana pun, ADMIN_SALES / SU saja. `survey_at` di-stempel sekali saat pertama masuk SURVEY. `HANDOFF_ODOO` legacy diperlakukan seindeks SURVEY.
+Maju: tepat satu tahap, semua role. Mundur: ke tahap lebih awal mana pun, ADMIN_SALES / SU saja. `survey_at` di-stempel sekali saat pertama masuk SURVEY.
 
 `lost_reason` wajib saat LOST. Transisi divalidasi di service — bukan sekadar tombolnya disembunyikan di UI.
 

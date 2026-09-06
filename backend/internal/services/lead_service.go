@@ -30,9 +30,9 @@ var ErrInvalidStatusTransition = errors.New("invalid status transition")
 // isLeadStale mirrors the SQL stale predicate in repository.ApplyLeadFilter
 // exactly, so the query-param filter and this per-row flag can never
 // disagree. A lead is stale only while it's still the sales team's to chase -
-// status BARU or FOLLOW_UP. Everything from SURVEY onward (and legacy
-// HANDOFF_ODOO) has left for the Odoo pipeline; LOST is closed. The last
-// activity (last_follow_up_at, falling back to created_at) must be older than
+// status BARU or FOLLOW_UP. Everything from SURVEY onward has left for the
+// Odoo pipeline; LOST is closed. The last activity (last_follow_up_at,
+// falling back to created_at) must be older than
 // repository.StaleLeadThresholdDays. now is passed in explicitly (rather than
 // calling time.Now() internally) so tests can pin the clock. Lives here
 // rather than in dto because dto must not import repository.
@@ -444,12 +444,9 @@ var leadStageOrder = []string{
 	"INSTALASI", "TRIAL", "INVOICE_BULANAN",
 }
 
-// stageIndex returns a status's position in leadStageOrder, mapping the
-// legacy HANDOFF_ODOO onto SURVEY's slot. -1 for BARU / LOST / unknown.
+// stageIndex returns a status's position in leadStageOrder.
+// -1 for BARU / LOST / unknown.
 func stageIndex(status string) int {
-	if status == "HANDOFF_ODOO" {
-		status = "SURVEY"
-	}
 	for i, s := range leadStageOrder {
 		if s == status {
 			return i
@@ -515,9 +512,9 @@ func (s *LeadService) UpdateStatus(callerID uuid.UUID, role, code string, input 
 	if input.Status == "LOST" {
 		lead.LostReason = input.LostReason
 	}
-	// survey_at is stamped once the lead first reaches SURVEY or beyond -
-	// including a legacy HANDOFF_ODOO lead advancing to SALES_CONFIRMATION,
-	// which otherwise loses both the timestamp and the status-based fallback.
+	// survey_at is stamped once the lead first reaches SURVEY. Deeper stages
+	// can only be reached by passing through SURVEY, so in practice this fires
+	// on the FOLLOW_UP->SURVEY step.
 	if lead.SurveyAt == nil && stageIndex(input.Status) >= stageIndex("SURVEY") {
 		now := time.Now()
 		lead.SurveyAt = &now

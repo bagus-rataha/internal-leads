@@ -88,8 +88,7 @@ func (r *UserRepository) ListWithFilter(role, teamID string) ([]models.User, err
 
 // CountActiveByOwner counts leads owned by the given user that are still
 // being worked by sales. "Active" means the lead is still being worked by
-// sales - anything before INVOICE_BULANAN and not LOST (legacy HANDOFF_ODOO
-// excluded, matching its pre-pipeline behavior). This is a narrower concept
+// sales - anything before INVOICE_BULANAN and not LOST. This is a narrower concept
 // than the "terlantar" (stale) lead definition, which additionally requires
 // 7 days since the last follow-up. Used by DeactivateUser to decide whether
 // reassignment is required.
