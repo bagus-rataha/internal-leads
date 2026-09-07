@@ -1,0 +1,7 @@
+ALTER TABLE leads ADD COLUMN survey_at TIMESTAMPTZ;
+CREATE INDEX idx_leads_survey_at ON leads (survey_at);
+ALTER TABLE leads DROP CONSTRAINT chk_leads_status;
+ALTER TABLE leads ADD CONSTRAINT chk_leads_status CHECK (status IN (
+  'BARU','FOLLOW_UP','SURVEY','SALES_CONFIRMATION','REGISTRASI',
+  'INSTALASI','TRIAL','INVOICE_BULANAN','LOST','HANDOFF_ODOO'
+));

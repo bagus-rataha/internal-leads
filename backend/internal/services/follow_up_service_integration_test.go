@@ -54,15 +54,15 @@ func TestFollowUpCreate_SecondFollowUp_DoesNotChangeAlreadyAdvancedStatus(t *tes
 
 	ownerID := uuid.Must(uuid.NewV7())
 	require.NoError(t, db.Create(&models.User{BaseModel: models.BaseModel{ID: ownerID}, Email: "o3@test.local", Password: "h", Name: "Owner", Role: "ADMIN_SALES", IsActive: true}).Error)
-	lead := &models.Lead{Code: "LD-2607-4002", OwnerID: ownerID, CreatedByID: ownerID, CompanyName: "A", Status: "HANDOFF_ODOO"}
+	lead := &models.Lead{Code: "LD-2607-4002", OwnerID: ownerID, CreatedByID: ownerID, CompanyName: "A", Status: "SURVEY"}
 	require.NoError(t, leadRepo.Create(lead))
 
 	svc := NewFollowUpService(db, followUpRepo, leadRepo, userRepo)
-	_, err := svc.Create(ownerID, "ADMIN_SALES", lead.Code, dto.CreateFollowUpInput{Note: "note after handoff"})
+	_, err := svc.Create(ownerID, "ADMIN_SALES", lead.Code, dto.CreateFollowUpInput{Note: "note after survey"})
 	require.NoError(t, err)
 
 	found, err := leadRepo.FindByCode(repository.LeadScope{}, lead.Code)
 	require.NoError(t, err)
-	assert.Equal(t, "HANDOFF_ODOO", found.Status, "already-advanced status must not be pulled back")
+	assert.Equal(t, "SURVEY", found.Status, "already-advanced status must not be pulled back")
 	assert.Equal(t, 1, found.FollowUpCount, "count still increments regardless of status")
 }

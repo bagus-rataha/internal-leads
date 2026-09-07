@@ -70,10 +70,12 @@ type UpdateLeadInput struct {
 }
 
 // UpdateLeadStatusInput for PATCH /leads/:code/status. FOLLOW_UP is a valid
-// enum value here but the service still rejects BARU->FOLLOW_UP - that
-// transition only happens through the follow-up endpoint.
+// enum value here (an admin can pull a lead back to it) but the service still
+// rejects BARU->FOLLOW_UP - that transition only happens through the
+// follow-up endpoint. validateStatusTransition in the service is what
+// actually enforces role + direction.
 type UpdateLeadStatusInput struct {
-	Status     string  `json:"status" validate:"required,oneof=FOLLOW_UP HANDOFF_ODOO LOST"`
+	Status     string  `json:"status" validate:"required,oneof=FOLLOW_UP SURVEY SALES_CONFIRMATION REGISTRASI INSTALASI TRIAL INVOICE_BULANAN LOST"`
 	LostReason *string `json:"lost_reason" validate:"omitempty,max=500"`
 }
 

@@ -43,11 +43,11 @@ type FunnelStage struct {
 // date_from/date_to - date-windowing by creation date would bias a funnel
 // toward "not enough time to convert yet" for anything created recently.
 type FunnelResponse struct {
-	Stages         []FunnelStage `json:"stages"`
-	BaruToFuPct    *int          `json:"baru_to_fu_pct"`
-	FuToHandoffPct *int          `json:"fu_to_handoff_pct"`
-	LostCount      int64         `json:"lost_count"`
-	LostPct        *int          `json:"lost_pct"`
+	Stages        []FunnelStage `json:"stages"`
+	BaruToFuPct   *int          `json:"baru_to_fu_pct"`
+	FuToSurveyPct *int          `json:"fu_to_survey_pct"`
+	LostCount     int64         `json:"lost_count"`
+	LostPct       *int          `json:"lost_pct"`
 }
 
 // DashboardSummaryResponse is GET /dashboard/summary's payload: the metric
@@ -55,7 +55,7 @@ type FunnelResponse struct {
 type DashboardSummaryResponse struct {
 	LeadBaru         MetricCard     `json:"lead_baru"`
 	FollowUp         MetricCard     `json:"follow_up"`
-	Handoff          MetricCard     `json:"handoff"`
+	Survey           MetricCard     `json:"survey"`
 	Terlantar        MetricCard     `json:"terlantar"`
 	Funnel           FunnelResponse `json:"funnel"`
 	TotalForecastMrr float64        `json:"total_forecast_mrr"`
@@ -94,7 +94,7 @@ type SalesActivityRow struct {
 	FollowUp     int64      `json:"follow_up"`
 	AvgFuPerLead float64    `json:"avg_fu_per_lead"`
 	Terlantar    int64      `json:"terlantar"`
-	Handoff      int64      `json:"handoff"`
+	Survey       int64      `json:"survey"`
 	ForecastMrr  float64    `json:"forecast_mrr"`
 	ConvPct      *int       `json:"conv_pct"`
 	LastActivity *time.Time `json:"last_activity"`
@@ -118,11 +118,11 @@ type SegmentRow struct {
 // frontend groups by Level for display (a "city" row's Parent names its
 // province).
 type RegionRow struct {
-	Level        string `json:"level"` // "province" | "city"
-	Name         string `json:"name"`
-	Parent       string `json:"parent,omitempty"`
-	LeadCount    int64  `json:"lead_count"`
-	HandoffCount int64  `json:"handoff_count"`
+	Level       string `json:"level"` // "province" | "city"
+	Name        string `json:"name"`
+	Parent      string `json:"parent,omitempty"`
+	LeadCount   int64  `json:"lead_count"`
+	SurveyCount int64  `json:"survey_count"`
 }
 
 // CompetitorStats is the competitor-intel section's 3 stat tiles - nil (not
@@ -143,7 +143,7 @@ type IspRow struct {
 // DashboardSegmentsResponse is GET /dashboard/segments's payload: lead
 // source, region penetration, competitor intel, and business field.
 type DashboardSegmentsResponse struct {
-	AnyHandoff     bool            `json:"any_handoff"`
+	AnySurvey      bool            `json:"any_survey"`
 	Sources        []SegmentRow    `json:"sources"`
 	Regions        []RegionRow     `json:"regions"`
 	Competitor     CompetitorStats `json:"competitor"`

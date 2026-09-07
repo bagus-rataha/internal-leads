@@ -1,7 +1,7 @@
 // Detail Lead screen: header (code/status/owner), 5 left-column data cards,
 // and a sticky right-column follow-up timeline + composer.
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, ExternalLink, Building2, MapPin, User, Wifi, Tag, AlertTriangle, Check, X as XIcon, Pencil } from 'lucide-react'
+import { ArrowLeft, ExternalLink, Building2, MapPin, User, Wifi, Tag, Check, X as XIcon, Pencil } from 'lucide-react'
 import { roleLabel } from '@/lib/roles'
 import {
   useLeadDetail,
@@ -11,8 +11,12 @@ import {
   useSalesRoster,
   useReassignOwner,
 } from './queries'
-import { StatusPill, formatRelativeTime } from './shared'
-import type { FollowUpResponse } from './api'
+import { StatusPill, formatRelativeTime, STATUS_CONFIG, nextStage, earlierStages } from './shared'
+import type { FollowUpResponse, UpdateLeadStatusInput } from './api'
+
+// nextStage()/earlierStages() only ever return valid forward/backward pipeline
+// stages, never BARU — so the cast to the mutation's status type is sound.
+type PipelineStatus = UpdateLeadStatusInput['status']
 import { useState } from 'react'
 import { Modal } from '@/components/ui/modal'
 import { showToast } from '@/hooks/useToast'
@@ -89,7 +93,7 @@ export default function LeadDetailPage() {
   const createFollowUp = useCreateFollowUp(code!)
   const updateStatus = useUpdateLeadStatus(code!)
   const [draft, setDraft] = useState('')
-  const [modal, setModal] = useState<'handoff' | 'lost' | null>(null)
+  const [modal, setModal] = useState<'advance' | 'lost' | null>(null)
   const [lostReason, setLostReason] = useState('')
   const [reassignOpen, setReassignOpen] = useState(false)
   const { data: salesRoster } = useSalesRoster(reassignOpen)
@@ -103,10 +107,13 @@ export default function LeadDetailPage() {
     return <div className="p-6 text-sm text-destructive">Lead tidak ditemukan.</div>
   }
 
-  const isTerminal = lead.status === 'HANDOFF_ODOO' || lead.status === 'LOST'
-  const canAct = !isTerminal
+  const isLocked = lead.status === 'INVOICE_BULANAN' || lead.status === 'LOST'
+  const canEdit = lead.status === 'BARU' || lead.status === 'FOLLOW_UP'
+  const canFollowUp = !isLocked
   const isAdmin = user?.role === 'ADMIN_SALES' || user?.role === 'SU'
-  const canReassign = isAdmin && canAct
+  const canReassign = isAdmin && !isLocked
+  const advanceTarget = nextStage(lead.status ?? '')
+  const backTargets = isAdmin ? earlierStages(lead.status ?? '') : []
   const showCreatedBy = lead.created_by_id !== lead.owner_id
   const websiteHref = lead.website
     ? /^https?:\/\//.test(lead.website)
@@ -127,13 +134,14 @@ export default function LeadDetailPage() {
     })
   }
 
-  function handleHandoffConfirm() {
+  function handleAdvanceConfirm() {
+    if (!advanceTarget) return
     updateStatus.mutate(
-      { status: 'HANDOFF_ODOO' },
+      { status: advanceTarget as PipelineStatus },
       {
         onSuccess: () => {
           setModal(null)
-          showToast('Lead di-handoff ke Odoo')
+          showToast(`Lead maju ke ${STATUS_CONFIG[advanceTarget].label}`)
         },
         onError: () => showToast('Gagal mengubah status. Coba lagi.'),
       }
@@ -207,7 +215,7 @@ export default function LeadDetailPage() {
           </div>
 
           <div className="flex flex-wrap gap-[9px] lg:shrink-0">
-            {canAct && (
+            {canEdit && (
               <button
                 type="button"
                 onClick={() => navigate(`/leads/${lead.code}/edit`)}
@@ -229,7 +237,7 @@ export default function LeadDetailPage() {
                 Reassign
               </button>
             )}
-            {canAct && (
+            {!isLocked && (
               <button
                 type="button"
                 onClick={() => setModal('lost')}
@@ -239,35 +247,58 @@ export default function LeadDetailPage() {
                 Tandai Lost
               </button>
             )}
-            {lead.status === 'FOLLOW_UP' && (
+            {advanceTarget && !isLocked && (
               <button
                 type="button"
-                onClick={() => setModal('handoff')}
+                onClick={() => setModal('advance')}
                 className="inline-flex items-center gap-[7px] rounded-[8px] bg-[#1D4ED8] px-[15px] py-2 text-[13px] font-semibold text-white shadow-[0_1px_2px_rgba(29,78,216,0.3)] hover:bg-[#1A45BE]"
               >
                 <Check className="size-[15px]" />
-                Handoff ke Odoo
+                Maju ke {STATUS_CONFIG[advanceTarget].label}
               </button>
+            )}
+            {backTargets.length > 0 && (
+              <select
+                aria-label="Koreksi status mundur"
+                defaultValue=""
+                disabled={updateStatus.isPending}
+                onChange={(e) => {
+                  const v = e.target.value
+                  if (!v) return
+                  updateStatus.mutate(
+                    { status: v as PipelineStatus },
+                    {
+                      onSuccess: () => showToast(`Status dikoreksi ke ${STATUS_CONFIG[v].label}`),
+                      onError: () => showToast('Gagal mengoreksi status. Coba lagi.'),
+                    }
+                  )
+                  e.target.value = ''
+                }}
+                className="rounded-[8px] border border-[#CBD5E1] bg-white px-[10px] py-2 text-[13px] font-semibold text-[#334155] hover:bg-[#F7F9FC]"
+              >
+                <option value="">Koreksi mundur…</option>
+                {backTargets.map((s) => (
+                  <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>
+                ))}
+              </select>
             )}
           </div>
         </div>
 
-        {isTerminal && (
-          <div
-            className={
-              lead.status === 'HANDOFF_ODOO'
-                ? 'mt-4 flex gap-3 rounded-[12px] border border-[#BBF7D0] bg-[#DCFCE7] p-[13px_15px] text-[#166534]'
-                : 'mt-4 flex gap-3 rounded-[12px] border border-[#FECACA] bg-[#FEE2E2] p-[13px_15px] text-[#B91C1C]'
-            }
-          >
+        {isLocked && (
+          <div className={lead.status === 'LOST'
+            ? 'mt-4 flex gap-3 rounded-[12px] border border-[#FECACA] bg-[#FEE2E2] p-[13px_15px] text-[#B91C1C]'
+            : 'mt-4 flex gap-3 rounded-[12px] border border-[#BBF7D0] bg-[#DCFCE7] p-[13px_15px] text-[#166534]'}>
             <div>
               <div className="text-[13px] font-bold">
-                {lead.status === 'HANDOFF_ODOO' ? 'Lead sudah di-handoff ke Odoo' : 'Lead dinyatakan Lost'}
+                {lead.status === 'LOST'
+                  ? 'Lead dinyatakan Lost'
+                  : 'Pelanggan aktif — invoice bulanan berjalan'}
               </div>
               <div className="mt-0.5 text-[12px] opacity-85">
-                {lead.status === 'HANDOFF_ODOO'
-                  ? 'Tahap Permintaan Survey. Follow-up ditutup — kelola selanjutnya di Odoo.'
-                  : (lead.lost_reason ?? '')}
+                {lead.status === 'LOST'
+                  ? (lead.lost_reason ?? '')
+                  : 'Kelola langganan di Odoo.'}
               </div>
             </div>
           </div>
@@ -380,7 +411,7 @@ export default function LeadDetailPage() {
               </span>
             </div>
 
-            {canAct && (
+            {canFollowUp && (
               <div className="border-b border-[#F1F5F9] bg-[#FAFCFF] px-[18px] py-[14px]">
                 <label className="mb-1.5 block text-[11.5px] font-bold text-[#334155]">Catat follow-up baru</label>
                 <textarea
@@ -418,25 +449,20 @@ export default function LeadDetailPage() {
         </div>
       </div>
 
-      <Modal open={modal === 'handoff'} onClose={() => setModal(null)}>
+      <Modal open={modal === 'advance'} onClose={() => setModal(null)}>
         <div className="flex items-start gap-[14px]">
           <span className="flex size-[44px] shrink-0 items-center justify-center rounded-[11px] bg-[#EEF3FC] text-[#1D4ED8]">
             <Check className="size-[22px]" />
           </span>
           <div>
-            <div className="font-display text-[19px] font-extrabold text-[#0F172A]">Handoff ke Odoo</div>
+            <div className="font-display text-[19px] font-extrabold text-[#0F172A]">
+              Majukan lead ke {advanceTarget && STATUS_CONFIG[advanceTarget].label}?
+            </div>
             <div className="mt-1 text-[13px] leading-[1.55] text-[#64748B]">
-              Lead <strong className="text-[#334155]">{lead.company_name}</strong> masuk ke tahap{' '}
-              <strong className="text-[#334155]">Permintaan Survey</strong> di Odoo. Status ini{' '}
-              <strong className="text-[#334155]">terminal</strong> — lead tidak lagi bisa di-follow-up di sini.
+              Lead <strong className="text-[#334155]">{lead.company_name}</strong> akan berpindah ke tahap{' '}
+              <strong className="text-[#334155]">{advanceTarget && STATUS_CONFIG[advanceTarget].label}</strong>.
             </div>
           </div>
-        </div>
-        <div className="mt-4 flex gap-3 rounded-[11px] border border-[#FCE39A] bg-[#FEF9EC] p-[12px_14px]">
-          <AlertTriangle className="mt-px size-[17px] shrink-0 text-[#D97706]" />
-          <span className="text-[12.5px] leading-[1.5] text-[#78350F]">
-            Pastikan data perusahaan, PIC, dan alamat sudah lengkap sebelum diteruskan ke tim survey.
-          </span>
         </div>
         <div className="mt-5 flex justify-end gap-[10px]">
           <button type="button" onClick={() => setModal(null)} className="rounded-[8px] border border-[#CBD5E1] bg-white px-[18px] py-[9px] text-[14px] font-semibold text-[#334155] hover:bg-[#F7F9FC]">
@@ -444,12 +470,12 @@ export default function LeadDetailPage() {
           </button>
           <button
             type="button"
-            onClick={handleHandoffConfirm}
+            onClick={handleAdvanceConfirm}
             disabled={updateStatus.isPending}
             className="inline-flex items-center gap-[7px] rounded-[8px] bg-[#1D4ED8] px-[18px] py-[9px] text-[14px] font-semibold text-white shadow-[0_1px_2px_rgba(29,78,216,0.3)] hover:bg-[#1A45BE] disabled:opacity-60"
           >
             <Check className="size-[15px]" />
-            Konfirmasi Handoff
+            Konfirmasi
           </button>
         </div>
       </Modal>

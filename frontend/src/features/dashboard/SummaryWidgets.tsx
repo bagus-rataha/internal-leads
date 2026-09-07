@@ -112,12 +112,12 @@ export function MetricCards({
         onClick={() => navigate('/leads')}
       />
       <MetricCard
-        label="Handoff ke Odoo"
-        value={summary.handoff?.value ?? 0}
-        changePct={summary.handoff?.change_pct}
+        label="Masuk Survey"
+        value={summary.survey?.value ?? 0}
+        changePct={summary.survey?.change_pct}
         goodUp
-        compareLabel={compareLabel}
-        onClick={() => navigate('/leads?status=HANDOFF_ODOO')}
+        compareLabel={`${compareLabel} · menampilkan tahap kini`}
+        onClick={() => navigate('/leads?status=SURVEY')}
       />
       <MetricCard
         label="Lead Terlantar"
@@ -145,7 +145,7 @@ export function FunnelCard({ summary, loading }: { summary?: DashboardSummaryRes
       <CardContent className="p-0">
         <div className="px-[18px] pt-[15px] pb-1">
           <p className="font-display text-[15px] font-bold">Funnel Konversi</p>
-          <p className="mt-0.5 text-[11.5px] text-[#94A3B8]">Baru → Follow-up → Handoff Odoo</p>
+          <p className="mt-0.5 text-[11.5px] text-[#94A3B8]">Baru → Follow-up → Survey</p>
         </div>
         <div className="px-[18px] pt-[14px] pb-[18px]">
           {stages.map((stage, i) => (
@@ -170,7 +170,7 @@ export function FunnelCard({ summary, loading }: { summary?: DashboardSummaryRes
               Baru→FU <strong className="text-[#1D4ED8]">{summary.funnel?.baru_to_fu_pct ?? '—'}%</strong>
             </span>
             <span className="rounded-lg border border-[#D3E0F7] bg-[#EEF3FC] px-2.5 py-1 text-[#475569]">
-              FU→Handoff <strong className="text-[#1D4ED8]">{summary.funnel?.fu_to_handoff_pct ?? '—'}%</strong>
+              FU→Survey <strong className="text-[#1D4ED8]">{summary.funnel?.fu_to_survey_pct ?? '—'}%</strong>
             </span>
             <span className="rounded-lg border border-[#FECACA] bg-[#FEE2E2] px-2.5 py-1 text-[#B91C1C]">
               Lost (keluar) <strong>{summary.funnel?.lost_count ?? 0}</strong> · {summary.funnel?.lost_pct ?? '—'}%

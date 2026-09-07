@@ -13,7 +13,7 @@ import { fetchTeams, fetchUsers, LEAD_OWNER_ROLES, downloadBlob, ExportTooManyRo
 import { useExportLeads } from './queries'
 import { Modal } from '@/components/ui/modal'
 import { showToast } from '@/hooks/useToast'
-import { STATUS_CONFIG, StatusPill, SalesBadge, formatRelativeTime } from './shared'
+import { STATUS_CONFIG, STATUS_FILTER_OPTIONS, StatusPill, SalesBadge, formatRelativeTime } from './shared'
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
 import { Card, CardContent } from '@/components/ui/card'
@@ -208,8 +208,6 @@ function LeadCards({
   )
 }
 
-const STATUS_OPTIONS: LeadStatus[] = ['BARU', 'FOLLOW_UP', 'HANDOFF_ODOO', 'LOST']
-
 const SELECT_CLASSNAME =
   'h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
 
@@ -263,7 +261,7 @@ function FilterBar({
             className={SELECT_CLASSNAME}
           >
             <option value="">Semua status</option>
-            {STATUS_OPTIONS.map((option) => (
+            {STATUS_FILTER_OPTIONS.map((option) => (
               <option key={option} value={option}>
                 {STATUS_CONFIG[option].label}
               </option>

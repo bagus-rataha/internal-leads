@@ -8,7 +8,7 @@ import { useAuth } from '@/auth/AuthContext'
 import { roleLabel } from '@/lib/roles'
 import { fetchTeams, type TeamResponse } from '@/features/team/api'
 import { fetchUsers, LEAD_OWNER_ROLES, type UserResponse } from '@/features/user/api'
-import { STATUS_CONFIG } from '@/features/lead/shared'
+import { STATUS_CONFIG, STATUS_FILTER_OPTIONS } from '@/features/lead/shared'
 import {
   useDashboardSummary,
   useDashboardActivity,
@@ -118,9 +118,9 @@ export default function DashboardPage() {
             <label className={FILTER_LABEL_CLASSNAME}>Status (forecast)</label>
             <select value={status} onChange={(e) => setStatus(e.target.value)} className={SELECT_CLASSNAME}>
               <option value="">Semua status</option>
-              {Object.entries(STATUS_CONFIG).map(([value, cfg]) => (
+              {STATUS_FILTER_OPTIONS.map((value) => (
                 <option key={value} value={value}>
-                  {cfg.label}
+                  {STATUS_CONFIG[value].label}
                 </option>
               ))}
             </select>

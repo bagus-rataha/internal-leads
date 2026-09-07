@@ -212,19 +212,21 @@ func TestUserRepository_CountActiveByOwner(t *testing.T) {
 
 	lostReason := "budget"
 
-	// two active leads (BARU, FOLLOW_UP) for owner
+	// in-pipeline leads still worked by sales - must be counted
 	assert.NoError(t, db.Create(&models.Lead{Code: "LD-2607-0001", Status: "BARU", OwnerID: owner.ID, CreatedByID: owner.ID, CompanyName: "Co A"}).Error)
 	assert.NoError(t, db.Create(&models.Lead{Code: "LD-2607-0002", Status: "FOLLOW_UP", OwnerID: owner.ID, CreatedByID: owner.ID, CompanyName: "Co B"}).Error)
-	// terminal leads for owner - must not be counted
+	assert.NoError(t, db.Create(&models.Lead{Code: "LD-2607-0006", Status: "SURVEY", OwnerID: owner.ID, CreatedByID: owner.ID, CompanyName: "Co F"}).Error)
+	assert.NoError(t, db.Create(&models.Lead{Code: "LD-2607-0007", Status: "TRIAL", OwnerID: owner.ID, CreatedByID: owner.ID, CompanyName: "Co G"}).Error)
+	// past the sales-worked stages or terminal - must not be counted
+	assert.NoError(t, db.Create(&models.Lead{Code: "LD-2607-0008", Status: "INVOICE_BULANAN", OwnerID: owner.ID, CreatedByID: owner.ID, CompanyName: "Co H"}).Error)
 	assert.NoError(t, db.Create(&models.Lead{Code: "LD-2607-0003", Status: "LOST", LostReason: &lostReason, OwnerID: owner.ID, CreatedByID: owner.ID, CompanyName: "Co C"}).Error)
-	assert.NoError(t, db.Create(&models.Lead{Code: "LD-2607-0004", Status: "HANDOFF_ODOO", OwnerID: owner.ID, CreatedByID: owner.ID, CompanyName: "Co D"}).Error)
 	// active lead for a different owner - must not be counted
 	assert.NoError(t, db.Create(&models.Lead{Code: "LD-2607-0005", Status: "BARU", OwnerID: otherOwner.ID, CreatedByID: otherOwner.ID, CompanyName: "Co E"}).Error)
 
 	count, err := repo.CountActiveByOwner(owner.ID)
 
 	assert.NoError(t, err)
-	assert.Equal(t, int64(2), count)
+	assert.Equal(t, int64(4), count)
 }
 
 func TestUserRepository_ReassignOwner(t *testing.T) {

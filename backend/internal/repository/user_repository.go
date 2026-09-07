@@ -86,15 +86,16 @@ func (r *UserRepository) ListWithFilter(role, teamID string) ([]models.User, err
 	return users, err
 }
 
-// CountActiveByOwner counts leads owned by the given user that are not yet
-// in a terminal status. "Active" here means status is not HANDOFF_ODOO/LOST
-// - a narrower concept than the "terlantar" (stale) lead definition, which
-// additionally requires 7 days since the last follow-up. Used by
-// DeactivateUser to decide whether reassignment is required.
+// CountActiveByOwner counts leads owned by the given user that are still
+// being worked by sales. "Active" means the lead is still being worked by
+// sales - anything before INVOICE_BULANAN and not LOST. This is a narrower concept
+// than the "terlantar" (stale) lead definition, which additionally requires
+// 7 days since the last follow-up. Used by DeactivateUser to decide whether
+// reassignment is required.
 func (r *UserRepository) CountActiveByOwner(ownerID uuid.UUID) (int64, error) {
 	var count int64
 	err := r.db.Table("leads").
-		Where("owner_id = ? AND status IN ('BARU','FOLLOW_UP')", ownerID).
+		Where("owner_id = ? AND status IN ('BARU','FOLLOW_UP','SURVEY','SALES_CONFIRMATION','REGISTRASI','INSTALASI','TRIAL')", ownerID).
 		Count(&count).Error
 	return count, err
 }

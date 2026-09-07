@@ -177,11 +177,11 @@ func TestLeadHandler_UpdateLeadStatus_Success(t *testing.T) {
 	handler := NewLeadHandler(mockSvc)
 	app := newTestLeadApp(handler, userID, "ADMIN_SALES")
 
-	leadResponse := &dto.LeadResponse{Code: "LD-2607-0005", Status: "HANDOFF_ODOO"}
-	mockSvc.On("UpdateStatus", userID, "ADMIN_SALES", "LD-2607-0005", dto.UpdateLeadStatusInput{Status: "HANDOFF_ODOO"}).
+	leadResponse := &dto.LeadResponse{Code: "LD-2607-0005", Status: "SURVEY"}
+	mockSvc.On("UpdateStatus", userID, "ADMIN_SALES", "LD-2607-0005", dto.UpdateLeadStatusInput{Status: "SURVEY"}).
 		Return(leadResponse, nil)
 
-	body := `{"status":"HANDOFF_ODOO"}`
+	body := `{"status":"SURVEY"}`
 	req := httptest.NewRequest("PATCH", "/leads/LD-2607-0005/status", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	resp, _ := app.Test(req)

@@ -1616,7 +1616,7 @@ export interface components {
             items?: components["schemas"]["dto.SalesActivityRow"][];
         };
         "dto.DashboardSegmentsResponse": {
-            any_handoff?: boolean;
+            any_survey?: boolean;
             business_fields?: components["schemas"]["dto.SegmentRow"][];
             competitor?: components["schemas"]["dto.CompetitorStats"];
             isps?: components["schemas"]["dto.IspRow"][];
@@ -1629,8 +1629,8 @@ export interface components {
         "dto.DashboardSummaryResponse": {
             follow_up?: components["schemas"]["dto.MetricCard"];
             funnel?: components["schemas"]["dto.FunnelResponse"];
-            handoff?: components["schemas"]["dto.MetricCard"];
             lead_baru?: components["schemas"]["dto.MetricCard"];
+            survey?: components["schemas"]["dto.MetricCard"];
             terlantar?: components["schemas"]["dto.MetricCard"];
             total_forecast_mrr?: number;
         };
@@ -1651,7 +1651,7 @@ export interface components {
         };
         "dto.FunnelResponse": {
             baru_to_fu_pct?: number;
-            fu_to_handoff_pct?: number;
+            fu_to_survey_pct?: number;
             lost_count?: number;
             lost_pct?: number;
             stages?: components["schemas"]["dto.FunnelStage"][];
@@ -1781,12 +1781,12 @@ export interface components {
             refresh_token?: string;
         };
         "dto.RegionRow": {
-            handoff_count?: number;
             lead_count?: number;
             /** @description "province" | "city" */
             level?: string;
             name?: string;
             parent?: string;
+            survey_count?: number;
         };
         "dto.ResetPasswordInput": {
             new_password: string;
@@ -1797,10 +1797,10 @@ export interface components {
             conv_pct?: number;
             follow_up?: number;
             forecast_mrr?: number;
-            handoff?: number;
             last_activity?: string;
             lead_baru?: number;
             name?: string;
+            survey?: number;
             team_name?: string;
             terlantar?: number;
             user_id?: string;
@@ -1871,7 +1871,7 @@ export interface components {
         "dto.UpdateLeadStatusInput": {
             lost_reason?: string;
             /** @enum {string} */
-            status: "FOLLOW_UP" | "HANDOFF_ODOO" | "LOST";
+            status: "FOLLOW_UP" | "SURVEY" | "SALES_CONFIRMATION" | "REGISTRASI" | "INSTALASI" | "TRIAL" | "INVOICE_BULANAN" | "LOST";
         };
         "dto.UpdateProfileInput": {
             name: string;

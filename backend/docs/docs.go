@@ -1903,7 +1903,7 @@ const docTemplate = `{
         "dto.DashboardSegmentsResponse": {
             "type": "object",
             "properties": {
-                "any_handoff": {
+                "any_survey": {
                     "type": "boolean"
                 },
                 "business_fields": {
@@ -1955,10 +1955,10 @@ const docTemplate = `{
                 "funnel": {
                     "$ref": "#/definitions/dto.FunnelResponse"
                 },
-                "handoff": {
+                "lead_baru": {
                     "$ref": "#/definitions/dto.MetricCard"
                 },
-                "lead_baru": {
+                "survey": {
                     "$ref": "#/definitions/dto.MetricCard"
                 },
                 "terlantar": {
@@ -2017,7 +2017,7 @@ const docTemplate = `{
                 "baru_to_fu_pct": {
                     "type": "integer"
                 },
-                "fu_to_handoff_pct": {
+                "fu_to_survey_pct": {
                     "type": "integer"
                 },
                 "lost_count": {
@@ -2405,9 +2405,6 @@ const docTemplate = `{
         "dto.RegionRow": {
             "type": "object",
             "properties": {
-                "handoff_count": {
-                    "type": "integer"
-                },
                 "lead_count": {
                     "type": "integer"
                 },
@@ -2420,6 +2417,9 @@ const docTemplate = `{
                 },
                 "parent": {
                     "type": "string"
+                },
+                "survey_count": {
+                    "type": "integer"
                 }
             }
         },
@@ -2454,9 +2454,6 @@ const docTemplate = `{
                 "forecast_mrr": {
                     "type": "number"
                 },
-                "handoff": {
-                    "type": "integer"
-                },
                 "last_activity": {
                     "type": "string"
                 },
@@ -2465,6 +2462,9 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                },
+                "survey": {
+                    "type": "integer"
                 },
                 "team_name": {
                     "type": "string"
@@ -2689,7 +2689,12 @@ const docTemplate = `{
                     "type": "string",
                     "enum": [
                         "FOLLOW_UP",
-                        "HANDOFF_ODOO",
+                        "SURVEY",
+                        "SALES_CONFIRMATION",
+                        "REGISTRASI",
+                        "INSTALASI",
+                        "TRIAL",
+                        "INVOICE_BULANAN",
                         "LOST"
                     ]
                 }

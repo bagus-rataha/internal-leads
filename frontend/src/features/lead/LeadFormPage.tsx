@@ -467,12 +467,13 @@ export default function LeadFormPage() {
   const detail = useLeadDetail(code ?? '')
 
   // Once the edit-mode detail has loaded (keyed on `id` so it only runs once
-  // per lead, not on every refetch/invalidation): bounce terminal leads back
-  // to their detail page (defense-in-depth — the Edit button is already
-  // hidden for them, this covers a direct URL visit), otherwise seed the form.
+  // per lead, not on every refetch/invalidation): bounce leads that are no
+  // longer editable (anything past FOLLOW_UP) back to their detail page
+  // (defense-in-depth — the Edit button is already hidden for them, this
+  // covers a direct URL visit), otherwise seed the form.
   useEffect(() => {
     if (mode !== 'edit' || !detail.data) return
-    if (detail.data.status === 'HANDOFF_ODOO' || detail.data.status === 'LOST') {
+    if (detail.data.status !== 'BARU' && detail.data.status !== 'FOLLOW_UP') {
       navigate('/leads/' + code, { replace: true })
       return
     }

@@ -38,6 +38,7 @@ type Lead struct {
 	LeadSourceID   *uuid.UUID `gorm:"type:uuid"`
 	ForecastMrr    *float64
 	LastFollowUpAt *time.Time `gorm:"index"`
+	SurveyAt       *time.Time `gorm:"index"`
 	FollowUpCount  int        `gorm:"not null;default:0"`
 
 	// Owner is read-only, populated via Preload for display purposes (e.g.

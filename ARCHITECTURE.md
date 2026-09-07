@@ -4,7 +4,7 @@
 
 Aplikasi internal tim sales ISP korporat. Menggantikan Google Form + rekap Excel.
 
-Alur inti: sales input lead (calon pelanggan korporat) → mencatat follow-up berulang → lead di-handoff ke Odoo saat mencapai tahap "Permintaan Survey", atau ditandai lost.
+Alur inti: sales input lead (calon pelanggan korporat) → mencatat follow-up berulang → lead menembus pipeline Survey → SC → Registrasi → Instalasi → Trial → Invoice Bulanan, atau ditandai lost.
 
 Skala: puluhan user internal, ribuan lead. Tidak ada beban konkuren berarti.
 
@@ -164,7 +164,7 @@ Yang sudah dipakai lead tidak bisa dihapus — hanya dinonaktifkan (hilang dari 
 
 **Identitas & status**
 - `id` (uuid), `code` (unique) — format `LD-YYMM-NNNN`, mis. `LD-2607-0042`
-- `status`: `BARU` | `FOLLOW_UP` | `HANDOFF_ODOO` | `LOST`. Simpan sebagai text + CHECK constraint, **bukan enum PostgreSQL** (enum PG menyulitkan penambahan nilai)
+- `status`: `BARU` | `FOLLOW_UP` | `SURVEY` | `SALES_CONFIRMATION` | `REGISTRASI` | `INSTALASI` | `TRIAL` | `INVOICE_BULANAN` | `LOST`. Simpan sebagai text + CHECK constraint, **bukan enum PostgreSQL** (enum PG menyulitkan penambahan nilai)
 - `lost_reason` (nullable, wajib saat status LOST)
 
 **Kepemilikan — dua field terpisah, jangan digabung**
@@ -279,11 +279,18 @@ Default sort: `last_follow_up_at ASC NULLS FIRST` — lead yang belum pernah di-
 
 **`PATCH /leads/:code/status`** — transisi yang diizinkan:
 ```
-BARU         → FOLLOW_UP | LOST
-FOLLOW_UP    → HANDOFF_ODOO | LOST
-HANDOFF_ODOO → (terminal)
-LOST         → (terminal)
+BARU               → LOST                         (→ FOLLOW_UP otomatis: follow-up pertama)
+FOLLOW_UP          → SURVEY | LOST
+SURVEY             → SALES_CONFIRMATION | LOST
+SALES_CONFIRMATION → REGISTRASI | LOST
+REGISTRASI         → INSTALASI | LOST
+INSTALASI          → TRIAL | LOST
+TRIAL              → INVOICE_BULANAN | LOST
+INVOICE_BULANAN    → (hanya admin/SU yang bisa menariknya mundur)
+LOST               → (tidak ada transisi keluar)
 ```
+Maju: tepat satu tahap, semua role. Mundur: ke tahap lebih awal mana pun, ADMIN_SALES / SU saja. `survey_at` di-stempel sekali saat pertama masuk SURVEY.
+
 `lost_reason` wajib saat LOST. Transisi divalidasi di service — bukan sekadar tombolnya disembunyikan di UI.
 
 `BARU → FOLLOW_UP` **tidak** lewat endpoint ini; terjadi otomatis saat follow-up pertama dibuat.
@@ -359,7 +366,7 @@ Menulis satu follow-up menyentuh empat hal. **Satu transaksi, tanpa kecuali:**
 3. Update `lead.follow_up_count = follow_up_count + 1` (increment atomic di level SQL, bukan read-modify-write di Go)
 4. Update `lead.status = FOLLOW_UP` **hanya jika status saat ini `BARU`**
 
-Kondisi di langkah 4 mencegah lead yang sudah `HANDOFF_ODOO` atau `LOST` tertarik mundur.
+Kondisi di langkah 4 mencegah lead yang sudah lepas dari tahap `BARU` tertarik mundur.
 
 `last_follow_up_at` adalah denormalisasi yang disengaja — dipakai untuk sorting default dan deteksi lead terlantar di query terpanas aplikasi. **Jangan** diganti dengan `MAX(follow_up.created_at)` di runtime.
 
@@ -367,7 +374,7 @@ Kondisi di langkah 4 mencegah lead yang sudah `HANDOFF_ODOO` atau `LOST` tertari
 Satu definisi, dipakai di list dan dashboard. Simpan ambang sebagai konstanta, jangan sebar literal di banyak query.
 
 Lead dianggap terlantar bila:
-- Statusnya masih `BARU` atau `FOLLOW_UP` (yang `HANDOFF_ODOO` dan `LOST` sudah selesai — tidak pernah terlantar), **dan**
+- Statusnya masih `BARU` atau `FOLLOW_UP` (sejak `SURVEY`, lead ada di pipeline Odoo — tidak dihitung terlantar; `LOST` sudah selesai), **dan**
 - Sudah lewat **7 hari** sejak follow-up terakhir — atau, bila belum pernah di-follow-up, sejak lead dibuat
 
 ### Dashboard

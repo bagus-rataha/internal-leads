@@ -102,13 +102,14 @@ func TestDashboardStaleLeads_Top7MostOverdueFirst(t *testing.T) {
 	recentTime := time.Now().AddDate(0, 0, -10)
 	require.NoError(t, db.Create(&models.Lead{Code: "LD-2607-0005", OwnerID: adminID, CreatedByID: adminID, CompanyName: "Very stale", Status: "BARU", BaseModel: models.BaseModel{CreatedAt: oldTime}}).Error)
 	require.NoError(t, db.Create(&models.Lead{Code: "LD-2607-0006", OwnerID: adminID, CreatedByID: adminID, CompanyName: "Less stale", Status: "FOLLOW_UP", LastFollowUpAt: &recentTime}).Error)
-	require.NoError(t, db.Create(&models.Lead{Code: "LD-2607-0007", OwnerID: adminID, CreatedByID: adminID, CompanyName: "Handoff, never stale", Status: "HANDOFF_ODOO", BaseModel: models.BaseModel{CreatedAt: oldTime}}).Error)
+	surveyedAt := time.Now().AddDate(0, 0, -15)
+	require.NoError(t, db.Create(&models.Lead{Code: "LD-2607-0007", OwnerID: adminID, CreatedByID: adminID, CompanyName: "Invoiced, never stale", Status: "INVOICE_BULANAN", SurveyAt: &surveyedAt, BaseModel: models.BaseModel{CreatedAt: oldTime}}).Error)
 
 	q := dto.DashboardQuery{DateFrom: time.Now().AddDate(0, 0, -30), DateTo: time.Now()}
 	result, err := svc.StaleLeads(adminID, "SU", q)
 
 	require.NoError(t, err)
-	require.Len(t, result.Items, 2, "HANDOFF_ODOO lead is terminal, never stale, excluded")
+	require.Len(t, result.Items, 2, "past-SURVEY lead is terminal, never stale, excluded")
 	assert.Equal(t, "LD-2607-0005", result.Items[0].Code, "most-overdue (created 20d ago) sorts first")
 	assert.Equal(t, "LD-2607-0006", result.Items[1].Code)
 }
@@ -160,7 +161,7 @@ func TestDashboardSalesActivity_ZeroOwnedLeads_ConvPctNil(t *testing.T) {
 	assert.Nil(t, result.Items[0].ConvPct, "0 owned leads -> nil, not a divide-by-zero 0%")
 }
 
-func TestDashboardSegments_NoHandoffAnywhere_AllConversionsNil(t *testing.T) {
+func TestDashboardSegments_NoSurveyAnywhere_AllConversionsNil(t *testing.T) {
 	db := setupServiceTestDB(t)
 	userRepo := repository.NewUserRepository(db)
 	svc := NewDashboardService(db, userRepo)
@@ -169,15 +170,15 @@ func TestDashboardSegments_NoHandoffAnywhere_AllConversionsNil(t *testing.T) {
 	require.NoError(t, db.Create(&models.User{BaseModel: models.BaseModel{ID: adminID}, Email: "admin4@test.local", Password: "h", Name: "Admin", Role: "SU", IsActive: true}).Error)
 	source := &models.LeadSource{Name: "Google", IsActive: true}
 	require.NoError(t, db.Create(source).Error)
-	require.NoError(t, db.Create(&models.Lead{Code: "LD-2607-0009", OwnerID: adminID, CreatedByID: adminID, CompanyName: "No handoff yet", LeadSourceID: &source.ID, Status: "BARU"}).Error)
+	require.NoError(t, db.Create(&models.Lead{Code: "LD-2607-0009", OwnerID: adminID, CreatedByID: adminID, CompanyName: "No survey yet", LeadSourceID: &source.ID, Status: "BARU"}).Error)
 
 	q := dto.DashboardQuery{DateFrom: time.Now().AddDate(0, 0, -30), DateTo: time.Now()}
 	result, err := svc.Segments(adminID, "SU", q)
 
 	require.NoError(t, err)
-	assert.False(t, result.AnyHandoff)
+	assert.False(t, result.AnySurvey)
 	require.Len(t, result.Sources, 1)
-	assert.Nil(t, result.Sources[0].ConversionPct, "zero handoffs anywhere in scope -> null, not 0%")
+	assert.Nil(t, result.Sources[0].ConversionPct, "zero leads reached survey anywhere in scope -> null, not 0%")
 }
 
 func TestDashboardSegments_HighVolumeLowConversion_WarnFlagSet(t *testing.T) {
@@ -192,9 +193,10 @@ func TestDashboardSegments_HighVolumeLowConversion_WarnFlagSet(t *testing.T) {
 	otherSource := &models.LeadSource{Name: "Referral", IsActive: true}
 	require.NoError(t, db.Create(otherSource).Error)
 
-	// One handoff elsewhere so anyHandoff is true, then 4 low-converting
-	// Cold Call leads (1/4 = 25%... use 5 leads/0 handoff = 0% to force <20%).
-	require.NoError(t, db.Create(&models.Lead{Code: "LD-2607-0010", OwnerID: adminID, CreatedByID: adminID, CompanyName: "Converts", LeadSourceID: &otherSource.ID, Status: "HANDOFF_ODOO"}).Error)
+	// One survey elsewhere so anySurvey is true, then 4 low-converting
+	// Cold Call leads (0/4 = 0% to force <20%).
+	surveyTime := time.Now()
+	require.NoError(t, db.Create(&models.Lead{Code: "LD-2607-0010", OwnerID: adminID, CreatedByID: adminID, CompanyName: "Converts", LeadSourceID: &otherSource.ID, Status: "SURVEY", SurveyAt: &surveyTime}).Error)
 	for i := 0; i < 4; i++ {
 		require.NoError(t, db.Create(&models.Lead{Code: fmt.Sprintf("LD-2607-%04d", 11+i), OwnerID: adminID, CreatedByID: adminID, CompanyName: "Cold call lead", LeadSourceID: &source.ID, Status: "BARU"}).Error)
 	}
@@ -203,7 +205,7 @@ func TestDashboardSegments_HighVolumeLowConversion_WarnFlagSet(t *testing.T) {
 	result, err := svc.Segments(adminID, "SU", q)
 
 	require.NoError(t, err)
-	assert.True(t, result.AnyHandoff)
+	assert.True(t, result.AnySurvey)
 	var coldCall dto.SegmentRow
 	for _, s := range result.Sources {
 		if s.Name == "Cold Call" {

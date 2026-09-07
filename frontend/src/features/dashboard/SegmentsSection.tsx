@@ -65,7 +65,7 @@ function SegmentTable({
         </table>
         {convNote && (
           <div className="border-t border-t-[#F1F5F9] px-[18px] py-2.5 text-[11px] text-[#94A3B8]">
-            Konversi belum tersedia — belum ada handoff dalam cakupan ini.
+            Konversi belum tersedia — belum ada lead yang masuk survey dalam cakupan ini.
           </div>
         )}
       </CardContent>
@@ -129,7 +129,7 @@ export function SegmentsSection({ data, loading }: { data?: DashboardSegmentsRes
     )
   }
 
-  const convNote = !data.any_handoff
+  const convNote = !data.any_survey
   const regions = data.regions ?? []
 
   return (
@@ -174,14 +174,14 @@ export function SegmentsSection({ data, loading }: { data?: DashboardSegmentsRes
           <CardContent className="p-0">
             <div className="px-[18px] pt-[15px] pb-2">
               <p className="font-display text-[15px] font-bold">Penetrasi Wilayah</p>
-              <p className="mt-0.5 text-[11.5px] text-[#94A3B8]">Provinsi → kota · lead &amp; handoff</p>
+              <p className="mt-0.5 text-[11.5px] text-[#94A3B8]">Provinsi → kota · lead &amp; survey</p>
             </div>
             <table className="w-full border-collapse">
               <thead>
                 <tr>
                   <th className="px-[18px] py-1.5 text-left text-[10px] font-bold tracking-[.05em] text-[#94A3B8] uppercase">Wilayah</th>
                   <th className="px-2 py-1.5 text-right text-[10px] font-bold tracking-[.05em] text-[#94A3B8] uppercase">Lead</th>
-                  <th className="px-[18px] py-1.5 text-right text-[10px] font-bold tracking-[.05em] text-[#94A3B8] uppercase">Handoff</th>
+                  <th className="px-[18px] py-1.5 text-right text-[10px] font-bold tracking-[.05em] text-[#94A3B8] uppercase">Survey</th>
                 </tr>
               </thead>
               <tbody>
@@ -194,8 +194,8 @@ export function SegmentsSection({ data, loading }: { data?: DashboardSegmentsRes
                       {row.name}
                     </td>
                     <td className="border-t border-t-[#F1F5F9] px-2 py-2 text-right font-mono text-[12.5px] font-semibold text-[#334155]">{row.lead_count}</td>
-                    <td className="border-t border-t-[#F1F5F9] px-[18px] py-2 text-right font-mono text-[12.5px] font-semibold" style={{ color: (row.handoff_count ?? 0) > 0 ? '#166534' : '#CBD5E1' }}>
-                      {row.handoff_count}
+                    <td className="border-t border-t-[#F1F5F9] px-[18px] py-2 text-right font-mono text-[12.5px] font-semibold" style={{ color: (row.survey_count ?? 0) > 0 ? '#166534' : '#CBD5E1' }}>
+                      {row.survey_count}
                     </td>
                   </tr>
                 ))}

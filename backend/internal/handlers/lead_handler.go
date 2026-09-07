@@ -111,9 +111,10 @@ func parseLeadListQuery(c *fiber.Ctx) (dto.LeadListQuery, error) {
 
 	if v := c.Query("status"); v != "" {
 		switch v {
-		case "BARU", "FOLLOW_UP", "HANDOFF_ODOO", "LOST":
+		case "BARU", "FOLLOW_UP", "SURVEY", "SALES_CONFIRMATION", "REGISTRASI",
+			"INSTALASI", "TRIAL", "INVOICE_BULANAN", "LOST":
 		default:
-			return q, errors.New("status must be one of BARU, FOLLOW_UP, HANDOFF_ODOO, LOST")
+			return q, errors.New("status must be one of BARU, FOLLOW_UP, SURVEY, SALES_CONFIRMATION, REGISTRASI, INSTALASI, TRIAL, INVOICE_BULANAN, LOST")
 		}
 	}
 
