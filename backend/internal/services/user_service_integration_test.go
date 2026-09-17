@@ -26,6 +26,12 @@ import (
 // migrations, and truncates tables so each test starts clean. Mirrors the
 // repository package's own integration helper; kept here because the services
 // package can't import that package-private one.
+//
+// This package and internal/repository both truncate the same
+// TEST_DATABASE_URL before every test. `go test ./...` runs each package's
+// tests as a separate process, so running both packages' integration suites
+// at once needs `-p 1` (serial) or they will race and truncate each other's
+// fixtures - see backend/README.md's Testing section.
 func setupServiceTestDB(t *testing.T) *gorm.DB {
 	_ = godotenv.Load("../../.env")
 
@@ -38,11 +44,22 @@ func setupServiceTestDB(t *testing.T) *gorm.DB {
 	if err != nil {
 		t.Fatal("Failed to connect test DB:", err)
 	}
+	t.Cleanup(func() {
+		if sqlDB, err := db.DB(); err == nil {
+			sqlDB.Close()
+		}
+	})
 
 	m, err := migrate.New("file://../../migrations", dbURL)
 	if err != nil {
 		t.Fatal("Failed to init migrate:", err)
 	}
+	t.Cleanup(func() {
+		if srcErr, dbErr := m.Close(); srcErr != nil || dbErr != nil {
+			t.Logf("migrate cleanup: source=%v database=%v", srcErr, dbErr)
+		}
+	})
+
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
 		t.Fatal("Failed to run migrations:", err)
 	}

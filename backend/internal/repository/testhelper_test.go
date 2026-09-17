@@ -25,6 +25,12 @@ import (
 //	postgres://user:password@host:port/dbname?sslmode=disable
 //
 // URL-encode special characters in the password (e.g. '@' -> '%40').
+//
+// This package and internal/services both truncate the same TEST_DATABASE_URL
+// before every test. `go test ./...` runs each package's tests as a separate
+// process, so running both packages' integration suites at once needs
+// `-p 1` (serial) or they will race and truncate each other's fixtures - see
+// backend/README.md's Testing section.
 func setupTestDB(t *testing.T) *gorm.DB {
 	// Convenience for local runs: load .env if present. Real environment
 	// variables (e.g. from CI) always take precedence and are not overridden.
@@ -50,9 +56,9 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		t.Fatal("Failed to init migrate:", err)
 	}
 	t.Cleanup(func() {
-		srcErr, dbErr := m.Close()
-		_ = srcErr
-		_ = dbErr
+		if srcErr, dbErr := m.Close(); srcErr != nil || dbErr != nil {
+			t.Logf("migrate cleanup: source=%v database=%v", srcErr, dbErr)
+		}
 	})
 
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {

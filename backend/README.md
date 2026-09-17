@@ -140,6 +140,12 @@ go test -cover ./...
 createdb fiber_api_test
 export TEST_DATABASE_URL="postgres://postgres:postgres@localhost:5432/fiber_api_test?sslmode=disable"
 go test -tags=integration ./internal/repository/...
+
+# Full integration suite (repository + services) - needs -p 1: both packages
+# truncate the same TEST_DATABASE_URL before every test, and `go test ./...`
+# runs each package as a separate process. Without -p 1 they run concurrently
+# and race each other's fixtures.
+go test -tags=integration -p 1 ./...
 ```
 
 `TEST_DATABASE_URL` is read by the test helper for both GORM and golang-migrate;
