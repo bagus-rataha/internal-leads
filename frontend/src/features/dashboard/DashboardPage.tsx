@@ -4,11 +4,16 @@
 // implementations) but still respect team_id/owner_id, which flow through
 // the same params object.
 import { useEffect, useState } from 'react'
+import { CalendarIcon } from 'lucide-react'
+import type { DateRange } from 'react-day-picker'
 import { useAuth } from '@/auth/AuthContext'
 import { roleLabel } from '@/lib/roles'
 import { fetchTeams, type TeamResponse } from '@/features/team/api'
 import { fetchUsers, LEAD_OWNER_ROLES, type UserResponse } from '@/features/user/api'
 import { STATUS_CONFIG, STATUS_FILTER_OPTIONS } from '@/features/lead/shared'
+import { Calendar } from '@/components/ui/calendar'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { cn } from '@/lib/utils'
 import {
   useDashboardSummary,
   useDashboardActivity,
@@ -28,15 +33,50 @@ function toLocalDateString(date: Date): string {
   return `${year}-${month}-${day}`
 }
 
-const RANGE_OPTIONS = [
-  { value: 7, label: '7 hari terakhir' },
-  { value: 30, label: '30 hari terakhir' },
-  { value: 90, label: '90 hari terakhir' },
-] as const
+// Calendar-day count between two Date objects, inclusive of both ends,
+// ignoring time-of-day - Date.UTC with only y/m/d avoids DST/local-time
+// artifacts a plain millisecond diff would introduce.
+function daysBetweenInclusive(from: Date, to: Date): number {
+  const utcFrom = Date.UTC(from.getFullYear(), from.getMonth(), from.getDate())
+  const utcTo = Date.UTC(to.getFullYear(), to.getMonth(), to.getDate())
+  return Math.round((utcTo - utcFrom) / 86400000) + 1
+}
+
+function startOfWeekMonday(date: Date): Date {
+  const d = new Date(date)
+  const day = d.getDay() // 0 = Sunday .. 6 = Saturday
+  const diffFromMonday = day === 0 ? 6 : day - 1
+  d.setDate(d.getDate() - diffFromMonday)
+  return d
+}
+
+function startOfMonth(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), 1)
+}
+
+type RangePreset = 'today' | 'week' | 'month' | 'custom'
+
+const MAX_CUSTOM_RANGE_DAYS = 90
+
+const RANGE_PRESET_OPTIONS: { value: RangePreset; label: string }[] = [
+  { value: 'today', label: 'Hari ini' },
+  { value: 'week', label: 'Minggu ini' },
+  { value: 'month', label: 'Bulan ini' },
+  { value: 'custom', label: 'Custom' },
+]
+
+const DATE_RANGE_LABEL_FORMAT = new Intl.DateTimeFormat('id', { day: 'numeric', month: 'short', year: 'numeric' })
+
+function formatCustomRangeLabel(range: DateRange | undefined): string {
+  if (!range?.from && !range?.to) return 'Pilih tanggal'
+  if (range?.from && range.to) return `${DATE_RANGE_LABEL_FORMAT.format(range.from)} – ${DATE_RANGE_LABEL_FORMAT.format(range.to)}`
+  return DATE_RANGE_LABEL_FORMAT.format((range?.from ?? range?.to)!)
+}
 
 const SELECT_CLASSNAME =
   'h-9 rounded-lg border border-input bg-white px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
 const FILTER_LABEL_CLASSNAME = 'text-[10.5px] font-bold tracking-[.05em] text-[#94A3B8] uppercase'
+const PRESET_BUTTON_BASE = 'h-9 rounded-lg border px-3 text-sm font-semibold transition-colors'
 
 export default function DashboardPage() {
   const { user } = useAuth()
@@ -44,7 +84,8 @@ export default function DashboardPage() {
   const showSalesWidget = user?.role !== 'SALES'
   const showTeamFilter = isAdmin
 
-  const [rangeDays, setRangeDays] = useState(30)
+  const [rangePreset, setRangePreset] = useState<RangePreset>('month')
+  const [customRange, setCustomRange] = useState<DateRange | undefined>()
   const [teamId, setTeamId] = useState('')
   const [ownerId, setOwnerId] = useState('')
   const [status, setStatus] = useState('')
@@ -69,9 +110,32 @@ export default function DashboardPage() {
       })
   }, [showSalesWidget])
 
-  const dateTo = new Date()
-  const dateFrom = new Date(dateTo)
-  dateFrom.setDate(dateFrom.getDate() - (rangeDays - 1))
+  const today = new Date()
+  let dateFrom: Date
+  let dateTo: Date
+  switch (rangePreset) {
+    case 'today':
+      dateFrom = today
+      dateTo = today
+      break
+    case 'week':
+      dateFrom = startOfWeekMonday(today)
+      dateTo = today
+      break
+    case 'month':
+      dateFrom = startOfMonth(today)
+      dateTo = today
+      break
+    case 'custom':
+      dateFrom = customRange?.from ?? today
+      dateTo = customRange?.to ?? customRange?.from ?? today
+      break
+  }
+
+  const rangeDays = daysBetweenInclusive(dateFrom, dateTo)
+  const customIncomplete = rangePreset === 'custom' && (!customRange?.from || !customRange?.to)
+  const customTooLong = rangePreset === 'custom' && rangeDays > MAX_CUSTOM_RANGE_DAYS
+  const rangeValid = !customIncomplete && !customTooLong
 
   const params = {
     date_from: toLocalDateString(dateFrom),
@@ -83,11 +147,11 @@ export default function DashboardPage() {
   // the other three ignore it, so they stay on `params` to avoid refetching on every status change.
   const paramsWithStatus = { ...params, status: status || undefined }
 
-  const summary = useDashboardSummary(paramsWithStatus)
-  const activity = useDashboardActivity(params)
-  const staleLeads = useDashboardStaleLeads(params)
-  const salesActivity = useDashboardSalesActivity(paramsWithStatus, showSalesWidget)
-  const segments = useDashboardSegments(params)
+  const summary = useDashboardSummary(paramsWithStatus, rangeValid)
+  const activity = useDashboardActivity(params, rangeValid)
+  const staleLeads = useDashboardStaleLeads(params, rangeValid)
+  const salesActivity = useDashboardSalesActivity(paramsWithStatus, showSalesWidget && rangeValid)
+  const segments = useDashboardSegments(params, rangeValid)
 
   const scopeLabel =
     user?.role === 'SALES'
@@ -106,13 +170,39 @@ export default function DashboardPage() {
         <div className="flex flex-wrap items-end gap-2.5">
           <div className="flex flex-col gap-1">
             <label className={FILTER_LABEL_CLASSNAME}>Rentang</label>
-            <select value={rangeDays} onChange={(e) => setRangeDays(Number(e.target.value))} className={SELECT_CLASSNAME}>
-              {RANGE_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
+            <div className="flex items-center gap-1.5">
+              {RANGE_PRESET_OPTIONS.map((o) => (
+                <button
+                  key={o.value}
+                  type="button"
+                  onClick={() => setRangePreset(o.value)}
+                  className={cn(
+                    PRESET_BUTTON_BASE,
+                    rangePreset === o.value
+                      ? 'border-[#1D4ED8] bg-[#EEF3FC] text-[#1D4ED8]'
+                      : 'border-input bg-white text-[#334155] hover:border-[#BDD0F7]'
+                  )}
+                >
                   {o.label}
-                </option>
+                </button>
               ))}
-            </select>
+              {rangePreset === 'custom' && (
+                <Popover>
+                  <PopoverTrigger className={cn(SELECT_CLASSNAME, 'inline-flex items-center gap-1.5 text-left whitespace-nowrap')}>
+                    <CalendarIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                    <span className={cn(!customRange?.from && !customRange?.to && 'text-muted-foreground')}>
+                      {formatCustomRangeLabel(customRange)}
+                    </span>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar mode="range" selected={customRange} onSelect={setCustomRange} defaultMonth={customRange?.from} numberOfMonths={1} />
+                  </PopoverContent>
+                </Popover>
+              )}
+            </div>
+            {customTooLong && (
+              <p className="text-[11px] font-semibold text-[#B91C1C]">Rentang custom maksimal {MAX_CUSTOM_RANGE_DAYS} hari.</p>
+            )}
           </div>
           <div className="flex flex-col gap-1">
             <label className={FILTER_LABEL_CLASSNAME}>Status (forecast)</label>
