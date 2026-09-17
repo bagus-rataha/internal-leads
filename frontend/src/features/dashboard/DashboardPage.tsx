@@ -75,7 +75,6 @@ function formatCustomRangeLabel(range: DateRange | undefined): string {
 const SELECT_CLASSNAME =
   'h-9 rounded-lg border border-input bg-white px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
 const FILTER_LABEL_CLASSNAME = 'text-[10.5px] font-bold tracking-[.05em] text-[#94A3B8] uppercase'
-const PRESET_BUTTON_BASE = 'h-9 rounded-lg border px-3 text-sm font-semibold transition-colors'
 
 export default function DashboardPage() {
   const { user } = useAuth()
@@ -169,22 +168,18 @@ export default function DashboardPage() {
         <div className="flex flex-wrap items-end gap-2.5">
           <div className="flex flex-col gap-1">
             <label className={FILTER_LABEL_CLASSNAME}>Rentang</label>
-            <div className="flex flex-wrap items-center gap-1.5">
-              {RANGE_PRESET_OPTIONS.map((o) => (
-                <button
-                  key={o.value}
-                  type="button"
-                  onClick={() => setRangePreset(o.value)}
-                  className={cn(
-                    PRESET_BUTTON_BASE,
-                    rangePreset === o.value
-                      ? 'border-[#1D4ED8] bg-[#EEF3FC] text-[#1D4ED8]'
-                      : 'border-input bg-white text-[#334155] hover:border-[#BDD0F7]'
-                  )}
-                >
-                  {o.label}
-                </button>
-              ))}
+            <div className="flex items-center gap-1.5">
+              <select
+                value={rangePreset}
+                onChange={(e) => setRangePreset(e.target.value as RangePreset)}
+                className={SELECT_CLASSNAME}
+              >
+                {RANGE_PRESET_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
               {rangePreset === 'custom' && (
                 <Popover>
                   <PopoverTrigger className={cn(SELECT_CLASSNAME, 'inline-flex items-center gap-1.5 text-left whitespace-nowrap')}>

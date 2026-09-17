@@ -7,7 +7,6 @@ import { AlertTriangle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
-import { ScopeBadge } from './ScopeBadge'
 import type { DashboardSummaryResponse } from './api'
 
 function metricDelta(value: number, changePct: number | null | undefined, goodUp: boolean) {
@@ -35,7 +34,6 @@ function MetricCard({
   compareLabel,
   onClick,
   danger,
-  scope,
 }: {
   label: string
   value: number
@@ -44,7 +42,6 @@ function MetricCard({
   compareLabel: string
   onClick: () => void
   danger?: boolean
-  scope: 'range' | 'snapshot'
 }) {
   const delta = metricDelta(value, changePct, goodUp)
   return (
@@ -60,10 +57,7 @@ function MetricCard({
           {danger && <AlertTriangle className="size-3.5" />}
           {label}
         </span>
-        <div className="flex items-center gap-1.5">
-          <ScopeBadge type={scope} />
-          <span className={cn('rounded-full px-2.5 py-0.5 text-[11px] font-bold whitespace-nowrap', delta.className)}>{delta.text}</span>
-        </div>
+        <span className={cn('rounded-full px-2.5 py-0.5 text-[11px] font-bold whitespace-nowrap', delta.className)}>{delta.text}</span>
       </div>
       <div
         className={cn(
@@ -108,7 +102,6 @@ export function MetricCards({
         goodUp
         compareLabel={compareLabel}
         onClick={() => navigate('/leads?status=BARU')}
-        scope="range"
       />
       <MetricCard
         label="Follow-up Ditulis"
@@ -117,7 +110,6 @@ export function MetricCards({
         goodUp
         compareLabel={compareLabel}
         onClick={() => navigate('/leads')}
-        scope="range"
       />
       <MetricCard
         label="Masuk Survey"
@@ -126,7 +118,6 @@ export function MetricCards({
         goodUp
         compareLabel={`${compareLabel} · menampilkan tahap kini`}
         onClick={() => navigate('/leads?status=SURVEY')}
-        scope="range"
       />
       <MetricCard
         label="Lead Terlantar"
@@ -136,7 +127,6 @@ export function MetricCards({
         compareLabel="Aktif tanpa follow-up >7 hari"
         onClick={() => navigate('/leads?stale=true')}
         danger
-        scope="snapshot"
       />
     </div>
   )
@@ -154,10 +144,7 @@ export function FunnelCard({ summary, loading }: { summary?: DashboardSummaryRes
     <Card className="overflow-hidden rounded-[16px] border-[#E7EDF3] shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
       <CardContent className="p-0">
         <div className="px-[18px] pt-[15px] pb-1">
-          <div className="flex items-center gap-2">
-            <p className="font-display text-[15px] font-bold">Funnel Konversi</p>
-            <ScopeBadge type="snapshot" />
-          </div>
+          <p className="font-display text-[15px] font-bold">Funnel Konversi</p>
           <p className="mt-0.5 text-[11.5px] text-[#94A3B8]">Baru → Follow-up → Survey</p>
           <p className="mt-0.5 text-[11px] text-[#94A3B8]">Cakupan Anda saat ini — tidak dibatasi filter rentang tanggal.</p>
         </div>
@@ -211,10 +198,7 @@ export function ForecastCard({
   return (
     <div className="rounded-[15px] border border-[#E7EDF3] bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
       <div className="mb-1.5 flex items-center justify-between gap-2">
-        <span className="flex items-center gap-1.5 text-[12.5px] font-semibold text-[#64748B]">
-          Forecast Pendapatan (MRR)
-          <ScopeBadge type="snapshot" />
-        </span>
+        <span className="text-[12.5px] font-semibold text-[#64748B]">Forecast Pendapatan (MRR)</span>
         <span className="rounded-full bg-[#EEF2F7] px-2.5 py-0.5 text-[11px] font-bold whitespace-nowrap text-[#64748B]">
           {statusLabel}
         </span>
