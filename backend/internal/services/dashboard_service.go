@@ -537,16 +537,20 @@ func (s *DashboardService) avgPricePerMbps(base func() *gorm.DB, serviceType str
 }
 
 // Segments answers GET /dashboard/segments: the lead-source,
-// region-penetration, competitor-intel, and business-field breakdowns - all
-// snapshots of the caller's scope (team_id/owner_id narrowed, not
-// date_from/date_to-bound), bundled into one response since they're all
-// cheap "current portfolio state" breakdowns over the same scoped set.
+// region-penetration, competitor-intel, and business-field breakdowns -
+// bundled into one response since they're all cheap breakdowns over the same
+// scoped set. Bound to date_from/date_to (leads.created_at) same as the
+// metric cards, so switching the dashboard's date range narrows these too
+// instead of always showing every lead ever in scope.
 func (s *DashboardService) Segments(callerID uuid.UUID, role string, q dto.DashboardQuery) (*dto.DashboardSegmentsResponse, error) {
 	scope, err := buildLeadScope(s.userRepo, callerID, role)
 	if err != nil {
 		return nil, err
 	}
-	base := func() *gorm.DB { return s.scopedLeads(scope, q.TeamID, q.OwnerID) }
+	base := func() *gorm.DB {
+		return s.scopedLeads(scope, q.TeamID, q.OwnerID).
+			Where("leads.created_at >= ? AND leads.created_at < ?", q.DateFrom, q.DateTo.AddDate(0, 0, 1))
+	}
 
 	var reachedSurvey int64
 	if err := base().Where(reachedSurveyExpr).Count(&reachedSurvey).Error; err != nil {

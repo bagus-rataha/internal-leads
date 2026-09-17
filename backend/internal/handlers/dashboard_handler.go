@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fiber-api-boilerplate/internal/dto"
 	"fiber-api-boilerplate/internal/utils"
+	"fmt"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -42,6 +43,12 @@ var jakartaLoc = func() *time.Location {
 	return loc
 }()
 
+// maxDashboardRangeDays caps how wide date_from..date_to may be (inclusive
+// both ends). Guards against unbounded aggregate queries over the whole
+// leads table - the same spirit as export's 50k-row cap, just for dashboard
+// date ranges instead of row counts.
+const maxDashboardRangeDays = 90
+
 // parseDashboardQuery builds dto.DashboardQuery from raw query strings,
 // shared by every dashboard handler method. date_from/date_to must be
 // provided together or not at all (a lone one is ambiguous, rejected rather
@@ -70,6 +77,9 @@ func parseDashboardQuery(c *fiber.Ctx) (dto.DashboardQuery, error) {
 		}
 		if to.Before(from) {
 			return q, errors.New("date_to must not be before date_from")
+		}
+		if days := int(to.Sub(from).Hours()/24) + 1; days > maxDashboardRangeDays {
+			return q, fmt.Errorf("date range must not exceed %d days", maxDashboardRangeDays)
 		}
 		q.DateFrom, q.DateTo = from, to
 	}

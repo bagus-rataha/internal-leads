@@ -81,3 +81,30 @@ func TestDashboardSummary_ValidStatus_ParsedAndCallsService(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 }
+
+func TestDashboardSummary_DateRangeExceeds90Days_Rejected(t *testing.T) {
+	svc := new(MockDashboardService)
+	app := newDashboardTestApp(svc, uuid.Must(uuid.NewV7()), "SALES")
+
+	req := httptest.NewRequest("GET", "/dashboard/summary?date_from=2026-01-01&date_to=2026-12-31", nil)
+	resp, err := app.Test(req)
+
+	assert.NoError(t, err)
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+	svc.AssertNotCalled(t, "Summary")
+}
+
+func TestDashboardSummary_DateRangeExactly90Days_Accepted(t *testing.T) {
+	svc := new(MockDashboardService)
+	userID := uuid.Must(uuid.NewV7())
+	svc.On("Summary", userID, "SALES", mock.AnythingOfType("dto.DashboardQuery")).
+		Return(&dto.DashboardSummaryResponse{}, nil)
+	app := newDashboardTestApp(svc, userID, "SALES")
+
+	// 2026-01-01 .. 2026-03-31 inclusive = 31 + 28 + 31 = 90 days, the exact cap.
+	req := httptest.NewRequest("GET", "/dashboard/summary?date_from=2026-01-01&date_to=2026-03-31", nil)
+	resp, err := app.Test(req)
+
+	assert.NoError(t, err)
+	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
+}
