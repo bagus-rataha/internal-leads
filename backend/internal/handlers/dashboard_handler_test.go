@@ -108,3 +108,16 @@ func TestDashboardSummary_DateRangeExactly90Days_Accepted(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 }
+
+func TestDashboardSummary_DateRangeOneDayOver90_Rejected(t *testing.T) {
+	svc := new(MockDashboardService)
+	app := newDashboardTestApp(svc, uuid.Must(uuid.NewV7()), "SALES")
+
+	// 2026-01-01 .. 2026-04-01 inclusive = 91 days, one over the 90-day cap.
+	req := httptest.NewRequest("GET", "/dashboard/summary?date_from=2026-01-01&date_to=2026-04-01", nil)
+	resp, err := app.Test(req)
+
+	assert.NoError(t, err)
+	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+	svc.AssertNotCalled(t, "Summary")
+}

@@ -1,8 +1,7 @@
 // Dashboard screen: filters (Rentang/Tim/Sales) drive every widget below via
-// shared {date_from,date_to,team_id,owner_id} params - the funnel and the
-// segments breakdowns ignore date_from/date_to internally (see their backend
-// implementations) but still respect team_id/owner_id, which flow through
-// the same params object.
+// shared {date_from,date_to,team_id,owner_id} params - the funnel ignores
+// date_from/date_to internally (see its backend implementation) but still
+// respects team_id/owner_id, which flow through the same params object.
 import { useEffect, useState } from 'react'
 import { CalendarIcon } from 'lucide-react'
 import type { DateRange } from 'react-day-picker'
@@ -170,7 +169,7 @@ export default function DashboardPage() {
         <div className="flex flex-wrap items-end gap-2.5">
           <div className="flex flex-col gap-1">
             <label className={FILTER_LABEL_CLASSNAME}>Rentang</label>
-            <div className="flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
               {RANGE_PRESET_OPTIONS.map((o) => (
                 <button
                   key={o.value}
@@ -200,8 +199,10 @@ export default function DashboardPage() {
                 </Popover>
               )}
             </div>
-            {customTooLong && (
-              <p className="text-[11px] font-semibold text-[#B91C1C]">Rentang custom maksimal {MAX_CUSTOM_RANGE_DAYS} hari.</p>
+            {rangePreset === 'custom' && !rangeValid && (
+              <p className="text-[11px] font-semibold text-[#B91C1C]">
+                {customTooLong ? `Rentang custom maksimal ${MAX_CUSTOM_RANGE_DAYS} hari.` : 'Pilih tanggal mulai dan akhir.'}
+              </p>
             )}
           </div>
           <div className="flex flex-col gap-1">

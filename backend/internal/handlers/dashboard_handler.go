@@ -67,11 +67,11 @@ func parseDashboardQuery(c *fiber.Ctx) (dto.DashboardQuery, error) {
 	case fromStr == "" || toStr == "":
 		return q, errors.New("date_from and date_to must be provided together")
 	default:
-		from, err := time.Parse("2006-01-02", fromStr)
+		from, err := time.ParseInLocation("2006-01-02", fromStr, jakartaLoc)
 		if err != nil {
 			return q, errors.New("date_from must be YYYY-MM-DD")
 		}
-		to, err := time.Parse("2006-01-02", toStr)
+		to, err := time.ParseInLocation("2006-01-02", toStr, jakartaLoc)
 		if err != nil {
 			return q, errors.New("date_to must be YYYY-MM-DD")
 		}
