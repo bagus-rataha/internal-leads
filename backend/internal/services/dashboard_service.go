@@ -86,11 +86,57 @@ func percentOf(part, total int64) *int {
 	return &pct
 }
 
-// comparisonPeriod returns the same-length period immediately preceding
-// [from, to] (inclusive both ends, calendar days) - ARCHITECTURE.md §9's
-// "pembanding: rentang yang sama sebelumnya".
+// comparisonPeriod returns the period to compare [from, to] against,
+// inferred from the shape of the range itself (no caller-supplied preset
+// flag - the dashboard handler never learns which UI preset produced these
+// dates, only the resulting date_from/date_to).
+//
+// Week-to-date shape (from is a Monday, span <= 7 days): compare against
+// the exact same weekday range one week earlier - shifting both ends back
+// by 7 days, NOT the immediately-preceding 7-day block (which would land on
+// the wrong weekdays, e.g. comparing Mon-Fri against last Wed-Sun).
+//
+// Month-to-date shape (from is the 1st, to is still within from's month):
+// compare against the same day-of-month range one calendar month earlier,
+// with month-end clamping - "1-31 Okt" compares against "1-30 Sep", not a
+// naive AddDate(0,-1,0) on the 31st, which Go's own date normalization
+// would silently roll over into October 1st instead of clamping to
+// September's actual last day.
+//
+// Everything else (arbitrary custom ranges, and the single-day "Hari ini"
+// case, which already produces the correct "yesterday" result through this
+// same fallback) keeps the original rule: the same-length window
+// immediately preceding [from, to] - ARCHITECTURE.md §9's "pembanding:
+// rentang yang sama sebelumnya".
+//
+// Month-to-date is checked before week-to-date: a month that starts on a
+// Monday (e.g. June or October 2026) satisfies both conditions, and
+// month-to-date is the rarer, more specific signal (once per month vs. once
+// per week). Known residual limitation: if that same Monday-the-1st also
+// happens to be the `from` of a "Minggu ini" query, the two presets produce
+// byte-identical (from, to) pairs and this function has no way to tell them
+// apart - it will resolve to month-to-date in that one case. Narrower and
+// rarer than the bug this ordering fixes, accepted as-is.
 func comparisonPeriod(from, to time.Time) (prevFrom, prevTo time.Time) {
-	days := int(to.Sub(from).Hours()/24) + 1
+	span := to.Sub(from)
+
+	if from.Day() == 1 && to.Before(from.AddDate(0, 1, 0)) {
+		firstOfFromMonth := time.Date(from.Year(), from.Month(), 1, 0, 0, 0, 0, from.Location())
+		lastOfPrevMonth := firstOfFromMonth.AddDate(0, 0, -1)
+		prevFrom = time.Date(lastOfPrevMonth.Year(), lastOfPrevMonth.Month(), 1, 0, 0, 0, 0, from.Location())
+		prevToDay := to.Day()
+		if prevToDay > lastOfPrevMonth.Day() {
+			prevToDay = lastOfPrevMonth.Day()
+		}
+		prevTo = time.Date(lastOfPrevMonth.Year(), lastOfPrevMonth.Month(), prevToDay, 0, 0, 0, 0, from.Location())
+		return prevFrom, prevTo
+	}
+
+	if from.Weekday() == time.Monday && span <= 6*24*time.Hour {
+		return from.AddDate(0, 0, -7), to.AddDate(0, 0, -7)
+	}
+
+	days := int(span.Hours()/24) + 1
 	prevTo = from.AddDate(0, 0, -1)
 	prevFrom = prevTo.AddDate(0, 0, -(days - 1))
 	return prevFrom, prevTo

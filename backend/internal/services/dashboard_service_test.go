@@ -42,3 +42,72 @@ func TestComparisonPeriod_SameLengthImmediatelyPreceding(t *testing.T) {
 	assert.Equal(t, time.Date(2026, 6, 30, 0, 0, 0, 0, time.UTC), prevTo, "prev period ends the day before `from`")
 	assert.Equal(t, time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC), prevFrom, "prev period is the same length (30 days)")
 }
+
+func TestComparisonPeriod_WeekToDate_ShiftsBackExactlySevenDays(t *testing.T) {
+	// Monday 2026-09-14 through Friday 2026-09-18 (5-day week-to-date range).
+	from := time.Date(2026, 9, 14, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 9, 18, 0, 0, 0, 0, time.UTC)
+
+	prevFrom, prevTo := comparisonPeriod(from, to)
+
+	assert.Equal(t, time.Date(2026, 9, 7, 0, 0, 0, 0, time.UTC), prevFrom, "should be last Monday, not an arbitrary 5-day block")
+	assert.Equal(t, time.Date(2026, 9, 11, 0, 0, 0, 0, time.UTC), prevTo, "should be last Friday")
+}
+
+func TestComparisonPeriod_MonthToDate_SameDayPreviousMonth(t *testing.T) {
+	// 2026-09-01 through 2026-09-18 (month-to-date, September has 30 days).
+	from := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 9, 18, 0, 0, 0, 0, time.UTC)
+
+	prevFrom, prevTo := comparisonPeriod(from, to)
+
+	assert.Equal(t, time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC), prevFrom)
+	assert.Equal(t, time.Date(2026, 8, 18, 0, 0, 0, 0, time.UTC), prevTo)
+}
+
+func TestComparisonPeriod_MonthToDate_ClampsAtShorterPreviousMonth(t *testing.T) {
+	// 2026-10-01 through 2026-10-31 (October has 31 days, September only has 30) -
+	// the naive from.AddDate(0,-1,0) on the 31st would roll over into October 1st.
+	from := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 10, 31, 0, 0, 0, 0, time.UTC)
+
+	prevFrom, prevTo := comparisonPeriod(from, to)
+
+	assert.Equal(t, time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC), prevFrom)
+	assert.Equal(t, time.Date(2026, 9, 30, 0, 0, 0, 0, time.UTC), prevTo, "must clamp to September's actual last day, not roll over into October")
+}
+
+func TestComparisonPeriod_SingleDay_StillComparesToYesterday(t *testing.T) {
+	// "Hari ini" - already worked correctly before this change, must keep working.
+	from := time.Date(2026, 9, 18, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 9, 18, 0, 0, 0, 0, time.UTC)
+
+	prevFrom, prevTo := comparisonPeriod(from, to)
+
+	assert.Equal(t, time.Date(2026, 9, 17, 0, 0, 0, 0, time.UTC), prevFrom)
+	assert.Equal(t, time.Date(2026, 9, 17, 0, 0, 0, 0, time.UTC), prevTo)
+}
+
+func TestComparisonPeriod_MonthStartsOnMonday_PrefersMonthToDateOverWeekToDate(t *testing.T) {
+	// June 2026 starts on a Monday - from satisfies BOTH the week-to-date and
+	// month-to-date conditions. Month-to-date must win (it's the more specific signal).
+	from := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 6, 3, 0, 0, 0, 0, time.UTC)
+
+	prevFrom, prevTo := comparisonPeriod(from, to)
+
+	assert.Equal(t, time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC), prevFrom, "must compare against May 1 (month-to-date), not a week-to-date result")
+	assert.Equal(t, time.Date(2026, 5, 3, 0, 0, 0, 0, time.UTC), prevTo)
+}
+
+func TestComparisonPeriod_ArbitraryCustomRange_ImmediatelyPrecedingWindow(t *testing.T) {
+	// A custom range that starts on a Wednesday (not Monday) and isn't the 1st -
+	// must fall through to the original same-length-immediately-preceding rule.
+	from := time.Date(2026, 9, 9, 0, 0, 0, 0, time.UTC) // Wednesday
+	to := time.Date(2026, 9, 15, 0, 0, 0, 0, time.UTC)  // Tuesday, 7 days total
+
+	prevFrom, prevTo := comparisonPeriod(from, to)
+
+	assert.Equal(t, time.Date(2026, 9, 2, 0, 0, 0, 0, time.UTC), prevFrom, "7 days immediately before Sep 9")
+	assert.Equal(t, time.Date(2026, 9, 8, 0, 0, 0, 0, time.UTC), prevTo)
+}
