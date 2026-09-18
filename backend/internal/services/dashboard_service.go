@@ -263,16 +263,39 @@ func (s *DashboardService) Summary(callerID uuid.UUID, role string, q dto.Dashbo
 	}, nil
 }
 
-// Activity answers GET /dashboard/activity: daily lead-baru vs
-// follow-up counts. Two GROUP BY aggregate queries total, regardless of the
-// requested range length - never a query-per-day loop (ARCHITECTURE.md §10's
-// "dilarang N+1" applies to this per-day breakdown too, not just per-entity).
+// activityJakartaLoc is this file's fixed business timezone for hour-bucket
+// truncation - mirrors handlers.jakartaLoc (unreachable from this package:
+// handlers depends on services, not the reverse), same load-once-fall-back-
+// to-UTC behavior since a wrong "today" here is a degraded convenience, not
+// a security issue.
+var activityJakartaLoc = func() *time.Location {
+	loc, err := time.LoadLocation("Asia/Jakarta")
+	if err != nil {
+		return time.UTC
+	}
+	return loc
+}()
+
+// Activity answers GET /dashboard/activity: lead-baru vs follow-up counts,
+// bucketed by day, or by hour when the selected range is a single calendar
+// day ("Hari ini", or a single-day Custom pick) - same shape-based dispatch
+// pattern as comparisonPeriod, no caller-supplied granularity flag needed.
 func (s *DashboardService) Activity(callerID uuid.UUID, role string, q dto.DashboardQuery) (*dto.DashboardActivityResponse, error) {
 	scope, err := buildLeadScope(s.userRepo, callerID, role)
 	if err != nil {
 		return nil, err
 	}
 
+	if q.DateFrom.Equal(q.DateTo) {
+		return s.hourlyActivity(scope, q)
+	}
+	return s.dailyActivity(scope, q)
+}
+
+// dailyActivity is the original Activity() body, unchanged - two GROUP BY
+// aggregate queries total, regardless of the requested range length, never
+// a query-per-day loop (ARCHITECTURE.md §10's "dilarang N+1").
+func (s *DashboardService) dailyActivity(scope repository.LeadScope, q dto.DashboardQuery) (*dto.DashboardActivityResponse, error) {
 	type dayCount struct {
 		Day   time.Time
 		Count int64
@@ -312,7 +335,69 @@ func (s *DashboardService) Activity(callerID uuid.UUID, role string, q dto.Dashb
 		buckets[i] = dto.ActivityBucket{Date: key, LeadBaru: leadByDay[key], FollowUp: fuByDay[key]}
 	}
 
-	return &dto.DashboardActivityResponse{Buckets: buckets}, nil
+	return &dto.DashboardActivityResponse{Granularity: "day", Buckets: buckets}, nil
+}
+
+// hourlyActivity buckets by hour, for a single-calendar-day range - "Hari
+// ini", or any Custom pick that collapses to one day. Truncates in
+// Asia/Jakarta explicitly (AT TIME ZONE), not whatever the Postgres session
+// default is - an hour bucket labeled 7 hours off is far more visibly wrong
+// than the day-granularity version of this same gap this app has long since
+// decided is low-priority to fix (see jakartaLoc's doc comment in
+// dashboard_handler.go).
+func (s *DashboardService) hourlyActivity(scope repository.LeadScope, q dto.DashboardQuery) (*dto.DashboardActivityResponse, error) {
+	type hourCount struct {
+		Hour  time.Time
+		Count int64
+	}
+
+	var leadRows []hourCount
+	if err := s.scopedLeads(scope, q.TeamID, q.OwnerID).
+		Select("DATE_TRUNC('hour', leads.created_at AT TIME ZONE 'Asia/Jakarta') AS hour, COUNT(*) AS count").
+		Where("leads.created_at >= ? AND leads.created_at < ?", q.DateFrom, q.DateTo.AddDate(0, 0, 1)).
+		Group("DATE_TRUNC('hour', leads.created_at AT TIME ZONE 'Asia/Jakarta')").
+		Scan(&leadRows).Error; err != nil {
+		return nil, err
+	}
+
+	var fuRows []hourCount
+	if err := s.followUpsInScope(scope, q.TeamID, q.OwnerID).
+		Select("DATE_TRUNC('hour', follow_ups.created_at AT TIME ZONE 'Asia/Jakarta') AS hour, COUNT(*) AS count").
+		Where("follow_ups.created_at >= ? AND follow_ups.created_at < ?", q.DateFrom, q.DateTo.AddDate(0, 0, 1)).
+		Group("DATE_TRUNC('hour', follow_ups.created_at AT TIME ZONE 'Asia/Jakarta')").
+		Scan(&fuRows).Error; err != nil {
+		return nil, err
+	}
+
+	const hourKeyFormat = "2006-01-02T15:04:00"
+	leadByHour := make(map[string]int64, len(leadRows))
+	for _, r := range leadRows {
+		leadByHour[r.Hour.Format(hourKeyFormat)] = r.Count
+	}
+	fuByHour := make(map[string]int64, len(fuRows))
+	for _, r := range fuRows {
+		fuByHour[r.Hour.Format(hourKeyFormat)] = r.Count
+	}
+
+	// Never generate a bucket for an hour that hasn't happened yet - same
+	// principle as the daily case never generating a bucket past "today"
+	// (the frontend's date_to is always capped at today, so daily buckets
+	// stop there naturally; a single day's date_from/date_to are identical
+	// and carry no such information, so this needs an explicit cutoff).
+	lastHour := 23
+	now := time.Now().In(activityJakartaLoc)
+	if q.DateFrom.Year() == now.Year() && q.DateFrom.Month() == now.Month() && q.DateFrom.Day() == now.Day() {
+		lastHour = now.Hour()
+	}
+
+	buckets := make([]dto.ActivityBucket, lastHour+1)
+	for h := 0; h <= lastHour; h++ {
+		bucketTime := time.Date(q.DateFrom.Year(), q.DateFrom.Month(), q.DateFrom.Day(), h, 0, 0, 0, q.DateFrom.Location())
+		key := bucketTime.Format(hourKeyFormat)
+		buckets[h] = dto.ActivityBucket{Date: key, LeadBaru: leadByHour[key], FollowUp: fuByHour[key]}
+	}
+
+	return &dto.DashboardActivityResponse{Granularity: "hour", Buckets: buckets}, nil
 }
 
 // StaleLeads answers GET /dashboard/stale-leads: the top-7

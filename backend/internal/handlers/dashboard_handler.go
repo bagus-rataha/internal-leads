@@ -137,7 +137,7 @@ func (h *DashboardHandler) Summary(c *fiber.Ctx) error {
 }
 
 // Activity godoc
-// @Summary Dashboard activity trend (lead baru vs follow-up per day)
+// @Summary Dashboard activity trend (lead baru vs follow-up, daily or hourly depending on range)
 // @Tags dashboard
 // @Security BearerAuth
 // @Success 200 {object} utils.Response{data=dto.DashboardActivityResponse}

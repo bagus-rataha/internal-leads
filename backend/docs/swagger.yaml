@@ -3,7 +3,6 @@ definitions:
   dto.ActivityBucket:
     properties:
       date:
-        description: YYYY-MM-DD
         type: string
       follow_up:
         type: integer
@@ -163,6 +162,9 @@ definitions:
         items:
           $ref: '#/definitions/dto.ActivityBucket'
         type: array
+      granularity:
+        description: '"day" | "hour"'
+        type: string
     type: object
   dto.DashboardSalesActivityResponse:
     properties:
@@ -884,7 +886,8 @@ paths:
               type: object
       security:
       - BearerAuth: []
-      summary: Dashboard activity trend (lead baru vs follow-up per day)
+      summary: Dashboard activity trend (lead baru vs follow-up, daily or hourly depending
+        on range)
       tags:
       - dashboard
   /dashboard/sales-activity:

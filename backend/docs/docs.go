@@ -139,7 +139,7 @@ const docTemplate = `{
                 "tags": [
                     "dashboard"
                 ],
-                "summary": "Dashboard activity trend (lead baru vs follow-up per day)",
+                "summary": "Dashboard activity trend (lead baru vs follow-up, daily or hourly depending on range)",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -1659,7 +1659,6 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "date": {
-                    "description": "YYYY-MM-DD",
                     "type": "string"
                 },
                 "follow_up": {
@@ -1886,6 +1885,10 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/dto.ActivityBucket"
                     }
+                },
+                "granularity": {
+                    "description": "\"day\" | \"hour\"",
+                    "type": "string"
                 }
             }
         },

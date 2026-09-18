@@ -1,5 +1,6 @@
-// Daily lead-baru vs follow-up counts per day across the selected
-// range. Recharts chart - no hand-rolled SVG.
+// Lead-baru vs follow-up counts across the selected range, bucketed by day
+// or by hour (see granularity on the API response). Recharts chart - no
+// hand-rolled SVG.
 import { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import type { TooltipContentProps } from 'recharts/types/component/Tooltip'
 import { Card, CardContent } from '@/components/ui/card'
@@ -7,10 +8,21 @@ import type { DashboardActivityResponse } from './api'
 
 const DATE_LABEL_FORMAT = new Intl.DateTimeFormat('id', { day: 'numeric', month: 'short' })
 
-function formatBucketLabel(isoDate: string): string {
+function formatDayBucketLabel(isoDate: string): string {
   const date = new Date(isoDate + 'T00:00:00')
   if (Number.isNaN(date.getTime())) return '-'
   return DATE_LABEL_FORMAT.format(date)
+}
+
+// The backend already truncates to Asia/Jakarta wall-clock hours and sends
+// a naive "YYYY-MM-DDTHH:mm:00" string with no timezone suffix - read the
+// hour directly out of the string instead of constructing a Date, which
+// would otherwise let the browser reinterpret it in its own local timezone
+// and reintroduce the exact class of bug this feature exists to avoid.
+function formatHourBucketLabel(isoDateTime: string): string {
+  const hour = isoDateTime.slice(11, 13)
+  if (hour.length !== 2) return '-'
+  return `${hour}.00`
 }
 
 // Recharts' default tooltip content has no per-item color swatch at all -
@@ -38,7 +50,8 @@ function ChartTooltip({ active, payload, label }: TooltipContentProps) {
 }
 
 export function TrendChart({ activity, loading }: { activity?: DashboardActivityResponse; loading: boolean }) {
-  const buckets = (activity?.buckets ?? []).map((b) => ({ ...b, label: formatBucketLabel(b.date ?? '') }))
+  const formatLabel = activity?.granularity === 'hour' ? formatHourBucketLabel : formatDayBucketLabel
+  const buckets = (activity?.buckets ?? []).map((b) => ({ ...b, label: formatLabel(b.date ?? '') }))
 
   return (
     <Card className="overflow-hidden rounded-[16px] border-[#E7EDF3] shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
