@@ -96,7 +96,7 @@ export function MetricCards({
   return (
     <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
       <MetricCard
-        label="Lead Baru"
+        label="Lead Masuk"
         value={summary.lead_baru?.value ?? 0}
         changePct={summary.lead_baru?.change_pct}
         goodUp
@@ -146,6 +146,7 @@ export function FunnelCard({ summary, loading }: { summary?: DashboardSummaryRes
         <div className="px-[18px] pt-[15px] pb-1">
           <p className="font-display text-[15px] font-bold">Funnel Konversi</p>
           <p className="mt-0.5 text-[11.5px] text-[#94A3B8]">Baru → Follow-up → Survey</p>
+          <p className="mt-0.5 text-[11px] text-[#94A3B8]">Cakupan Anda saat ini — tidak dibatasi filter rentang tanggal.</p>
         </div>
         <div className="px-[18px] pt-[14px] pb-[18px]">
           {stages.map((stage, i) => (

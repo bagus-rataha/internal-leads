@@ -106,13 +106,31 @@ export function SalesActivityCard({
                 <tr>
                   <th className={TH}>Sales</th>
                   {showTeamColumn && <th className={TH}>Tim</th>}
-                  <th className={TH_R}>Lead Baru</th>
-                  <th className={TH_R}>Follow-up</th>
+                  <th className={TH_R}>
+                    <span className="block">Lead Baru</span>
+                    <span className="block text-[8px] text-[#1D4ED8]">rentang</span>
+                  </th>
+                  <th className={TH_R}>
+                    <span className="block">Follow-up</span>
+                    <span className="block text-[8px] text-[#1D4ED8]">rentang</span>
+                  </th>
                   <th className={TH_R}>Avg FU/Lead</th>
-                  <th className={TH_R}>Terlantar</th>
-                  <th className={TH_R}>Survey</th>
-                  <th className={TH_R}>Forecast MRR</th>
-                  <th className={TH_R}>Conv.</th>
+                  <th className={TH_R}>
+                    <span className="block">Terlantar</span>
+                    <span className="block text-[8px] text-[#64748B]">saat ini</span>
+                  </th>
+                  <th className={TH_R}>
+                    <span className="block">Survey</span>
+                    <span className="block text-[8px] text-[#64748B]">saat ini</span>
+                  </th>
+                  <th className={TH_R}>
+                    <span className="block">Forecast MRR</span>
+                    <span className="block text-[8px] text-[#64748B]">saat ini</span>
+                  </th>
+                  <th className={TH_R}>
+                    <span className="block">Conv.</span>
+                    <span className="block text-[8px] text-[#64748B]">saat ini</span>
+                  </th>
                   <th className={TH}>Aktivitas Terakhir</th>
                 </tr>
               </thead>

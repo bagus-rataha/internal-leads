@@ -86,11 +86,66 @@ func percentOf(part, total int64) *int {
 	return &pct
 }
 
-// comparisonPeriod returns the same-length period immediately preceding
-// [from, to] (inclusive both ends, calendar days) - ARCHITECTURE.md §9's
-// "pembanding: rentang yang sama sebelumnya".
+// comparisonPeriod returns the period to compare [from, to] against,
+// inferred from the shape of the range itself (no caller-supplied preset
+// flag - the dashboard handler never learns which UI preset produced these
+// dates, only the resulting date_from/date_to).
+//
+// Week-to-date shape (from is a Monday, span <= 7 days): compare against
+// the exact same weekday range one week earlier - shifting both ends back
+// by 7 days, NOT the immediately-preceding 7-day block (which would land on
+// the wrong weekdays, e.g. comparing Mon-Fri against last Wed-Sun).
+//
+// Month-to-date shape (from is the 1st, to is still within from's month):
+// compare against the same day-of-month range one calendar month earlier,
+// with month-end clamping - "1-31 Okt" compares against "1-30 Sep", not a
+// naive AddDate(0,-1,0) on the 31st, which Go's own date normalization
+// would silently roll over into October 1st instead of clamping to
+// September's actual last day.
+//
+// Everything else (arbitrary custom ranges, and the single-day "Hari ini"
+// case, which already produces the correct "yesterday" result through this
+// same fallback) keeps the original rule: the same-length window
+// immediately preceding [from, to] - ARCHITECTURE.md §9's "pembanding:
+// rentang yang sama sebelumnya".
+//
+// Month-to-date is checked before week-to-date: a month that starts on a
+// Monday (e.g. June 2026) satisfies both conditions, and month-to-date is
+// the rarer, more specific signal (once per month vs. once per week). Known
+// residual limitation: if that same Monday-the-1st also happens to be the
+// `from` of a "Minggu ini" query, the two presets produce byte-identical
+// (from, to) pairs and this function has no way to tell them apart - it will
+// resolve to month-to-date in that one case. Narrower and rarer than the bug
+// this ordering fixes, accepted as-is.
+//
+// Both shape checks additionally require multiDay: a single-day range
+// (from == to, the "Hari ini" preset) can otherwise satisfy either shape
+// condition by coincidence (from is the 1st, or from is a Monday) even
+// though it isn't actually week-to-date or month-to-date - it's a 1-day
+// range that must always fall through to the "yesterday" fallback.
 func comparisonPeriod(from, to time.Time) (prevFrom, prevTo time.Time) {
-	days := int(to.Sub(from).Hours()/24) + 1
+	from = time.Date(from.Year(), from.Month(), from.Day(), 0, 0, 0, 0, from.Location())
+	to = time.Date(to.Year(), to.Month(), to.Day(), 0, 0, 0, 0, to.Location())
+	span := to.Sub(from)
+	multiDay := to.After(from)
+
+	if multiDay && from.Day() == 1 && to.Before(from.AddDate(0, 1, 0)) {
+		firstOfFromMonth := time.Date(from.Year(), from.Month(), 1, 0, 0, 0, 0, from.Location())
+		lastOfPrevMonth := firstOfFromMonth.AddDate(0, 0, -1)
+		prevFrom = time.Date(lastOfPrevMonth.Year(), lastOfPrevMonth.Month(), 1, 0, 0, 0, 0, from.Location())
+		prevToDay := to.Day()
+		if prevToDay > lastOfPrevMonth.Day() {
+			prevToDay = lastOfPrevMonth.Day()
+		}
+		prevTo = time.Date(lastOfPrevMonth.Year(), lastOfPrevMonth.Month(), prevToDay, 0, 0, 0, 0, from.Location())
+		return prevFrom, prevTo
+	}
+
+	if multiDay && from.Weekday() == time.Monday && span <= 6*24*time.Hour {
+		return from.AddDate(0, 0, -7), to.AddDate(0, 0, -7)
+	}
+
+	days := int(span.Hours()/24) + 1
 	prevTo = from.AddDate(0, 0, -1)
 	prevFrom = prevTo.AddDate(0, 0, -(days - 1))
 	return prevFrom, prevTo
@@ -537,16 +592,20 @@ func (s *DashboardService) avgPricePerMbps(base func() *gorm.DB, serviceType str
 }
 
 // Segments answers GET /dashboard/segments: the lead-source,
-// region-penetration, competitor-intel, and business-field breakdowns - all
-// snapshots of the caller's scope (team_id/owner_id narrowed, not
-// date_from/date_to-bound), bundled into one response since they're all
-// cheap "current portfolio state" breakdowns over the same scoped set.
+// region-penetration, competitor-intel, and business-field breakdowns -
+// bundled into one response since they're all cheap breakdowns over the same
+// scoped set. Bound to date_from/date_to (leads.created_at) same as the
+// metric cards, so switching the dashboard's date range narrows these too
+// instead of always showing every lead ever in scope.
 func (s *DashboardService) Segments(callerID uuid.UUID, role string, q dto.DashboardQuery) (*dto.DashboardSegmentsResponse, error) {
 	scope, err := buildLeadScope(s.userRepo, callerID, role)
 	if err != nil {
 		return nil, err
 	}
-	base := func() *gorm.DB { return s.scopedLeads(scope, q.TeamID, q.OwnerID) }
+	base := func() *gorm.DB {
+		return s.scopedLeads(scope, q.TeamID, q.OwnerID).
+			Where("leads.created_at >= ? AND leads.created_at < ?", q.DateFrom, q.DateTo.AddDate(0, 0, 1))
+	}
 
 	var reachedSurvey int64
 	if err := base().Where(reachedSurveyExpr).Count(&reachedSurvey).Error; err != nil {

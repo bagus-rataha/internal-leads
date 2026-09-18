@@ -2,6 +2,7 @@
 // all from one GET /dashboard/segments response.
 import { useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
+import { ScopeBadge } from './ScopeBadge'
 import type { DashboardSegmentsResponse } from './api'
 
 const RUPIAH_FORMAT = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 })
@@ -136,8 +137,11 @@ export function SegmentsSection({ data, loading }: { data?: DashboardSegmentsRes
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-4">
         <div className="shrink-0">
-          <p className="font-display text-[17px] font-extrabold text-[#0F172A]">Segmen &amp; pasar</p>
-          <p className="mt-px text-xs text-[#94A3B8]">Untuk evaluasi berkala — bukan kerja harian.</p>
+          <div className="flex items-center gap-2">
+            <p className="font-display text-[17px] font-extrabold text-[#0F172A]">Segmen &amp; pasar</p>
+            <ScopeBadge type="range" />
+          </div>
+          <p className="mt-px text-xs text-[#94A3B8]">Untuk evaluasi berkala — bukan kerja harian. Mengikuti rentang tanggal terpilih.</p>
         </div>
         <div className="h-px flex-1 bg-[#E2E8F0]" />
       </div>
