@@ -886,7 +886,8 @@ paths:
               type: object
       security:
       - BearerAuth: []
-      summary: Dashboard activity trend (lead baru vs follow-up per day)
+      summary: Dashboard activity trend (lead baru vs follow-up, daily or hourly depending
+        on range)
       tags:
       - dashboard
   /dashboard/sales-activity:

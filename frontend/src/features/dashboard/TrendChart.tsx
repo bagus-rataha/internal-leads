@@ -1,5 +1,6 @@
-// Daily lead-baru vs follow-up counts per day across the selected
-// range. Recharts chart - no hand-rolled SVG.
+// Lead-baru vs follow-up counts across the selected range, bucketed by day
+// or by hour (see granularity on the API response). Recharts chart - no
+// hand-rolled SVG.
 import { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import type { TooltipContentProps } from 'recharts/types/component/Tooltip'
 import { Card, CardContent } from '@/components/ui/card'

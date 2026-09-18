@@ -116,6 +116,25 @@ func TestDashboardActivity_SingleDayToday_HourlyBucketsUpToCurrentHourOnly(t *te
 
 func TestDashboardActivity_SingleDayPast_Full24HourBuckets(t *testing.T) {
 	db := setupServiceTestDB(t)
+	// Pin the session timezone to a FRACTIONAL-hour offset (not UTC) so this
+	// test genuinely proves the service's explicit AT TIME ZONE
+	// 'Asia/Jakarta' clause is doing the work, rather than passing by
+	// coincidence. Two coincidences would otherwise hide a removed clause:
+	// (1) the test DB's default session TimeZone happens to share WIB's
+	// UTC+7 offset, and (2) HOUR-level DATE_TRUNC on a timestamptz is
+	// mathematically invariant under ANY whole-hour-offset session
+	// timezone (including UTC) - truncating 07:30 UTC to the hour gives the
+	// same instant whether the session reckons in UTC or +07, since a
+	// whole-hour shift never changes which hour a given minute falls into.
+	// Verified empirically: pinning to UTC here still left this test
+	// passing after AT TIME ZONE 'Asia/Jakarta' was stripped from
+	// hourlyActivity; pinning to Asia/Kolkata (+5:30, a fractional offset)
+	// correctly failed it. SetMaxOpenConns(1) guarantees SET TIME ZONE
+	// sticks to the one connection this test's query will use.
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	sqlDB.SetMaxOpenConns(1)
+	require.NoError(t, db.Exec("SET TIME ZONE 'Asia/Kolkata'").Error)
 	userRepo := repository.NewUserRepository(db)
 	svc := NewDashboardService(db, userRepo)
 

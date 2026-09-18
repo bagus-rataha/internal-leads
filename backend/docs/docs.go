@@ -139,7 +139,7 @@ const docTemplate = `{
                 "tags": [
                     "dashboard"
                 ],
-                "summary": "Dashboard activity trend (lead baru vs follow-up per day)",
+                "summary": "Dashboard activity trend (lead baru vs follow-up, daily or hourly depending on range)",
                 "responses": {
                     "200": {
                         "description": "OK",

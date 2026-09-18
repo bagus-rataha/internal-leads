@@ -8,6 +8,11 @@ import (
 	"log"
 
 	_ "fiber-api-boilerplate/docs" // Swagger docs
+
+	// time/tzdata embeds the IANA timezone database in the binary, so
+	// time.LoadLocation("Asia/Jakarta") never depends on the host having
+	// tzdata installed.
+	_ "time/tzdata"
 )
 
 // @title Fiber API Boilerplate
