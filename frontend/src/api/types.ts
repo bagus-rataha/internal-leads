@@ -1611,6 +1611,8 @@ export interface components {
         };
         "dto.DashboardActivityResponse": {
             buckets?: components["schemas"]["dto.ActivityBucket"][];
+            /** @enum {string} */
+            granularity?: "day" | "hour";
         };
         "dto.DashboardSalesActivityResponse": {
             items?: components["schemas"]["dto.SalesActivityRow"][];
