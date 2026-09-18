@@ -1659,7 +1659,6 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "date": {
-                    "description": "YYYY-MM-DD",
                     "type": "string"
                 },
                 "follow_up": {
@@ -1886,6 +1885,10 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/dto.ActivityBucket"
                     }
+                },
+                "granularity": {
+                    "description": "\"day\" | \"hour\"",
+                    "type": "string"
                 }
             }
         },

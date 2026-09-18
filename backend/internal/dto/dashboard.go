@@ -61,15 +61,24 @@ type DashboardSummaryResponse struct {
 	TotalForecastMrr float64        `json:"total_forecast_mrr"`
 }
 
-// ActivityBucket is one day of the activity trend chart (GET /dashboard/activity).
+// ActivityBucket is one point of the activity trend chart (GET
+// /dashboard/activity) - one calendar day (Date "YYYY-MM-DD") when the
+// response's Granularity is "day", or one hour (Date "YYYY-MM-DDTHH:mm:00",
+// minutes/seconds always :00) when Granularity is "hour".
 type ActivityBucket struct {
-	Date     string `json:"date"` // YYYY-MM-DD
+	Date     string `json:"date"`
 	LeadBaru int64  `json:"lead_baru"`
 	FollowUp int64  `json:"follow_up"`
 }
 
+// DashboardActivityResponse is GET /dashboard/activity's payload.
+// Granularity tells the caller how to read every ActivityBucket.Date in
+// Buckets - "day" for any multi-day range (the original, unchanged
+// behavior), "hour" when the selected range collapsed to a single calendar
+// day (see DashboardService.Activity's dispatch).
 type DashboardActivityResponse struct {
-	Buckets []ActivityBucket `json:"buckets"`
+	Granularity string           `json:"granularity"` // "day" | "hour"
+	Buckets     []ActivityBucket `json:"buckets"`
 }
 
 // StaleLeadRow is one row of the stale-leads table (GET /dashboard/stale-leads).

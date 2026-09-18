@@ -90,6 +90,77 @@ func TestDashboardActivity_BucketsOneRowPerDay_ScopedCounts(t *testing.T) {
 	assert.Equal(t, int64(0), result.Buckets[0].LeadBaru, "a day with no leads is a real zero, not an omitted bucket")
 }
 
+func TestDashboardActivity_SingleDayToday_HourlyBucketsUpToCurrentHourOnly(t *testing.T) {
+	db := setupServiceTestDB(t)
+	userRepo := repository.NewUserRepository(db)
+	svc := NewDashboardService(db, userRepo)
+
+	adminID := uuid.Must(uuid.NewV7())
+	require.NoError(t, db.Create(&models.User{BaseModel: models.BaseModel{ID: adminID}, Email: "hourly1@test.local", Password: "h", Name: "Admin", Role: "SU", IsActive: true}).Error)
+	require.NoError(t, db.Create(&models.Lead{Code: "LD-2609-0001", OwnerID: adminID, CreatedByID: adminID, CompanyName: "Today's lead"}).Error)
+
+	jakartaLoc, err := time.LoadLocation("Asia/Jakarta")
+	require.NoError(t, err)
+	today := time.Now().In(jakartaLoc)
+	todayMidnight := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, jakartaLoc)
+
+	q := dto.DashboardQuery{DateFrom: todayMidnight, DateTo: todayMidnight}
+	result, err := svc.Activity(adminID, "SU", q)
+
+	require.NoError(t, err)
+	assert.Equal(t, "hour", result.Granularity)
+	assert.Len(t, result.Buckets, today.Hour()+1, "buckets stop at the current hour, none for hours not yet elapsed")
+	last := result.Buckets[len(result.Buckets)-1]
+	assert.Equal(t, todayMidnight.Format("2006-01-02")+"T"+fmt.Sprintf("%02d", today.Hour())+":00:00", last.Date)
+}
+
+func TestDashboardActivity_SingleDayPast_Full24HourBuckets(t *testing.T) {
+	db := setupServiceTestDB(t)
+	userRepo := repository.NewUserRepository(db)
+	svc := NewDashboardService(db, userRepo)
+
+	adminID := uuid.Must(uuid.NewV7())
+	require.NoError(t, db.Create(&models.User{BaseModel: models.BaseModel{ID: adminID}, Email: "hourly2@test.local", Password: "h", Name: "Admin", Role: "SU", IsActive: true}).Error)
+
+	jakartaLoc, err := time.LoadLocation("Asia/Jakarta")
+	require.NoError(t, err)
+	pastDay := time.Date(2026, 6, 15, 0, 0, 0, 0, jakartaLoc)
+	pastLeadTime := time.Date(2026, 6, 15, 14, 30, 0, 0, jakartaLoc)
+	require.NoError(t, db.Create(&models.Lead{Code: "LD-2606-0001", OwnerID: adminID, CreatedByID: adminID, CompanyName: "Past lead", BaseModel: models.BaseModel{CreatedAt: pastLeadTime}}).Error)
+
+	q := dto.DashboardQuery{DateFrom: pastDay, DateTo: pastDay}
+	result, err := svc.Activity(adminID, "SU", q)
+
+	require.NoError(t, err)
+	assert.Equal(t, "hour", result.Granularity)
+	require.Len(t, result.Buckets, 24, "a past single day gets all 24 hour buckets, nothing is 'not yet happened'")
+	assert.Equal(t, "2026-06-15T14:00:00", result.Buckets[14].Date)
+	assert.Equal(t, int64(1), result.Buckets[14].LeadBaru, "the 14:30 lead lands in the 14:00 hour bucket")
+	assert.Equal(t, int64(0), result.Buckets[15].LeadBaru, "an hour with no leads is a real zero, not an omitted bucket")
+}
+
+func TestDashboardActivity_MultiDayRange_StillDailyGranularity(t *testing.T) {
+	db := setupServiceTestDB(t)
+	userRepo := repository.NewUserRepository(db)
+	svc := NewDashboardService(db, userRepo)
+
+	adminID := uuid.Must(uuid.NewV7())
+	require.NoError(t, db.Create(&models.User{BaseModel: models.BaseModel{ID: adminID}, Email: "hourly3@test.local", Password: "h", Name: "Admin", Role: "SU", IsActive: true}).Error)
+
+	jakartaLoc, err := time.LoadLocation("Asia/Jakarta")
+	require.NoError(t, err)
+	from := time.Date(2026, 6, 1, 0, 0, 0, 0, jakartaLoc)
+	to := time.Date(2026, 6, 3, 0, 0, 0, 0, jakartaLoc)
+
+	q := dto.DashboardQuery{DateFrom: from, DateTo: to}
+	result, err := svc.Activity(adminID, "SU", q)
+
+	require.NoError(t, err)
+	assert.Equal(t, "day", result.Granularity, "a multi-day range must not be misclassified as hourly")
+	require.Len(t, result.Buckets, 3)
+	assert.Equal(t, "2026-06-01", result.Buckets[0].Date)
+}
+
 func TestDashboardStaleLeads_Top7MostOverdueFirst(t *testing.T) {
 	db := setupServiceTestDB(t)
 	userRepo := repository.NewUserRepository(db)
