@@ -110,17 +110,26 @@ func percentOf(part, total int64) *int {
 // rentang yang sama sebelumnya".
 //
 // Month-to-date is checked before week-to-date: a month that starts on a
-// Monday (e.g. June or October 2026) satisfies both conditions, and
-// month-to-date is the rarer, more specific signal (once per month vs. once
-// per week). Known residual limitation: if that same Monday-the-1st also
-// happens to be the `from` of a "Minggu ini" query, the two presets produce
-// byte-identical (from, to) pairs and this function has no way to tell them
-// apart - it will resolve to month-to-date in that one case. Narrower and
-// rarer than the bug this ordering fixes, accepted as-is.
+// Monday (e.g. June 2026) satisfies both conditions, and month-to-date is
+// the rarer, more specific signal (once per month vs. once per week). Known
+// residual limitation: if that same Monday-the-1st also happens to be the
+// `from` of a "Minggu ini" query, the two presets produce byte-identical
+// (from, to) pairs and this function has no way to tell them apart - it will
+// resolve to month-to-date in that one case. Narrower and rarer than the bug
+// this ordering fixes, accepted as-is.
+//
+// Both shape checks additionally require multiDay: a single-day range
+// (from == to, the "Hari ini" preset) can otherwise satisfy either shape
+// condition by coincidence (from is the 1st, or from is a Monday) even
+// though it isn't actually week-to-date or month-to-date - it's a 1-day
+// range that must always fall through to the "yesterday" fallback.
 func comparisonPeriod(from, to time.Time) (prevFrom, prevTo time.Time) {
+	from = time.Date(from.Year(), from.Month(), from.Day(), 0, 0, 0, 0, from.Location())
+	to = time.Date(to.Year(), to.Month(), to.Day(), 0, 0, 0, 0, to.Location())
 	span := to.Sub(from)
+	multiDay := to.After(from)
 
-	if from.Day() == 1 && to.Before(from.AddDate(0, 1, 0)) {
+	if multiDay && from.Day() == 1 && to.Before(from.AddDate(0, 1, 0)) {
 		firstOfFromMonth := time.Date(from.Year(), from.Month(), 1, 0, 0, 0, 0, from.Location())
 		lastOfPrevMonth := firstOfFromMonth.AddDate(0, 0, -1)
 		prevFrom = time.Date(lastOfPrevMonth.Year(), lastOfPrevMonth.Month(), 1, 0, 0, 0, 0, from.Location())
@@ -132,7 +141,7 @@ func comparisonPeriod(from, to time.Time) (prevFrom, prevTo time.Time) {
 		return prevFrom, prevTo
 	}
 
-	if from.Weekday() == time.Monday && span <= 6*24*time.Hour {
+	if multiDay && from.Weekday() == time.Monday && span <= 6*24*time.Hour {
 		return from.AddDate(0, 0, -7), to.AddDate(0, 0, -7)
 	}
 

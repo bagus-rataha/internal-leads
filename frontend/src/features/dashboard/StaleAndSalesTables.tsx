@@ -6,7 +6,6 @@ import { useNavigate } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import type { DashboardStaleLeadsResponse, DashboardSalesActivityResponse } from './api'
-import { ScopeBadge } from './ScopeBadge'
 
 const TH = 'px-3.5 py-2 text-left text-[10.5px] font-bold tracking-[.05em] text-[#94A3B8] uppercase'
 const TH_R = TH.replace('text-left', 'text-right')
@@ -28,7 +27,6 @@ export function StaleLeadsCard({
         <div className="flex items-center gap-2 px-[18px] pt-[15px] pb-1">
           <AlertTriangle className="size-4 text-[#B45309]" />
           <p className="font-display text-[15px] font-bold">Lead Terlantar</p>
-          <ScopeBadge type="snapshot" />
         </div>
         <p className="px-[18px] pb-2 text-[11.5px] text-[#94A3B8]">Aktif tanpa follow-up terlama · klik baris untuk buka Detail Lead</p>
 

@@ -36,11 +36,36 @@ func TestPercentOf_RoundsToNearest(t *testing.T) {
 }
 
 func TestComparisonPeriod_SameLengthImmediatelyPreceding(t *testing.T) {
-	from := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
-	to := time.Date(2026, 7, 30, 0, 0, 0, 0, time.UTC) // 30-day window
+	// from is a Thursday and not the 1st, so this must fall through to the
+	// fallback rule rather than accidentally matching month-to-date's shape.
+	from := time.Date(2026, 7, 2, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 7, 31, 0, 0, 0, 0, time.UTC) // 30-day window
 	prevFrom, prevTo := comparisonPeriod(from, to)
-	assert.Equal(t, time.Date(2026, 6, 30, 0, 0, 0, 0, time.UTC), prevTo, "prev period ends the day before `from`")
-	assert.Equal(t, time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC), prevFrom, "prev period is the same length (30 days)")
+	assert.Equal(t, time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC), prevTo, "prev period ends the day before `from`")
+	assert.Equal(t, time.Date(2026, 6, 2, 0, 0, 0, 0, time.UTC), prevFrom, "prev period is the same length (30 days)")
+}
+
+func TestComparisonPeriod_SingleDayOnMonday_StillComparesToYesterday(t *testing.T) {
+	// 2026-09-21 is a Monday. A single-day range on a Monday must NOT be
+	// misclassified as week-to-date - it must still compare to yesterday.
+	from := time.Date(2026, 9, 21, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 9, 21, 0, 0, 0, 0, time.UTC)
+
+	prevFrom, prevTo := comparisonPeriod(from, to)
+
+	assert.Equal(t, time.Date(2026, 9, 20, 0, 0, 0, 0, time.UTC), prevFrom)
+	assert.Equal(t, time.Date(2026, 9, 20, 0, 0, 0, 0, time.UTC), prevTo)
+}
+
+func TestComparisonPeriod_SingleDayOnFirstOfMonth_StillComparesToYesterday(t *testing.T) {
+	// A single-day range on the 1st must NOT be misclassified as month-to-date.
+	from := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
+
+	prevFrom, prevTo := comparisonPeriod(from, to)
+
+	assert.Equal(t, time.Date(2026, 9, 30, 0, 0, 0, 0, time.UTC), prevFrom)
+	assert.Equal(t, time.Date(2026, 9, 30, 0, 0, 0, 0, time.UTC), prevTo)
 }
 
 func TestComparisonPeriod_WeekToDate_ShiftsBackExactlySevenDays(t *testing.T) {

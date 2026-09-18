@@ -55,6 +55,19 @@ function startOfMonth(date: Date): Date {
 
 type RangePreset = 'today' | 'week' | 'month' | 'custom'
 
+function compareLabel(preset: RangePreset, rangeDays: number): string {
+  switch (preset) {
+    case 'today':
+      return 'vs kemarin'
+    case 'week':
+      return 'vs minggu lalu'
+    case 'month':
+      return 'vs bulan lalu'
+    case 'custom':
+      return `vs ${rangeDays} hari sebelumnya`
+  }
+}
+
 const MAX_CUSTOM_RANGE_DAYS = 90
 
 const RANGE_PRESET_OPTIONS: { value: RangePreset; label: string }[] = [
@@ -168,7 +181,7 @@ export default function DashboardPage() {
         <div className="flex flex-wrap items-end gap-2.5">
           <div className="flex flex-col gap-1">
             <label className={FILTER_LABEL_CLASSNAME}>Rentang</label>
-            <div className="flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
               <select
                 value={rangePreset}
                 onChange={(e) => setRangePreset(e.target.value as RangePreset)}
@@ -240,7 +253,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <MetricCards summary={summary.data} loading={summary.isLoading} compareLabel={`vs ${rangeDays} hari sebelumnya`} />
+      <MetricCards summary={summary.data} loading={summary.isLoading} compareLabel={compareLabel(rangePreset, rangeDays)} />
 
       <ForecastCard
         summary={summary.data}
